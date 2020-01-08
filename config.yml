@@ -18,7 +18,8 @@ DATA:
     'ClientWeightKG','MovedInDate','MonthlyAmount', 'ExpenseAmount','IncomeStartDate','IncomeEndDate','ExpenseStartDate','ExpenseEndDate',
     'EducationStartDate','EducationEndDate','HealthIssueStart','HealthIssueEnd', 'ContributingFactorDateStart','ContributingFactorDateEnd',
     'BehavioralRiskFactorDateStart', 'BehavioralRiskFactorDateEnd','LifeEventStartDate','LifeEventEndDate','StayStartDate','StayEndDate',
-    'HousingStartDate','HousingEndDate', 'ReservationsStartDate','ReservationsEndDate','TurnawaysStartDate', 'TurnawaysEndDate','HasFamily','SPDAT_Date','TotalScore']
+    'HousingStartDate','HousingEndDate', 'ReservationsStartDate','ReservationsEndDate','TurnawaysStartDate', 'TurnawaysEndDate','HasFamily','SPDAT_Date','TotalScore',
+    'FoodBankTrips']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
     'ProvinceOfBirth', 'CityOfBirth', 'GeoRegion', 'HairColour', 'EyeColour', 'ServiceType', 'OrganizationName', 'ReasonForService',
     'CurrentlyHoused', 'IncomeType', 'ExpenseType', 'Expensefrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',

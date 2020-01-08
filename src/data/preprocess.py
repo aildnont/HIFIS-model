@@ -4,10 +4,6 @@ from datetime import datetime, timedelta
 import yaml
 import os
 
-# Load config data
-input_stream = open(os.getcwd() + "/config.yml", 'r')
-config = yaml.full_load(input_stream)
-
 def load_df(path):
     '''
     Load a Pandas dataframe from a CSV file
@@ -77,6 +73,35 @@ def calculate_length_features(df, time_paired_features, time_length_features):
         length_features.append(length_feature_name)
     return df, length_features
 
+def add_food_bank_feature(df):
+    '''
+    Determine number of times each client accessed food bank and add as feature
+    :param df: a Pandas dataframe
+    :return: The updated dataframe with a feature for # of times client accessed food bank
+    '''
+    unique_clients = df['ClientID'].unique()  # Get a list of unique clients by ID
+    for client in unique_clients:
+        client_food_temp_mask = (df['ClientID'] == client) & (df['ServiceType_Food Bank'] == 1)  # Select instances of food bank access
+        client_food_df = df.loc[client_food_temp_mask]
+        num_food_instances = client_food_df.shape[0]
+        df.loc[client_food_temp_mask, 'FoodBankTrips'] = num_food_instances
+    return df
+
+def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
+    '''
+    Convert yes/no features to boolean features. Avoids vectorization.
+    :param df: a Pandas dataframe
+    :return: updated dataframe with the yes/no features converted to boolean values
+    '''
+    for feature_name in categorical_features:
+        if "YN" in feature_name:
+            new_feature_name = feature_name[0:feature_name.index('YN')]
+            df[new_feature_name] = np.where(df[feature_name] == 'Y', 1, 0)
+            df.drop(feature_name, axis=1, inplace=True)
+            categorical_features.remove(feature_name)
+            noncategorical_features.append(new_feature_name)
+    return df
+
 def set_ground_truths(df, chronic_threshold, days, end_date):
     '''
     Determine ground truth for each client, which is defined as a certain number of days spent in a shelter
@@ -136,6 +161,12 @@ def condense_df(df, noncategorical_features, ohe_categorical_features):
     df_unique_clients = df.groupby(['ClientID']).agg(grouping_dictionary)
     return df_unique_clients
 
+
+# Load config data
+input_stream = open(os.getcwd() + "/config.yml", 'r')
+config = yaml.full_load(input_stream)
+categorical_features = config['DATA']['CATEGORICAL_FEATURES']
+noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
 GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
 
 # Load HIFIS database into Pandas dataframe
@@ -150,8 +181,11 @@ for feature in config['DATA']['TIME_LENGTH_FEATURES']:
     df[feature + 'StartDate'] = np.where(df['ServiceType'] == feature, df['ServiceStartDate'], 0)
     df[feature + 'EndDate'] = np.where(df['ServiceType'] == feature, df['ServiceEndDate'], 0)
 
+# Convert yes/no features to boolean features
+df = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
+
 # One hot encode the categorical features
-df, ohe_categorical_features = ohe_categorical_features(df, config['DATA']['CATEGORICAL_FEATURES'])
+df, ohe_categorical_features = ohe_categorical_features(df, categorical_features)
 
 # Create a new boolean feature that indicates whether client has family
 df['HasFamily'] = np.where(df['FamilyID'] != 'NULL', 1, 0)
@@ -161,6 +195,9 @@ df = process_timestamps(df)
 
 # Create length of service feature to describe the duration of timestamped features
 df, length_features = calculate_length_features(df, config['DATA']['TIME_PAIRED_FEATURES'], config['DATA']['TIME_LENGTH_FEATURES'])
+
+# Add number of food bank trips as a feature
+df = add_food_bank_feature(df)
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
@@ -176,7 +213,7 @@ df.drop_duplicates(subset=['ServiceID', 'ClientID'], keep='first', inplace=True)
 gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
 df = set_ground_truths(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
 
-df_unique_clients = condense_df(df, config['DATA']['NONCATEGORICAL_FEATURES'], ohe_categorical_features)
+df_unique_clients = condense_df(df, noncategorical_features, ohe_categorical_features)
 
 # Drop unnecessary features
 for column in config['DATA']['FEATURES_TO_DROP_LAST']:
