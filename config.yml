@@ -1,0 +1,59 @@
+# Relevant file/directory paths
+PATHS:
+  RAW_DATA: 'data/raw/HIFIS_Clients.csv'
+  PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
+  VECTORIZED_DATA: 'data/vectorized/HIFIS_Vectorized.csv'
+
+# Constants pertaining to data structure
+DATA:
+  GROUND_TRUTH_DATE: 'today'
+  CHRONIC_THRESHOLD: 180
+  FEATURES_TO_DROP_FIRST: ['OrganizationID', 'DOB']
+  FEATURES_TO_DROP_LAST: ['ServiceID', 'FamilyID', 'ServiceEndDate', 'MovedInDate', 'IncomeStartDate', 'IncomeEndDate', 'ExpenseStartDate', 'ExpenseEndDate',
+    'EducationStartDate', 'EducationEndDate', 'HealthIssueStart', 'HealthIssueEnd', 'ContributingFactorDateStart', 'ContributingFactorDateEnd',
+    'BehavioralRiskFactorDateStart', 'BehavioralRiskFactorDateEnd', 'LifeEventStartDate', 'LifeEventEndDate', 'StayStartDate', 'StayEndDate', 'HousingStartDate',
+    'HousingEndDate', 'ReservationsStartDate', 'ReservationsEndDate', 'TurnawaysStartDate', 'TurnawaysEndDate','SPDAT_Date']
+  TIME_LENGTH_FEATURES: ['Stay', 'Housing', 'Reservations', 'Turnaways']
+  NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
+    'ClientWeightKG','MovedInDate','MonthlyAmount', 'ExpenseAmount','IncomeStartDate','IncomeEndDate','ExpenseStartDate','ExpenseEndDate',
+    'EducationStartDate','EducationEndDate','HealthIssueStart','HealthIssueEnd', 'ContributingFactorDateStart','ContributingFactorDateEnd',
+    'BehavioralRiskFactorDateStart', 'BehavioralRiskFactorDateEnd','LifeEventStartDate','LifeEventEndDate','StayStartDate','StayEndDate',
+    'HousingStartDate','HousingEndDate', 'ReservationsStartDate','ReservationsEndDate','TurnawaysStartDate', 'TurnawaysEndDate','HasFamily','SPDAT_Date','TotalScore']
+  CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
+    'ProvinceOfBirth', 'CityOfBirth', 'GeoRegion', 'HairColour', 'EyeColour', 'ServiceType', 'OrganizationName', 'ReasonForService',
+    'CurrentlyHoused', 'IncomeType', 'ExpenseType', 'Expensefrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
+    'SelfReportedYN', 'SuspectedYN', 'HealthIssueMedicationName', 'OtherMedications', 'WatchConcern', 'ContributingFactor', 'BehavioralFactor',
+    'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'AvoidInDiet', 'SPDAT_Type', 'ServiceProvider', 'PreScreenPeriod']
+  TIME_PAIRED_FEATURES:
+    -
+      NAME: 'Service'
+      START: 'ServiceStartDate'
+      END: 'ServiceEndDate'
+    -
+      NAME: 'Income'
+      START: 'IncomeStartDate'
+      END: 'IncomeEndDate'
+    -
+      NAME: 'Expense'
+      START: 'ExpenseStartDate'
+      END: 'ExpenseEndDate'
+    -
+      NAME: 'Education'
+      START: 'EducationStartDate'
+      END: 'EducationEndDate'
+    -
+      NAME: 'HealthIssue'
+      START: 'HealthIssueStart'
+      END: 'HealthIssueEnd'
+    -
+      NAME: 'ContributingFactor'
+      START: 'ContributingFactorDateStart'
+      END: 'ContributingFactorDateEnd'
+    -
+      NAME: 'BehavioralRiskFactor'
+      START: 'BehavioralRiskFactorDateStart'
+      END: 'BehavioralRiskFactorDateEnd'
+    -
+      NAME: 'LifeEvent'
+      START: 'LifeEventStartDate'
+      END: 'LifeEventEndDate'

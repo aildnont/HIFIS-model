@@ -1,6 +1,7 @@
-data/
-documents/
-results/
+data/*
+documents/*
+results/*
+!.gitkeep
 config-private.yml
 
 ## PYTHON ##
