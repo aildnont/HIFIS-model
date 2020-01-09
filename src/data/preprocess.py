@@ -17,6 +17,19 @@ def load_df(path):
     df.drop(df.index[0], inplace=True)
     return df
 
+def cleanse_categorical_features(df, categorical_features):
+    '''
+    For all categorical features, replace entries containing unique values with "Other"
+    :param df: a Pandas dataframe
+    :param categorical_features: list of categorical features in the dataframe
+    :return: the updated dataframe
+    '''
+    for feature in categorical_features:
+        counts = df[feature].value_counts() # Get a Pandas series of all the values for
+        single_values = counts[counts == 1] # Get values for this categorical feature unique to 1 row
+        df[feature].loc[(df[feature].isin(list(single_values.index)))] = "Other" # Replace unique instances of categorical values with "Other"
+    return df
+
 def ohe_categorical_features(df, categorical_features):
     '''
     Converts categorical features to one-hot encoded format (i.e. vectorization) and appends to the dataframe
@@ -26,13 +39,12 @@ def ohe_categorical_features(df, categorical_features):
     '''
     ohe_categorical_features = []
     for feature in categorical_features:
-        df_temp = pd.get_dummies(df[feature],
-                                 prefix=feature)  # Create temporary dataframe of this feature one-hot encoded
+        df_temp = pd.get_dummies(df[feature], prefix=feature)  # Create temporary dataframe of this feature one-hot encoded
         df = pd.concat((df, df_temp), axis=1)  # Concatenate temp one hot dataframe with original dataframe
         df = df.drop(feature, axis=1)  # Drop the original feature
         vectorized_headers_list = list(df_temp)
         for i in range(len(vectorized_headers_list)):
-            ohe_categorical_features.append(vectorized_headers_list[i]) # Keep track of one=
+            ohe_categorical_features.append(vectorized_headers_list[i]) # Keep track of one-hot encoded features
     return df, ohe_categorical_features
 
 
@@ -81,7 +93,7 @@ def add_food_bank_feature(df):
     '''
     unique_clients = df['ClientID'].unique()  # Get a list of unique clients by ID
     for client in unique_clients:
-        client_food_temp_mask = (df['ClientID'] == client) & (df['ServiceType_Food Bank'] == 1)  # Select instances of food bank access
+        client_food_temp_mask = (df['ClientID'] == client) & (df['ServiceType'] == "Food Bank")  # Select instances of food bank access
         client_food_df = df.loc[client_food_temp_mask]
         num_food_instances = client_food_df.shape[0]
         df.loc[client_food_temp_mask, 'FoodBankTrips'] = num_food_instances
@@ -100,7 +112,7 @@ def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
             df.drop(feature_name, axis=1, inplace=True)
             categorical_features.remove(feature_name)
             noncategorical_features.append(new_feature_name)
-    return df
+    return df, categorical_features, noncategorical_features
 
 def set_ground_truths(df, chronic_threshold, days, end_date):
     '''
@@ -113,8 +125,9 @@ def set_ground_truths(df, chronic_threshold, days, end_date):
     '''
     unique_clients = df['ClientID'].unique()  # Get a list of unique clients by ID
     print('Number of unique Client IDs in dataset: ', len(unique_clients))
+    num_pos = num_neg = 0 # Keep track of number of clients in each class over the last year
     for client in unique_clients:
-        client_stay_temp_mask = (df['ClientID'] == client) & (df['ServiceType_Stay'] == 1)  # Select rows depicting stays
+        client_stay_temp_mask = (df['ClientID'] == client) & (df['ServiceType'] == "Stay")  # Select rows depicting stays
         client_stay_df = df.loc[client_stay_temp_mask]
         client_stay_df = client_stay_df.sort_values(by=['ServiceStartDate'])
 
@@ -126,9 +139,11 @@ def set_ground_truths(df, chronic_threshold, days, end_date):
         df.loc[single_client_mask, 'TotalDays'] = total_days_spent
         if total_days_spent >= chronic_threshold:
             df.loc[single_client_mask, 'GroundTruth'] = 1
+            num_pos += 1
         else:
             df.loc[single_client_mask, 'GroundTruth'] = 0
-    return df
+            num_neg += 1
+    return df, num_pos, num_neg
 
 def condense_df(df, noncategorical_features, ohe_categorical_features):
     '''
@@ -170,39 +185,44 @@ noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
 GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
 
 # Load HIFIS database into Pandas dataframe
+print("Loading HIFIS data.")
 df = load_df(config['PATHS']['RAW_DATA'])
 
 # Delete unwanted columns
+print("Dropping some features.")
 for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
     df.drop(feature, axis=1, inplace=True)
 
 # Create a new feature for each service type that is accessed over multiple timeframes to hold the total duration
+print("Adding features for service start/end dates, family.")
 for feature in config['DATA']['TIME_LENGTH_FEATURES']:
     df[feature + 'StartDate'] = np.where(df['ServiceType'] == feature, df['ServiceStartDate'], 0)
     df[feature + 'EndDate'] = np.where(df['ServiceType'] == feature, df['ServiceEndDate'], 0)
 
-# Convert yes/no features to boolean features
-df = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
-
-# One hot encode the categorical features
-df, ohe_categorical_features = ohe_categorical_features(df, categorical_features)
-
 # Create a new boolean feature that indicates whether client has family
 df['HasFamily'] = np.where(df['FamilyID'] != 'NULL', 1, 0)
 
+# Convert yes/no features to boolean features
+print("Convert yes/no categorical features to boolean")
+df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
+
 # Convert all timestamps to datetime objects
+print("Converting timestamps to datetimes.")
 df = process_timestamps(df)
 
 # Create length of service feature to describe the duration of timestamped features
+print("Calculating length features.")
 df, length_features = calculate_length_features(df, config['DATA']['TIME_PAIRED_FEATURES'], config['DATA']['TIME_LENGTH_FEATURES'])
 
 # Add number of food bank trips as a feature
+print("Add # visits to food bank as feature.")
 df = add_food_bank_feature(df)
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
 
 # Get total monthly incomes for each client and add as feature
+print("Adding total monthly income as feature.")
 df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
 df['IncomeTotal'] = df.groupby(['ServiceID', 'ClientID', 'ServiceStartDate'])['MonthlyAmount'].transform('sum')
 
@@ -210,12 +230,27 @@ df['IncomeTotal'] = df.groupby(['ServiceID', 'ClientID', 'ServiceStartDate'])['M
 df.drop_duplicates(subset=['ServiceID', 'ClientID'], keep='first', inplace=True)
 
 # Compute ground truth for each client. Ground truth
+print("Calculating ground truths.")
 gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
-df = set_ground_truths(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+df, num_pos, num_neg = set_ground_truths(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+# Log some useful stats
+print("# clients in last year meeting homeslessness criteria = ", num_pos)
+print("# clients in last year meeting homeslessness criteria = ", num_neg)
+print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
 
-df_unique_clients = condense_df(df, noncategorical_features, ohe_categorical_features)
+# Amalgamate rows to have one entry per client
+print("Grouping the dataframe.")
+df_unique_clients = condense_df(df, noncategorical_features, categorical_features)
+
+print("Cleansing categorical features of unique values.")
+df_unique_clients = cleanse_categorical_features(df_unique_clients, categorical_features)
+
+# One hot encode the categorical features
+print("One-hot encoding categorical features.")
+df_unique_clients, ohe_categorical_features = ohe_categorical_features(df_unique_clients, categorical_features)
 
 # Drop unnecessary features
+print("Dropping unnecessary features.")
 for column in config['DATA']['FEATURES_TO_DROP_LAST']:
     df_unique_clients.drop(column, axis=1, inplace=True)
 
@@ -223,5 +258,7 @@ for column in config['DATA']['FEATURES_TO_DROP_LAST']:
 df_unique_clients.fillna(0, inplace=True)
 
 # Save vectorized data
+print("Saving data.")
 df_unique_clients.to_csv(config['PATHS']['VECTORIZED_DATA'], sep=',', header=True)
+
 
