@@ -169,7 +169,7 @@ def condense_df(df, noncategorical_features, ohe_categorical_features):
     for i in range(len(length_features)):
         temp_dict[length_features[i]] = 'sum'
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
-    temp_dict = {'IncomeTotal': 'first', 'GroundTruth': 'first', }
+    temp_dict = {'IncomeTotal': 'first', 'FoodBankTrips': 'sum', 'GroundTruth': 'first', }
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
 
     # Group the data by ClientID using the dictionary created above
@@ -216,7 +216,8 @@ df, length_features = calculate_length_features(df, config['DATA']['TIME_PAIRED_
 
 # Add number of food bank trips as a feature
 print("Add # visits to food bank as feature.")
-df = add_food_bank_feature(df)
+df['FoodBankTrips'] = np.where((df['ServiceType'] == "Food Bank"), 1, 0)
+noncategorical_features.remove('FoodBankTrips') # Will be aggregated specially
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
