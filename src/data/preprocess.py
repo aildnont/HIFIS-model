@@ -60,6 +60,21 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], infer_datetime_format=True, errors='coerce')
     return df
 
+def make_start_end_features(df, noncategorical_features, time_length_features):
+    '''
+    Create and add features for start and end times of certain features
+    :param df: a Pandas dataframe
+    :param noncategorical_features: list of noncategorical features in the dataset
+    :param time_length_features: list of features that occur at events spaced in time
+    :return: the updated dataframe, the updated list of noncategorical features
+    '''
+    for feature in time_length_features:
+        feature_start_name = feature + 'StartDate'
+        feature_end_name = feature + 'EndDate'
+        df[feature_start_name] = np.where(df['ServiceType'] == feature, df['ServiceStartDate'], 0)
+        df[feature_end_name] = np.where(df['ServiceType'] == feature, df['ServiceEndDate'], 0)
+        noncategorical_features.extend([feature_start_name, feature_end_name])
+    return df, noncategorical_features
 
 def calculate_length_features(df, time_paired_features, time_length_features):
     '''
@@ -71,33 +86,15 @@ def calculate_length_features(df, time_paired_features, time_length_features):
     '''
     seconds_per_day = 60 * 60 * 24 # 60sec/min * 60min/hr * 24hr/day
     length_features = [] # Keep track of features identifying a time duration
-    length_feature_name = 'LengthofHousingFromToday'
-    length_features.append(length_feature_name)
-    df['LengthofHousingFromToday'] = (datetime.today() - df['MovedInDate']).dt.total_seconds() / seconds_per_day
     for service in time_paired_features:
         length_feature_name = 'LengthOf' + service['NAME'] + 'Days'
         df[length_feature_name] = (df[service['END']] - df[service['START']]).dt.total_seconds() / seconds_per_day
-        tempdf = df[length_feature_name]
         length_features.append(length_feature_name)
     for feature in time_length_features:
         length_feature_name = 'LengthOf' + feature + 'Days'
         df[length_feature_name] = (df[feature + 'EndDate'] - df[feature + 'StartDate']).dt.total_seconds() / seconds_per_day
         length_features.append(length_feature_name)
     return df, length_features
-
-def add_food_bank_feature(df):
-    '''
-    Determine number of times each client accessed food bank and add as feature
-    :param df: a Pandas dataframe
-    :return: The updated dataframe with a feature for # of times client accessed food bank
-    '''
-    unique_clients = df['ClientID'].unique()  # Get a list of unique clients by ID
-    for client in unique_clients:
-        client_food_temp_mask = (df['ClientID'] == client) & (df['ServiceType'] == "Food Bank")  # Select instances of food bank access
-        client_food_df = df.loc[client_food_temp_mask]
-        num_food_instances = client_food_df.shape[0]
-        df.loc[client_food_temp_mask, 'FoodBankTrips'] = num_food_instances
-    return df
 
 def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
     '''
@@ -193,14 +190,13 @@ print("Dropping some features.")
 for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
     df.drop(feature, axis=1, inplace=True)
 
-# Create a new feature for each service type that is accessed over multiple timeframes to hold the total duration
+# Create a new feature for start and end of each service type that is accessed over multiple timeframes
 print("Adding features for service start/end dates, family.")
-for feature in config['DATA']['TIME_LENGTH_FEATURES']:
-    df[feature + 'StartDate'] = np.where(df['ServiceType'] == feature, df['ServiceStartDate'], 0)
-    df[feature + 'EndDate'] = np.where(df['ServiceType'] == feature, df['ServiceEndDate'], 0)
+df, noncategorical_features = make_start_end_features(df, noncategorical_features, config['DATA']['TIME_LENGTH_FEATURES'])
 
 # Create a new boolean feature that indicates whether client has family
 df['HasFamily'] = np.where(df['FamilyID'] != 'NULL', 1, 0)
+noncategorical_features.append('HasFamily')
 
 # Convert yes/no features to boolean features
 print("Convert yes/no categorical features to boolean")
@@ -217,7 +213,6 @@ df, length_features = calculate_length_features(df, config['DATA']['TIME_PAIRED_
 # Add number of food bank trips as a feature
 print("Add # visits to food bank as feature.")
 df['FoodBankTrips'] = np.where((df['ServiceType'] == "Food Bank"), 1, 0)
-noncategorical_features.remove('FoodBankTrips') # Will be aggregated specially
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
