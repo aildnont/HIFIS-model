@@ -2,12 +2,13 @@ data/*
 documents/*
 results/*
 !**/.gitkeep
+!data/.gitkeep
 !data/processed/.gitkeep
 !data/raw/.gitkeep
-!data/vectorized/.gitkeep
-!documents/logs/.gitkeep
+!documents/.gitkeep
+!results/.gitkeep
+!results/logs/.gitkeep
 !results/models/.gitkeep
-!outputs/models/.gitkeep
 config-private.yml
 
 ## PYTHON ##

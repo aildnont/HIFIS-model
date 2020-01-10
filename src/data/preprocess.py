@@ -60,7 +60,7 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], infer_datetime_format=True, errors='coerce')
     return df
 
-def make_start_end_features(df, noncategorical_features, time_length_features):
+def make_start_end_features(df, noncategorical_features, time_length_features, features_to_drop_last):
     '''
     Create and add features for start and end times of certain features
     :param df: a Pandas dataframe
@@ -74,7 +74,8 @@ def make_start_end_features(df, noncategorical_features, time_length_features):
         df[feature_start_name] = np.where(df['ServiceType'] == feature, df['ServiceStartDate'], 0)
         df[feature_end_name] = np.where(df['ServiceType'] == feature, df['ServiceEndDate'], 0)
         noncategorical_features.extend([feature_start_name, feature_end_name])
-    return df, noncategorical_features
+        features_to_drop_last.extend([feature_start_name, feature_end_name])
+    return df, noncategorical_features, features_to_drop_last
 
 def calculate_length_features(df, time_paired_features, time_length_features):
     '''
@@ -95,6 +96,21 @@ def calculate_length_features(df, time_paired_features, time_length_features):
         df[length_feature_name] = (df[feature + 'EndDate'] - df[feature + 'StartDate']).dt.total_seconds() / seconds_per_day
         length_features.append(length_feature_name)
     return df, length_features
+
+def create_service_num_features(df, counted_service_features):
+    '''
+    Creates boolean feature indicating a service record for all counted service features.
+    The count will be determined later in the aggregate_df function, when these columns are aggregated by sum
+    :param df: a Pandas dataframe
+    :param counted_service_features: a list service features whose occurrences will be summed for each client
+    :return: updated dataframe, list of feature names corresponding to counts of each service
+    '''
+    numerical_service_features = []
+    for feature in counted_service_features:
+        new_feature_name = "Num_" + feature
+        df[new_feature_name] = np.where((df['ServiceType'] == feature), 1, 0) # represents presence of a service record
+        numerical_service_features.append(new_feature_name)
+    return df, numerical_service_features
 
 def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
     '''
@@ -142,9 +158,9 @@ def set_ground_truths(df, chronic_threshold, days, end_date):
             num_neg += 1
     return df, num_pos, num_neg
 
-def condense_df(df, noncategorical_features, ohe_categorical_features):
+def aggregate_df(df, noncategorical_features, ohe_categorical_features, numerical_service_features):
     '''
-    Build a dictionary of columns and arguments to feed into the grouping function, and group the dataframe
+    Build a dictionary of columns and arguments to feed into the aggregation function, and aggregate the dataframe
     :param df: a Pandas dataframe
     :param noncategorical_features: list of noncategorical features
     :param ohe_features: list of one-hot encoded features
@@ -163,10 +179,14 @@ def condense_df(df, noncategorical_features, ohe_categorical_features):
         temp_dict[ohe_categorical_features[i]] = 'max'  # Group one hot features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
+    for i in range(len(numerical_service_features)):
+        temp_dict[numerical_service_features[i]] = 'sum'  # Group one hot features by max value
+    grouping_dictionary = {**grouping_dictionary, **temp_dict}
+    temp_dict = {}
     for i in range(len(length_features)):
         temp_dict[length_features[i]] = 'sum'
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
-    temp_dict = {'IncomeTotal': 'first', 'FoodBankTrips': 'sum', 'GroundTruth': 'first', }
+    temp_dict = {'IncomeTotal': 'first', 'GroundTruth': 'first', }
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
 
     # Group the data by ClientID using the dictionary created above
@@ -179,6 +199,7 @@ input_stream = open(os.getcwd() + "/config.yml", 'r')
 config = yaml.full_load(input_stream)
 categorical_features = config['DATA']['CATEGORICAL_FEATURES']
 noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
+features_to_drop_last = config['DATA']['FEATURES_TO_DROP_LAST']
 GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
 
 # Load HIFIS database into Pandas dataframe
@@ -192,7 +213,7 @@ for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
 
 # Create a new feature for start and end of each service type that is accessed over multiple timeframes
 print("Adding features for service start/end dates, family.")
-df, noncategorical_features = make_start_end_features(df, noncategorical_features, config['DATA']['TIME_LENGTH_FEATURES'])
+df, noncategorical_features, features_to_drop_last = make_start_end_features(df, noncategorical_features, config['DATA']['TIMED_SERVICE_FEATURES'], features_to_drop_last)
 
 # Create a new boolean feature that indicates whether client has family
 df['HasFamily'] = np.where(df['FamilyID'] != 'NULL', 1, 0)
@@ -208,11 +229,11 @@ df = process_timestamps(df)
 
 # Create length of service feature to describe the duration of timestamped features
 print("Calculating length features.")
-df, length_features = calculate_length_features(df, config['DATA']['TIME_PAIRED_FEATURES'], config['DATA']['TIME_LENGTH_FEATURES'])
+df, length_features = calculate_length_features(df, config['DATA']['TIME_PAIRED_FEATURES'], config['DATA']['TIMED_SERVICE_FEATURES'])
 
 # Add number of food bank trips as a feature
-print("Add # visits to food bank as feature.")
-df['FoodBankTrips'] = np.where((df['ServiceType'] == "Food Bank"), 1, 0)
+print("Create features for service types that will be summed")
+df, numerical_service_features = create_service_num_features(df, config['DATA']['COUNTED_SERVICE_FEATURES'])
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
@@ -236,8 +257,9 @@ print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_n
 
 # Amalgamate rows to have one entry per client
 print("Grouping the dataframe.")
-df_unique_clients = condense_df(df, noncategorical_features, categorical_features)
+df_unique_clients = aggregate_df(df, noncategorical_features, categorical_features, numerical_service_features)
 
+# Create an "Other" value for each categorical variable, which will serve as the value for unique entries
 print("Cleansing categorical features of unique values.")
 df_unique_clients = cleanse_categorical_features(df_unique_clients, categorical_features)
 
@@ -247,7 +269,7 @@ df_unique_clients, ohe_categorical_features = ohe_categorical_features(df_unique
 
 # Drop unnecessary features
 print("Dropping unnecessary features.")
-for column in config['DATA']['FEATURES_TO_DROP_LAST']:
+for column in features_to_drop_last:
     df_unique_clients.drop(column, axis=1, inplace=True)
 
 # Replace all instances of NaN in the dataframe with 0

@@ -2,7 +2,7 @@
 PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
-  VECTORIZED_DATA: 'data/vectorized/HIFIS_Vectorized.csv'
+  VECTORIZED_DATA: 'data/processed/HIFIS_Vectorized.csv'
 
 # Constants pertaining to data structure
 DATA:
@@ -10,7 +10,8 @@ DATA:
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','SPDAT_Date']
-  TIME_LENGTH_FEATURES: ['Stay']
+  TIMED_SERVICE_FEATURES: ['Stay']
+  COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
     'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','SPDAT_Date','TotalScore']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
