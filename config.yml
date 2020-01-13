@@ -6,6 +6,7 @@ PATHS:
 
 # Constants pertaining to data structure
 DATA:
+  N_WEEKS: 4
   GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
