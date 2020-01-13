@@ -9,7 +9,7 @@ DATA:
   GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
-  FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','SPDAT_Date']
+  FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','SPDAT_Date', 'MonthlyAmount']
   TIMED_SERVICE_FEATURES: ['Stay']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',

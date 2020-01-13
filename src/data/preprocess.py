@@ -30,22 +30,22 @@ def cleanse_categorical_features(df, categorical_features):
         df[feature].loc[(df[feature].isin(list(single_values.index)))] = "Other" # Replace unique instances of categorical values with "Other"
     return df
 
-def ohe_categorical_features(df, categorical_features):
+def vec_categorical_features(df, categorical_features):
     '''
     Converts categorical features to one-hot encoded format (i.e. vectorization) and appends to the dataframe
     :param df: A Pandas dataframe
     :param categorical_features: The names of the categorical features to encode
     :return: dataframe containing one-hot encoded features, list of one-hot encoded feature names
     '''
-    ohe_categorical_features = []
+    vec_categorical_features = []
     for feature in categorical_features:
-        df_temp = pd.get_dummies(df[feature], prefix=feature)  # Create temporary dataframe of this feature one-hot encoded
+        df_temp = pd.get_dummies(df[feature], prefix=feature)  # Create temporary dataframe of this feature vectorized
         df = pd.concat((df, df_temp), axis=1)  # Concatenate temp one hot dataframe with original dataframe
         df = df.drop(feature, axis=1)  # Drop the original feature
         vectorized_headers_list = list(df_temp)
         for i in range(len(vectorized_headers_list)):
-            ohe_categorical_features.append(vectorized_headers_list[i]) # Keep track of one-hot encoded features
-    return df, ohe_categorical_features
+            vec_categorical_features.append(vectorized_headers_list[i]) # Keep track of vectorized features
+    return df, vec_categorical_features
 
 
 def process_timestamps(df):
@@ -126,51 +126,66 @@ def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
             noncategorical_features.append(new_feature_name)
     return df, categorical_features, noncategorical_features
 
-def set_ground_truths(df, chronic_threshold, days, end_date):
+def calculate_client_features(df, chronic_threshold, days, end_date):
     '''
-    Determine ground truth for each client, which is defined as a certain number of days spent in a shelter
+    Iterate through dataset by client to calculate some features (total stays, monthly income) and ground truth
     :param df: a Pandas dataframe
     :param chronic_threshold: Minimum # of days spent in shelter to be considered chronically homeless
     :param days: Number of days over which to cound # days spent in shelter
     :param end_date: The last date of the time period to consider
-    :return: the dataframe with a ground truth column appended at the end
+    :return: the dataframe with the new features and ground truth appended at the end
     '''
-    def calculate_stays(client_df):
-        client_df.sort_values(by=['ServiceStartDate'], inplace=True)
-        total_stays = gt_stays = 0
+
+    def calculate_client_features(client_df):
+        '''
+        Helper function for total stay and ground truth calculation.
+        To be used on a subset of the dataframe
+        :param client_df: A dataframe containing all rows for a client
+        :return: the client dataframe with total stays and ground truth columns appended
+        '''
+        client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
+        total_stays = gt_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
         last_end = pd.to_datetime(0)
         last_start = pd.to_datetime(0)
+
+        # Iterate over all of client's records. Note itertuples() is faster than iterrows().
         for row in client_df.itertuples():
             stay_start = getattr(row, 'StayStartDate')
-            stay_end = getattr(row, 'StayEndDate')
+            stay_end = min(getattr(row, 'StayEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
             if stay_start != last_start:
-                total_stays += (stay_end.date() - stay_start.date()).days
-                if stay_start > start_date:
-                    gt_stays += (stay_end - stay_start).days
-                    if (stay_start - last_end).days != 0:
-                        gt_stays += 1
-                if (stay_start - last_end).days != 0:
-                    total_stays += 1
+                total_stays += (stay_end.date() - stay_start.date()).days + (stay_start.date() != last_end.date())
+                if (stay_start.date() >= start_date.date()) or (stay_end.date() >= start_date.date()):
+                    gt_stay_start = max(start_date, stay_start) # Account for cases where stay start earlier than start of range
+                    gt_stays += (stay_end - gt_stay_start).days + (gt_stay_start.date() != last_end.date())
                 last_end = stay_end
                 last_start = stay_start
         client_df['TotalStays'] = total_stays
+
+        # Determine if client meets ground truth threshold
         if gt_stays >= chronic_threshold:
             client_df['GroundTruth'] = 1
             stats['num_pos'] += 1
         else:
             stats['num_neg'] += 1
+
+        # Calculate total monthly income for client
+        client_income_df = client_df.drop_duplicates(subset=['IncomeType'])
+        client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
         return client_df
-    start_date = end_date - timedelta(days=days)
-    stats = {'num_neg':0, 'num_pos':0}
-    df['TotalStays'] = 0
+
+    start_date = end_date - timedelta(days=days) # Get start of ground truth window
+    stats = {'num_neg': 0, 'num_pos': 0}  # Record number of clients in each class
+    df['TotalStays'] = 0    # Create columns for stays and ground truth
     df['GroundTruth'] = 0
-    df_temp = df.loc[(df['ServiceType'] == 'Stay') & (df['ServiceEndDate'] <= end_date)]
-    df_temp = df_temp.groupby('ClientID').apply(calculate_stays)
+    df['IncomeTotal'] = 0
+    df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
+    df_temp = df.loc[(df['ServiceType'] == 'Stay')]
+    df_temp = df_temp.groupby('ClientID').apply(calculate_client_features)
     df_temp = df_temp.droplevel('ClientID', axis='index')
-    df.update(df_temp)
+    df.update(df_temp)  # Update all rows with corresponding stay length and ground truth
     return df, stats['num_pos'], stats['num_neg']
 
-def aggregate_df(df, noncategorical_features, ohe_categorical_features, numerical_service_features):
+def aggregate_df(df, noncategorical_features, vec_categorical_features, numerical_service_features):
     '''
     Build a dictionary of columns and arguments to feed into the aggregation function, and aggregate the dataframe
     :param df: a Pandas dataframe
@@ -187,8 +202,8 @@ def aggregate_df(df, noncategorical_features, ohe_categorical_features, numerica
     # Create a dictionary of column names and function names to pass into the groupby function
     for i in range(len(non_categorical_features)):
         grouping_dictionary[non_categorical_features[i]] = 'first'  # Group noncategorical features by first occurrence
-    for i in range(len(ohe_categorical_features)):
-        temp_dict[ohe_categorical_features[i]] = 'max'  # Group one hot features by max value
+    for i in range(len(vec_categorical_features)):
+        temp_dict[vec_categorical_features[i]] = 'max'  # Group one hot features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(numerical_service_features)):
@@ -207,6 +222,7 @@ def aggregate_df(df, noncategorical_features, ohe_categorical_features, numerica
 
 
 # Load config data
+run_start = datetime.today()
 input_stream = open(os.getcwd() + "/config.yml", 'r')
 config = yaml.full_load(input_stream)
 categorical_features = config['DATA']['CATEGORICAL_FEATURES']
@@ -247,38 +263,33 @@ df, length_features = calculate_length_features(df, config['DATA']['TIMED_SERVIC
 print("Create features for service types that will be summed")
 df, numerical_service_features = create_service_num_features(df, config['DATA']['COUNTED_SERVICE_FEATURES'])
 
-# Compute ground truth for each client. Ground truth
-print("Calculating ground truths.")
+# Compute total stays, total monthly income, ground truth for each client. Ground truth
+print("Calculating total stays, monthly income, ground truths.")
 gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
-df, num_pos, num_neg = set_ground_truths(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+df, num_pos, num_neg = calculate_client_features(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
 
-# Get total monthly incomes for each client and add as feature
-print("Adding total monthly income as feature.")
-df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
-df['IncomeTotal'] = df.groupby(['ServiceID', 'ClientID', 'ServiceStartDate'])['MonthlyAmount'].transform('sum')
-
 # Drop duplicate rows for ClientID and ServiceID. Should now have 1 row for each client.
-df.drop_duplicates(subset=['ServiceID', 'ClientID'], keep='first', inplace=True)
+#df.drop_duplicates(subset=['ServiceID', 'ClientID'], keep='first', inplace=True)
 
 # Log some useful stats
-print("# clients in last year meeting homeslessness criteria = ", num_pos)
-print("# clients in last year meeting homeslessness criteria = ", num_neg)
+print("# clients in last year meeting homelessness criteria = ", num_pos)
+print("# clients in last year meeting homelessness criteria = ", num_neg)
 print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
-
-# Amalgamate rows to have one entry per client
-print("Grouping the dataframe.")
-df_unique_clients = aggregate_df(df, noncategorical_features, categorical_features, numerical_service_features)
 
 # Create an "Other" value for each categorical variable, which will serve as the value for unique entries
 print("Cleansing categorical features of unique values.")
-df_unique_clients = cleanse_categorical_features(df_unique_clients, categorical_features)
+df = cleanse_categorical_features(df, categorical_features)
 
-# One hot encode the categorical features
-print("One-hot encoding categorical features.")
-df_unique_clients, ohe_categorical_features = ohe_categorical_features(df_unique_clients, categorical_features)
+# Vectorize the categorical features
+print("Vectorizing categorical features.")
+df, vec_categorical_features = vec_categorical_features(df, categorical_features)
+
+# Amalgamate rows to have one entry per client
+print("Grouping the dataframe.")
+df_unique_clients = aggregate_df(df, noncategorical_features, vec_categorical_features, numerical_service_features)
 
 # Drop unnecessary features
 print("Dropping unnecessary features.")
@@ -291,5 +302,8 @@ df_unique_clients.fillna(0, inplace=True)
 # Save vectorized data
 print("Saving data.")
 df_unique_clients.to_csv(config['PATHS']['VECTORIZED_DATA'], sep=',', header=True)
+
+# Print total execution time
+print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 
