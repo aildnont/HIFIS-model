@@ -2,7 +2,8 @@
 PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
-  VECTORIZED_DATA: 'data/processed/HIFIS_Vectorized.csv'
+  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
+  INTERPRETABILITY: 'data/interpretability/categorical_info.yml'
 
 # Constants pertaining to data structure
 DATA:
@@ -10,7 +11,10 @@ DATA:
   GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
-  FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','SPDAT_Date', 'MonthlyAmount']
+  FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
+                          'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
+                          'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
+                          'EducationStartDate','EducationEndDate']
   TIMED_SERVICE_FEATURES: ['Stay']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
@@ -20,6 +24,8 @@ DATA:
     'CurrentlyHoused', 'IncomeType', 'ExpenseType', 'Expensefrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
     'SelfReportedYN', 'SuspectedYN', 'HealthIssueMedicationName', 'OtherMedications', 'WatchConcern', 'ContributingFactor', 'BehavioralFactor',
     'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'AvoidInDiet', 'SPDAT_Type', 'ServiceProvider', 'PreScreenPeriod']
+  SINGLE_VALUE_CATEGORICAL_FEATURES: ['Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth', 'ProvinceOfBirth',
+                                      'CityOfBirth', 'GeoRegion', 'HairColour', 'EyeColour']
   TIME_PAIRED_FEATURES:
     -
       NAME: 'Service'
