@@ -4,6 +4,7 @@ PATHS:
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   INTERPRETABILITY: 'data/interpretability/categorical_info.yml'
+  MODEL_WEIGHTS: 'results/models/model.h5'
 
 # Constants pertaining to data structure
 DATA:
@@ -31,3 +32,19 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
+
+# Neural network models
+NN:
+  MODEL1:
+    NODES:
+      DENSE0: 100
+      DENSE1: 100
+    L2_LAMBDA: 0.01
+    DROPOUT: 0.2
+
+# Training
+TRAIN:
+  VAL_SPLIT: 0.1
+  TEST_SPLIT: 0.1
+  EPOCHS: 100
+  BATCH_SIZE: 128
