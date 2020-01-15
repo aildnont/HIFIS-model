@@ -113,23 +113,8 @@ def remove_n_weeks(df, n_weeks, gt_end_date):
     '''
     train_end_date = gt_end_date - timedelta(days=(n_weeks * 7))
     df = df[df['ServiceStartDate'] <= train_end_date]
-    df.loc[df['ServiceEndDate'] > train_end_date, ['ServiceEndDate']] = train_end_date
+    df.loc[df['ServiceEndDate'] > train_end_date, 'ServiceEndDate'] = train_end_date
     return df
-
-def create_service_num_features(df, counted_service_features):
-    '''
-    Creates boolean feature indicating a service record for all counted service features.
-    The count will be determined later in the aggregate_df function, when these columns are aggregated by sum
-    :param df: a Pandas dataframe
-    :param counted_service_features: a list service features whose occurrences will be summed for each client
-    :return: updated dataframe, list of feature names corresponding to counts of each service
-    '''
-    numerical_service_features = []
-    for feature in counted_service_features:
-        new_feature_name = "Num_" + feature
-        df[new_feature_name] = np.where((df['ServiceType'] == feature), 1, 0) # represents presence of a service record
-        numerical_service_features.append(new_feature_name)
-    return df, numerical_service_features
 
 def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
     '''
@@ -137,13 +122,16 @@ def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
     :param df: a Pandas dataframe
     :return: updated dataframe with the yes/no features converted to boolean values
     '''
-    for feature_name in categorical_features:
-        if "YN" in feature_name:
-            new_feature_name = feature_name[0:feature_name.index('YN')]
-            df[new_feature_name] = np.where(df[feature_name] == 'Y', 1, 0)
-            df.drop(feature_name, axis=1, inplace=True)
-            categorical_features.remove(feature_name)
-            noncategorical_features.append(new_feature_name)
+    yn_features = []    # List of Yes/No feature names
+    for feature in categorical_features:
+        if "YN" in feature:
+            new_feature = feature[0:feature.index('YN')]
+            df[new_feature] = np.where(df[feature] == 'Y', 1, 0)
+            df.drop(feature, axis=1, inplace=True)
+            yn_features.append(feature)
+            noncategorical_features.append(new_feature)
+    # Remove Y/N features from list of categorical features
+    categorical_features = [f for f in categorical_features if f not in yn_features]
     return df, categorical_features, noncategorical_features
 
 def calculate_ground_truth(df, chronic_threshold, days, end_date):
@@ -195,7 +183,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     df.update(df_temp)  # Update all rows with corresponding stay length and ground truth
     return df, stats['num_pos'], stats['num_neg']
 
-def calculate_client_features(df, end_date):
+def calculate_client_features(df, end_date, counted_services):
     '''
     Iterate through dataset by client to calculate some features (total stays, monthly income)
     :param df: a Pandas dataframe
@@ -212,17 +200,25 @@ def calculate_client_features(df, end_date):
         '''
         client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
         total_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
-        last_end = pd.to_datetime(0)
-        last_start = pd.to_datetime(0)
+        last_stay_end = pd.to_datetime(0)
+        last_stay_start = pd.to_datetime(0)
+        last_service_end = pd.to_datetime(0)
+        last_service = ''
 
         # Iterate over all of client's records. Note itertuples() is faster than iterrows().
         for row in client_df.itertuples():
-            stay_start = getattr(row, 'ServiceStartDate')
-            stay_end = min(getattr(row, 'ServiceEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
-            if (stay_start != last_start) and (getattr(row, 'ServiceType') == 'Stay'):
-                total_stays += (stay_end.date() - stay_start.date()).days + (stay_start.date() != last_end.date())
-                last_end = stay_end
-                last_start = stay_start
+            service_start = getattr(row, 'ServiceStartDate')
+            service_end = min(getattr(row, 'ServiceEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
+            if (getattr(row, 'ServiceType') == 'Stay'):
+                if (service_start != last_stay_start):
+                    total_stays += (service_end.date() - service_start.date()).days + (service_start.date() != last_stay_end.date())
+                    last_stay_end = service_end
+                    last_stay_start = service_start
+            elif (service_end != last_service_end) or (getattr(row, 'ServiceType') != last_service):
+                service = getattr(row, 'ServiceType')
+                client_df['Num_' + service] += 1    # Increment # of times this service was accessed by this client
+                last_service_end = service_end
+                last_service = service
         client_df['TotalStays'] = total_stays
 
         # Calculate total monthly income for client
@@ -233,11 +229,15 @@ def calculate_client_features(df, end_date):
     df['TotalStays'] = 0    # Create columns for stays and income total
     df['IncomeTotal'] = 0
     df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
+    numerical_service_features = []
+    for service in counted_services:
+        df['Num_' + service] = 0
+        numerical_service_features.append('Num_' + service)
     df_temp = df.copy()
     df_temp = df_temp.groupby('ClientID').apply(client_features)
     df_temp = df_temp.droplevel('ClientID', axis='index')
     df.update(df_temp)  # Update all rows with corresponding stay length and total income
-    return df
+    return df, numerical_service_features
 
 def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_sv_categorical_features, numerical_service_features):
     '''
@@ -265,7 +265,7 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(numerical_service_features)):
-        temp_dict[numerical_service_features[i]] = 'sum'  # Group one hot features by max value
+        temp_dict[numerical_service_features[i]] = 'first'  # Group one hot features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {'IncomeTotal': 'first', 'TotalStays': 'max', 'GroundTruth': 'max', }
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
@@ -296,7 +296,7 @@ for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
     df.drop(feature, axis=1, inplace=True)
 
 # Create a new boolean feature that indicates whether client has family
-df['HasFamily'] = np.where(df['FamilyID'] != 'NULL', 1, 0)
+df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 1, 0)
 noncategorical_features.append('HasFamily')
 
 # Convert yes/no features to boolean features
@@ -319,13 +319,9 @@ df, num_pos, num_neg = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESH
 print("Removing records n weeks back.")
 df = remove_n_weeks(df, N_WEEKS, gt_end_date)
 
-# Add number of food bank trips as a feature
-print("Create features for service types that will be summed")
-df, numerical_service_features = create_service_num_features(df, config['DATA']['COUNTED_SERVICE_FEATURES'])
-
-# Compute total stays, total monthly income, ground truth for each client. Ground truth
+# Compute total stays, total monthly income, total # services accessed for each client.
 print("Calculating total stays, monthly income.")
-df = calculate_client_features(df, gt_end_date)
+df, numerical_service_features = calculate_client_features(df, gt_end_date, config['DATA']['COUNTED_SERVICE_FEATURES'])
 
 # Index dataframe by the service start column
 df = df.set_index('ServiceStartDate')
