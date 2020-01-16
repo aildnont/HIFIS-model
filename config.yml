@@ -3,7 +3,7 @@ PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
-  INTERPRETABILITY: 'data/interpretability/categorical_info.yml'
+  INTERPRETABILITY: '/data/interpretability/feature_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
 
 # Constants pertaining to data structure
@@ -40,7 +40,7 @@ NN:
       DENSE0: 100
       DENSE1: 100
     L2_LAMBDA: 0.01
-    DROPOUT: 0.2
+    DROPOUT: 0.3
 
 # Training
 TRAIN:
