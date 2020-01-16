@@ -10,7 +10,6 @@ def model1(config, input_dim, metrics):
     :return: a Keras model object with the architecture defined in this method
     '''
     l2_lambda = config['L2_LAMBDA']
-    print(l2_lambda, input_dim)
     dropout = config['DROPOUT']
 
     # Define model architecture.
