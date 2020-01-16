@@ -3,12 +3,12 @@ PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
-  INTERPRETABILITY: 'data/interpretability/categorical_info.yml'
+  INTERPRETABILITY: 'data/interpretability/feature_info.yml'
 
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 4
-  GROUND_TRUTH_DATE: 'today'
+  GROUND_TRUTH_DATE: '2020-01-09'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
@@ -24,8 +24,6 @@ DATA:
     'CurrentlyHoused', 'IncomeType', 'ExpenseType', 'Expensefrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
     'SelfReportedYN', 'SuspectedYN', 'HealthIssueMedicationName', 'OtherMedications', 'WatchConcern', 'ContributingFactor', 'BehavioralFactor',
     'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'AvoidInDiet', 'SPDAT_Type', 'ServiceProvider', 'PreScreenPeriod']
-  SINGLE_VALUE_CATEGORICAL_FEATURES: ['Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth', 'ProvinceOfBirth',
-                                      'CityOfBirth', 'GeoRegion', 'HairColour', 'EyeColour']
   TIME_PAIRED_FEATURES:
     -
       NAME: 'Service'

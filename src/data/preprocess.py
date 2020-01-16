@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from tqdm import tqdm
 import yaml
 import os
 
@@ -51,7 +52,7 @@ def classify_cat_features(df, cat_features):
 
     sv_cat_features = cat_features  # First, assume all categorical features are single-valued
     mv_cat_features = []
-    df.groupby('ClientID').apply(classify_features)
+    df.groupby('ClientID').progress_apply(classify_features)
     return sv_cat_features, mv_cat_features
 
 def vec_multi_value_cat_features(df, mv_cat_features):
@@ -178,7 +179,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     stats = {'num_neg': 0, 'num_pos': 0}  # Record number of clients in each class
     df['GroundTruth'] = 0
     df_temp = df.loc[(df['ServiceType'] == 'Stay')]
-    df_temp = df_temp.groupby('ClientID').apply(client_gt)
+    df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     df_temp = df_temp.droplevel('ClientID', axis='index')
     df.update(df_temp)  # Update all rows with corresponding stay length and ground truth
     return df, stats['num_pos'], stats['num_neg']
@@ -234,7 +235,7 @@ def calculate_client_features(df, end_date, counted_services):
         df['Num_' + service] = 0
         numerical_service_features.append('Num_' + service)
     df_temp = df.copy()
-    df_temp = df_temp.groupby('ClientID').apply(client_features)
+    df_temp = df_temp.groupby('ClientID').progress_apply(client_features)
     df_temp = df_temp.droplevel('ClientID', axis='index')
     df.update(df_temp)  # Update all rows with corresponding stay length and total income
     return df, numerical_service_features
@@ -277,10 +278,10 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
 
 # Load config data
 run_start = datetime.today()
+tqdm.pandas()
 input_stream = open(os.getcwd() + "/config.yml", 'r')
 config = yaml.full_load(input_stream)
 categorical_features = config['DATA']['CATEGORICAL_FEATURES']
-sv_categorical_features = config['DATA']['SINGLE_VALUE_CATEGORICAL_FEATURES']
 noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
 features_to_drop_last = config['DATA']['FEATURES_TO_DROP_LAST']
 N_WEEKS = config['DATA']['N_WEEKS']     # Weeks in advance to predict label
@@ -298,6 +299,7 @@ for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
 # Create a new boolean feature that indicates whether client has family
 df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 1, 0)
 noncategorical_features.append('HasFamily')
+noncategorical_features.remove('FamilyID')
 
 # Convert yes/no features to boolean features
 print("Convert yes/no categorical features to boolean")
@@ -347,8 +349,16 @@ for column in features_to_drop_last:
     if column in df_clients.columns:
         df_clients.drop(column, axis=1, inplace=True)
 
-# Replace all instances of NaN in the dataframe with 0
-df_clients.fillna("Unknown", inplace=True)
+# Get list of remaining noncategorical features
+noncat_feats_gone = [f for f in noncategorical_features if f not in df_clients.columns]
+for feature in noncat_feats_gone:
+    noncategorical_features.remove(feature)
+noncategorical_features.extend(numerical_service_features)
+noncategorical_features.extend(['IncomeTotal', 'TotalStays'])
+
+# Replace all instances of NaN in the dataframe with 0 or "Unknown"
+df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
+df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
 
 # Vectorize single-valued categorical features. Keep track of feature names and values.
 print("Vectorizing single-valued categorical features.")
@@ -364,6 +374,7 @@ interpretability_info = {}
 interpretability_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
 interpretability_info['SV_CAT_FEATURE_IDXS'] = sv_cat_feature_idxs
 interpretability_info['SV_CAT_VALUES'] = sv_cat_values
+interpretability_info['NON_CAT_FEATURES'] = noncategorical_features
 with open(config['PATHS']['INTERPRETABILITY'], 'w') as file:
     documents = yaml.dump(interpretability_info, file)
 
