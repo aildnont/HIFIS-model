@@ -9,6 +9,7 @@ from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping
 from src.models.models import model1
+from src.visualization.visualize import *
 
 def get_class_weights(num_pos, num_neg):
     '''
@@ -100,6 +101,13 @@ results = model.evaluate(X_test, Y_test)
 print("Results on test set:")
 for metric, value in zip(model.metrics_names, results):
     print(metric, ' = ', value)
+
+# Visualize metrics about the training process
+test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
+metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
+plot_metrics(history, metrics_to_plot)
+#plot_roc("Test set", test_labels, test_predictions)
+#plot_confusion_matrix(Y_test, test_predictions)
 
 # Save model weights
 save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])
