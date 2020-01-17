@@ -13,14 +13,14 @@ def model1(config, input_dim, metrics):
     dropout = config['DROPOUT']
 
     # Define model architecture.
-    model = Sequential()
+    model = Sequential(name='HIFIS-v2-1')
     model.add(Dense(config['NODES']['DENSE0'], input_shape=input_dim, activation='relu', kernel_regularizer=l2(l2_lambda),
               bias_regularizer=l2(l2_lambda), name="dense0"))
-    model.add(Dropout(dropout))
+    model.add(Dropout(dropout, name='dropout0'))
     model.add(Dense(config['NODES']['DENSE1'], activation='relu', kernel_regularizer=l2(l2_lambda),
               bias_regularizer=l2(l2_lambda), name="dense1"))
-    model.add(Dropout(dropout))
-    model.add(Dense(1, activation='sigmoid'))
+    model.add(Dropout(dropout, name='dropout1'))
+    model.add(Dense(1, activation='sigmoid', name="output"))
 
     # Set model loss function, optimizer, metrics.
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=metrics)

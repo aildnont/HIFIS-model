@@ -1,15 +1,18 @@
 data/*
 documents/*
 results/*
-!**/.gitkeep
 !data/.gitkeep
 !data/processed/.gitkeep
 !data/interpretability/.gitkeep
 !data/raw/.gitkeep
 !documents/.gitkeep
+!documents/images/.gitkeep
 !results/.gitkeep
 !results/logs/.gitkeep
 !results/models/.gitkeep
+!*.gitkeep
+
+# Credentials to keep private
 config-private.yml
 
 ## PYTHON ##

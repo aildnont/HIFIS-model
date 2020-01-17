@@ -2,12 +2,13 @@ import pandas as pd
 import numpy as np
 import yaml
 import os
+import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import RandomOverSampler
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from src.models.models import model1
 from src.visualization.visualize import *
 
@@ -44,7 +45,8 @@ cfg = yaml.full_load(input_stream)
 # Load config data generated from preprocessing
 input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
 cfg_gen = yaml.full_load(input_stream)
-noncat_features = cfg_gen['NON_CAT_FEATURES']
+noncat_features = cfg_gen['NON_CAT_FEATURES']   # Noncategorical features to be scaled
+plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
 
 # Load and partition dataset
 df = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
@@ -77,8 +79,10 @@ X_test = np.array(test_df)
 metrics = [BinaryAccuracy(name="accuracy"), Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
 
 # Set callbacks.
+log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
 early_stopping = EarlyStopping(monitor='val_auc', verbose=1, patience=15, mode='max', restore_best_weights=True)
-callbacks = [early_stopping]
+callbacks = [early_stopping, tensorboard]
 
 # Define the model.
 model = model1(cfg['NN']['MODEL1'], (X_train.shape[-1],), metrics)   # Build model graph
@@ -105,9 +109,9 @@ for metric, value in zip(model.metrics_names, results):
 # Visualize metrics about the training process
 test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
 metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
-plot_metrics(history, metrics_to_plot)
-#plot_roc("Test set", test_labels, test_predictions)
-#plot_confusion_matrix(Y_test, test_predictions)
+plot_metrics(history, metrics_to_plot, file_path=plot_path)
+plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
+plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
 
 # Save model weights
 save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])

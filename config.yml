@@ -5,6 +5,8 @@ PATHS:
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   INTERPRETABILITY: '/data/interpretability/feature_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
+  IMAGES: 'documents/images/'
+  LOGS: 'results\\logs\\'
 
 # Constants pertaining to data structure
 DATA:
