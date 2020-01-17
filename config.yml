@@ -8,12 +8,13 @@ PATHS:
   MODEL_WEIGHTS: 'results/models/model.h5'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
+  HORIZON_SEARCH: 'results/other/horizon_search.yml'
 
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 4
-  MIN_N: 0
-  MAX_N: 52
+  N_MIN: 0
+  N_MAX: 52
   N_INTERVAL: 4
   GROUND_TRUTH_DATE: '2020-01-09'
   CHRONIC_THRESHOLD: 180

@@ -127,5 +127,5 @@ def train_model(save_weights=True):
 
 
 if __name__ == '__main__':
-    train_model(save_weights=True)
+    results = train_model(save_weights=True)
 
