@@ -37,83 +37,95 @@ def minority_oversample(X_train, Y_train):
     print("Train set shape before oversampling: ", X_train.shape, " Train set shape after resampling: ", X_resampled.shape)
     return X_resampled, Y_resampled
 
+def train_model(save_weights=True):
+    '''
+    Defines and trains HIFIS-v2 model. Prints and logs relevant metrics.
+    :param save_weights: A flag indicating whether to save the model weights
+    :return: A dictionary of metrics on the test set
+    '''
 
-# Load project config data
-input_stream = open(os.getcwd() + "/config.yml", 'r')
-cfg = yaml.full_load(input_stream)
+    # Load project config data
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    cfg = yaml.full_load(input_stream)
 
-# Load config data generated from preprocessing
-input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
-cfg_gen = yaml.full_load(input_stream)
-noncat_features = cfg_gen['NON_CAT_FEATURES']   # Noncategorical features to be scaled
-plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
+    # Load config data generated from preprocessing
+    input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
+    cfg_gen = yaml.full_load(input_stream)
+    noncat_features = cfg_gen['NON_CAT_FEATURES']   # Noncategorical features to be scaled
+    plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
 
-# Load and partition dataset
-df = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
-df.drop('ClientID', axis=1, inplace=True)   # Anonymize clients
-num_neg, num_pos = np.bincount(df['GroundTruth'])
-train_split = cfg['TRAIN']['TRAIN_SPLIT']
-val_split = cfg['TRAIN']['VAL_SPLIT']
-test_split = cfg['TRAIN']['TEST_SPLIT']
-train_df, test_df = train_test_split(df, test_size=test_split)
-relative_val_split = val_split / (train_split + val_split)  # Calculate fraction of train_df to be used for validation
-train_df, val_df = train_test_split(train_df, test_size=relative_val_split)
+    # Load and partition dataset
+    df = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
+    df.drop('ClientID', axis=1, inplace=True)   # Anonymize clients
+    num_neg, num_pos = np.bincount(df['GroundTruth'])
+    train_split = cfg['TRAIN']['TRAIN_SPLIT']
+    val_split = cfg['TRAIN']['VAL_SPLIT']
+    test_split = cfg['TRAIN']['TEST_SPLIT']
+    train_df, test_df = train_test_split(df, test_size=test_split)
+    relative_val_split = val_split / (train_split + val_split)  # Calculate fraction of train_df to be used for validation
+    train_df, val_df = train_test_split(train_df, test_size=relative_val_split)
 
-# Separate ground truth from dataframe and convert to numpy arrays
-Y_train = np.array(train_df.pop('GroundTruth'))
-Y_val = np.array(val_df.pop('GroundTruth'))
-Y_test = np.array(test_df.pop('GroundTruth'))
+    # Separate ground truth from dataframe and convert to numpy arrays
+    Y_train = np.array(train_df.pop('GroundTruth'))
+    Y_val = np.array(val_df.pop('GroundTruth'))
+    Y_test = np.array(test_df.pop('GroundTruth'))
 
-# Normalize numerical data
-scaler = StandardScaler()
-train_df[noncat_features] = scaler.fit_transform(train_df[noncat_features])
-val_df[noncat_features] = scaler.transform(val_df[noncat_features])
-test_df[noncat_features] = scaler.transform(test_df[noncat_features])
+    # Normalize numerical data
+    scaler = StandardScaler()
+    train_df[noncat_features] = scaler.fit_transform(train_df[noncat_features])
+    val_df[noncat_features] = scaler.transform(val_df[noncat_features])
+    test_df[noncat_features] = scaler.transform(test_df[noncat_features])
 
-# Convert dataframes to numpy arrays
-X_train = np.array(train_df)
-X_val = np.array(val_df)
-X_test = np.array(test_df)
+    # Convert dataframes to numpy arrays
+    X_train = np.array(train_df)
+    X_val = np.array(val_df)
+    X_test = np.array(test_df)
 
-# Define metrics.
-metrics = [BinaryAccuracy(name="accuracy"), Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
+    # Define metrics.
+    metrics = [BinaryAccuracy(name="accuracy"), Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
 
-# Set callbacks.
-log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
-early_stopping = EarlyStopping(monitor='val_auc', verbose=1, patience=15, mode='max', restore_best_weights=True)
-callbacks = [early_stopping, tensorboard]
+    # Set callbacks.
+    log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
+    early_stopping = EarlyStopping(monitor='val_auc', verbose=1, patience=15, mode='max', restore_best_weights=True)
+    callbacks = [early_stopping, tensorboard]
 
-# Define the model.
-model = model1(cfg['NN']['MODEL1'], (X_train.shape[-1],), metrics)   # Build model graph
+    # Define the model.
+    model = model1(cfg['NN']['MODEL1'], (X_train.shape[-1],), metrics)   # Build model graph
 
-# Calculate class weights
-class_weight = None
-if cfg['TRAIN']['CLASS_WEIGHT']:
-    class_weight = get_class_weights(num_pos, num_neg)
+    # Calculate class weights
+    class_weight = None
+    if cfg['TRAIN']['CLASS_WEIGHT']:
+        class_weight = get_class_weights(num_pos, num_neg)
 
-# Oversample minority class
-if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
-    X_train, Y_train = minority_oversample(X_train, Y_train)
+    # Oversample minority class
+    if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
+        X_train, Y_train = minority_oversample(X_train, Y_train)
 
-# Train the model.
-history = model.fit(X_train, Y_train, batch_size=cfg['TRAIN']['BATCH_SIZE'], epochs=cfg['TRAIN']['EPOCHS'],
-                  validation_data=(X_val, Y_val), callbacks=callbacks, class_weight=class_weight)
+    # Train the model.
+    history = model.fit(X_train, Y_train, batch_size=cfg['TRAIN']['BATCH_SIZE'], epochs=cfg['TRAIN']['EPOCHS'],
+                      validation_data=(X_val, Y_val), callbacks=callbacks, class_weight=class_weight)
 
-# Run the model on the test set and print the resulting performance metrics.
-results = model.evaluate(X_test, Y_test)
-print("Results on test set:")
-for metric, value in zip(model.metrics_names, results):
-    print(metric, ' = ', value)
+    # Run the model on the test set and print the resulting performance metrics.
+    test_results = model.evaluate(X_test, Y_test)
+    test_metrics = {}
+    print("Results on test set:")
+    for metric, value in zip(model.metrics_names, test_results):
+        test_metrics[metric] = value
+        print(metric, ' = ', value)
 
-# Visualize metrics about the training process
-test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
-metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
-plot_metrics(history, metrics_to_plot, file_path=plot_path)
-plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
-plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
+    # Visualize metrics about the training process
+    test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
+    metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
+    plot_metrics(history, metrics_to_plot, file_path=plot_path)
+    plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
+    plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
 
-# Save model weights
-save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])
+    if save_weights:
+        save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
+    return test_metrics
 
+
+if __name__ == '__main__':
+    train_model(save_weights=True)
 

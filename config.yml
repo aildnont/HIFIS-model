@@ -3,7 +3,8 @@ PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
-  INTERPRETABILITY: '/data/interpretability/feature_info.yml'
+  GROUND_TRUTH: 'data/processed/GroundTruth.csv'
+  INTERPRETABILITY: './data/interpretability/feature_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
@@ -11,6 +12,9 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 4
+  MIN_N: 0
+  MAX_N: 52
+  N_INTERVAL: 4
   GROUND_TRUTH_DATE: '2020-01-09'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
@@ -51,3 +55,4 @@ TRAIN:
   BATCH_SIZE: 128
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
+  RUNS_PER_N: 10
