@@ -1,6 +1,8 @@
 from sklearn.metrics import confusion_matrix, roc_curve
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import numpy as np
+from scipy import stats
 import datetime
 
 # Set some matplotlib parameters
@@ -88,4 +90,42 @@ def plot_confusion_matrix(labels, predictions, p=0.5, file_path=None):
     # Print these statistics
     print('True (-)ves: ', cm[0][0], '\nFalse (+)ves: ', cm[0][1], '\nFalse (-)ves: ', cm[1][0], '\nTrue (+)ves: ',
           cm[1][1])
+    return
+
+def plot_horizon_search(results_df, file_path):
+    '''
+    Plots the results of a prediction horizon search experiment.
+    Each metric applied to the test set is plotted over a varying prediction horizon
+    :param results_df: A Pandas dataframe containing the results of a search experiment
+    :param file_path: The path to save an image of the plot
+    '''
+    num_metrics = len(results_df.columns) - 1   # Number of metrics to plot
+    average_df = results_df.groupby('n', as_index=False).mean() # Get the mean values for each metric by value of n
+    fig, axes = plt.subplots(nrows=int(num_metrics ** 0.5), ncols=int(num_metrics ** 0.5) + 1, constrained_layout=True)
+    axes = axes.flat
+    for i in range(num_metrics):
+        metric_name = results_df.columns[i + 1].replace("_"," ").capitalize()
+
+        # Plot the results for each training run, along with a trendline.
+        axes[i].scatter(results_df['n'],  results_df[results_df.columns[i + 1]], label='Run Results', marker='o', s=10, color='blue')
+
+        # Compute and plot a least squares regression for this metric
+        slope, intercept, r_value, p_value, std_err = stats.linregress(results_df['n'], results_df[results_df.columns[i + 1]])
+        trend = np.poly1d([slope, intercept])
+        axes[i].plot(results_df['n'], trend(results_df['n']), label='Linear Fit', linestyle='-', color='blue')
+        axes[i].text(0.05,0.95,"R^2 = {:.2f}".format(r_value ** 2), transform=axes[i].transAxes)    # Print R^2 value
+
+        # Plot the average of training runs for each n
+        axes[i].plot(average_df['n'],  average_df[average_df.columns[i + 1]], label='Average by n', linestyle='--', color='green')
+
+        # Set plot labels and legend
+        axes[i].set_xlabel('Prediction horizon [weeks]')
+        axes[i].set_ylabel(metric_name)
+        axes[i].legend()
+    fig.suptitle('Test Set Metrics for Training Runs with Varying Prediction Horizons')
+    for axis in axes[num_metrics:]:
+        fig.delaxes(axis)   # Delete blank axis
+
+    if file_path is not None:
+        plt.savefig(file_path + 'horizon_experiment_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return

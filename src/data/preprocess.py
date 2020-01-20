@@ -268,120 +268,155 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     for i in range(len(numerical_service_features)):
         temp_dict[numerical_service_features[i]] = 'first'  # Group one hot features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
-    temp_dict = {'IncomeTotal': 'first', 'TotalStays': 'max', 'GroundTruth': 'max', }
+    temp_dict = {'IncomeTotal': 'first', 'TotalStays': 'max',}
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
+    if 'GroundTruth' in df.columns:
+        temp_dict = {'GroundTruth': 'max', }
+        grouping_dictionary = {**grouping_dictionary, **temp_dict}
 
     # Group the data by ClientID using the dictionary created above
     df_unique_clients = df.groupby(['ClientID']).agg(grouping_dictionary)
     return df_unique_clients
 
 
-# Load config data
-run_start = datetime.today()
-tqdm.pandas()
-input_stream = open(os.getcwd() + "/config.yml", 'r')
-config = yaml.full_load(input_stream)
-categorical_features = config['DATA']['CATEGORICAL_FEATURES']
-noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
-features_to_drop_last = config['DATA']['FEATURES_TO_DROP_LAST']
-N_WEEKS = config['DATA']['N_WEEKS']     # Weeks in advance to predict label
-GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
+def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
+    '''
+    Load results of the HIFIS SQL query and process the data into features for training a model.
+    :param n_weeks: Prediction horizon
+    '''
+    run_start = datetime.today()
+    tqdm.pandas()
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    config = yaml.full_load(input_stream)       # Load config data
+    categorical_features = config['DATA']['CATEGORICAL_FEATURES']
+    noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
+    features_to_drop_last = config['DATA']['FEATURES_TO_DROP_LAST']
+    GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
+    if n_weeks is None:
+        N_WEEKS = config['DATA']['N_WEEKS']
+    else:
+        N_WEEKS = n_weeks
 
-# Load HIFIS database into Pandas dataframe
-print("Loading HIFIS data.")
-df = load_df(config['PATHS']['RAW_DATA'])
+    # Load HIFIS database into Pandas dataframe
+    print("Loading HIFIS data.")
+    df = load_df(config['PATHS']['RAW_DATA'])
 
-# Delete unwanted columns
-print("Dropping some features.")
-for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
-    df.drop(feature, axis=1, inplace=True)
+    # Delete unwanted columns
+    print("Dropping some features.")
+    for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
+        df.drop(feature, axis=1, inplace=True)
 
-# Create a new boolean feature that indicates whether client has family
-df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 1, 0)
-noncategorical_features.append('HasFamily')
-noncategorical_features.remove('FamilyID')
+    # Create a new boolean feature that indicates whether client has family
+    df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 1, 0)
+    noncategorical_features.append('HasFamily')
+    noncategorical_features.remove('FamilyID')
 
-# Convert yes/no features to boolean features
-print("Convert yes/no categorical features to boolean")
-df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
+    # Convert yes/no features to boolean features
+    print("Convert yes/no categorical features to boolean")
+    df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
 
-# Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
-df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
+    # Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
+    df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
 
-# Convert all timestamps to datetime objects
-print("Converting timestamps to datetimes.")
-df = process_timestamps(df)
+    # Convert all timestamps to datetime objects
+    print("Converting timestamps to datetimes.")
+    df = process_timestamps(df)
 
-# Calculate ground truth
-print("Calculating ground truth.")
-gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
-df, num_pos, num_neg = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+    # Calculate ground truth
+    gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
+    if not load_gt:
+        print("Calculating ground truth.")
+        df, num_pos, num_neg = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
 
-# Remove records from the database from n weeks ago and onwards
-print("Removing records n weeks back.")
-df = remove_n_weeks(df, N_WEEKS, gt_end_date)
+    # Remove records from the database from n weeks ago and onwards
+    print("Removing records ", N_WEEKS, " weeks back.")
+    df = remove_n_weeks(df, N_WEEKS, gt_end_date)
 
-# Compute total stays, total monthly income, total # services accessed for each client.
-print("Calculating total stays, monthly income.")
-df, numerical_service_features = calculate_client_features(df, gt_end_date, config['DATA']['COUNTED_SERVICE_FEATURES'])
+    # Compute total stays, total monthly income, total # services accessed for each client.
+    print("Calculating total stays, monthly income.")
+    df, numerical_service_features = calculate_client_features(df, gt_end_date, config['DATA']['COUNTED_SERVICE_FEATURES'])
 
-# Index dataframe by the service start column
-df = df.set_index('ServiceStartDate')
+    # Index dataframe by the service start column
+    df = df.set_index('ServiceStartDate')
 
-# Create an "Other" value for each categorical variable, which will serve as the value for unique entries
-print("Cleansing categorical features of unique values.")
-df = cleanse_categorical_features(df, categorical_features)
+    # Create an "Other" value for each categorical variable, which will serve as the value for unique entries
+    print("Cleansing categorical features of unique values.")
+    df = cleanse_categorical_features(df, categorical_features)
 
-print("Separating multi and single-valued categorical features.")
-sv_cat_features, mv_cat_features = classify_cat_features(df, categorical_features)
+    print("Separating multi and single-valued categorical features.")
+    if classify_cat_feats:
+        sv_cat_features, mv_cat_features = classify_cat_features(df, categorical_features)
+    else:
+        input_stream = open(os.getcwd() + config['PATHS']['INTERPRETABILITY'], 'r')
+        cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
+        sv_cat_features = cfg_gen['SV_CAT_FEATURES']
+        mv_cat_features = cfg_gen['MV_CAT_FEATURES']
 
-# Vectorize the multi-valued categorical features
-print("Vectorizing multi-valued categorical features.")
-df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features)
+    # Vectorize the multi-valued categorical features
+    print("Vectorizing multi-valued categorical features.")
+    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features)
 
-# Amalgamate rows to have one entry per client
-print("Grouping the dataframe.")
-df_clients = aggregate_df(df, noncategorical_features, vec_mv_cat_features, sv_cat_features, numerical_service_features)
+    # Amalgamate rows to have one entry per client
+    print("Grouping the dataframe.")
+    df_clients = aggregate_df(df, noncategorical_features, vec_mv_cat_features, sv_cat_features, numerical_service_features)
 
-# Drop unnecessary features
-print("Dropping unnecessary features.")
-for column in features_to_drop_last:
-    if column in df_clients.columns:
-        df_clients.drop(column, axis=1, inplace=True)
+    # Drop unnecessary features
+    print("Dropping unnecessary features.")
+    for column in features_to_drop_last:
+        if column in df_clients.columns:
+            df_clients.drop(column, axis=1, inplace=True)
 
-# Get list of remaining noncategorical features
-noncat_feats_gone = [f for f in noncategorical_features if f not in df_clients.columns]
-for feature in noncat_feats_gone:
-    noncategorical_features.remove(feature)
-noncategorical_features.extend(numerical_service_features)
-noncategorical_features.extend(['IncomeTotal', 'TotalStays'])
+    # Get list of remaining noncategorical features
+    noncat_feats_gone = [f for f in noncategorical_features if f not in df_clients.columns]
+    for feature in noncat_feats_gone:
+        noncategorical_features.remove(feature)
+    noncategorical_features.extend(numerical_service_features)
+    noncategorical_features.extend(['IncomeTotal', 'TotalStays'])
 
-# Replace all instances of NaN in the dataframe with 0 or "Unknown"
-df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
-df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
+    # Replace all instances of NaN in the dataframe with 0 or "Unknown"
+    df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
+    df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
 
-# Vectorize single-valued categorical features. Keep track of feature names and values.
-print("Vectorizing single-valued categorical features.")
-df_ohe_clients, vec_sv_cat_features, sv_cat_feature_idxs, sv_cat_values = vec_single_value_cat_features(df_clients, sv_cat_features)
+    # Load ground truth if not calculated already. Otherwise, save ground truth.
+    if load_gt:
+        df_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
+        df_gt = df_gt.set_index('ClientID')
+        df_gt.index = df_gt.index.astype(int)
+        df_clients.index = df_clients.index.astype(int)
+        df_clients = df_clients.join(df_gt) # Set ground truth for all clients to their saved values
+        df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
+    else:
+        df_gt = df_clients['GroundTruth']
+        df_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)    # Save ground truth
 
-# Save processed dataset
-print("Saving data.")
-df_clients.to_csv(config['PATHS']['PROCESSED_DATA'], sep=',', header=True)
-df_ohe_clients.to_csv(config['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
+    # Vectorize single-valued categorical features. Keep track of feature names and values.
+    print("Vectorizing single-valued categorical features.")
+    df_ohe_clients, vec_sv_cat_features, sv_cat_feature_idxs, sv_cat_values = vec_single_value_cat_features(df_clients, sv_cat_features)
 
-# For producing interpretable results with categorical data:
-interpretability_info = {}
-interpretability_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
-interpretability_info['SV_CAT_FEATURE_IDXS'] = sv_cat_feature_idxs
-interpretability_info['SV_CAT_VALUES'] = sv_cat_values
-interpretability_info['NON_CAT_FEATURES'] = noncategorical_features
-with open(config['PATHS']['INTERPRETABILITY'], 'w') as file:
-    documents = yaml.dump(interpretability_info, file)
+    # Save processed dataset
+    print("Saving data.")
+    df_clients.to_csv(config['PATHS']['PROCESSED_DATA'], sep=',', header=True)
+    df_ohe_clients.to_csv(config['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
 
-# Log some useful stats
-print("# clients in last year meeting homelessness criteria = ", num_pos)
-print("# clients in last year meeting homelessness criteria = ", num_neg)
-print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
-print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
+    # For producing interpretable results with categorical data:
+    interpretability_info = {}
+    interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
+    interpretability_info['MV_CAT_FEATURES'] = mv_cat_features
+    interpretability_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
+    interpretability_info['SV_CAT_FEATURE_IDXS'] = sv_cat_feature_idxs
+    interpretability_info['SV_CAT_VALUES'] = sv_cat_values
+    interpretability_info['NON_CAT_FEATURES'] = noncategorical_features
+    with open(config['PATHS']['INTERPRETABILITY'], 'w') as file:
+        interpretability_doc = yaml.dump(interpretability_info, file)
+
+    # Log some useful stats
+    if not load_gt:
+        print("# clients in last year meeting homelessness criteria = ", num_pos)
+        print("# clients in last year meeting homelessness criteria = ", num_neg)
+        print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
+        print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
+
+if __name__ == '__main__':
+    preprocess(n_weeks=32, load_gt=True, classify_cat_feats=False)
 
 
