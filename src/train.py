@@ -117,9 +117,9 @@ def train_model(save_weights=True):
     # Visualize metrics about the training process
     test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
     metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
-    plot_metrics(history, metrics_to_plot, file_path=plot_path)
-    plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
-    plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
+    #plot_metrics(history, metrics_to_plot, file_path=plot_path)
+    #plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
+    #plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
 
     if save_weights:
         save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights

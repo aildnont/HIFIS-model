@@ -8,7 +8,7 @@ PATHS:
   MODEL_WEIGHTS: 'results/models/model.h5'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
-  HORIZON_SEARCH: 'results/other/horizon_search.yml'
+  HORIZON_SEARCH: 'results/experiments/horizon_search.csv'
 
 # Constants pertaining to data structure
 DATA:

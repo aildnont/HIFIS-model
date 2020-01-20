@@ -10,7 +10,7 @@ results/*
 !results/.gitkeep
 !results/logs/.gitkeep
 !results/models/.gitkeep
-!results/other/.gitkeep
+!results/experiments/.gitkeep
 !*.gitkeep
 
 # Credentials to keep private
