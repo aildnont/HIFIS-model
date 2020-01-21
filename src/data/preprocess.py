@@ -112,9 +112,28 @@ def remove_n_weeks(df, n_weeks, gt_end_date):
     :param gt_end_date: the date used for ground truth calculation
     :return: updated dataframe with the relevant rows removed
     '''
-    train_end_date = gt_end_date - timedelta(days=(n_weeks * 7))
-    df = df[df['ServiceStartDate'] <= train_end_date]
-    df.loc[df['ServiceEndDate'] > train_end_date, 'ServiceEndDate'] = train_end_date
+    train_end_date = gt_end_date - timedelta(days=(n_weeks * 7))    # Most recent date for training set records
+    print("Train end date: ", train_end_date)
+    df = df[df['ServiceStartDate'] <= train_end_date]               # Delete rows where service occurred after this date
+    df['ServiceEndDate'] = df['ServiceEndDate'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
+
+    # Remove records of health issues, education, expenses income, contributing factor, life event, SPDAT during this time
+    idxs_to_update = df[df['ExpenseStartDate'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, ['ExpenseType', 'Expensefrequency', 'ExpenseAmount']] = np.nan
+    df.loc[idxs_to_update, 'IsEssential'] = 0
+    idxs_to_update = df[df['IncomeStartDate'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, ['IncomeType', 'MonthlyAmount']] = np.nan
+    idxs_to_update = df[df['HealthIssueStart'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications']] = np.nan
+    df.loc[idxs_to_update, ['Diagnosed','SelfReported','Suspected']] = 0
+    idxs_to_update = df[df['ContributingFactorDateStart'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, 'ContributingFactor'] = np.nan
+    idxs_to_update = df[df['BehavioralRiskFactorDateStart'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, ['BehavioralFactor', 'Severity']] = np.nan
+    idxs_to_update = df[df['LifeEventStartDate'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, 'LifeEvent'] = np.nan
+    idxs_to_update = df[df['SPDAT_Date'] > train_end_date].index.tolist()
+    df.loc[idxs_to_update, 'TotalScore'] = np.nan
     return df
 
 def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
@@ -417,6 +436,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=32, load_gt=True, classify_cat_feats=False)
+    preprocess(n_weeks=16, load_gt=True, classify_cat_feats=True)
 
 
