@@ -9,6 +9,9 @@ PATHS:
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search.csv'
+  TRAIN_SET: 'data/processed/Train_Set.csv'
+  TEST_SET: 'data/processed/Test_Set.csv'
+  STD_SCALER: 'data/interpretability/std_scaler.bin'
 
 # Constants pertaining to data structure
 DATA:
@@ -56,4 +59,4 @@ TRAIN:
   BATCH_SIZE: 128
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
-  RUNS_PER_N: 10
+  RUNS_PER_N: 100

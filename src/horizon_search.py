@@ -30,7 +30,6 @@ def horizon_search():
             results_df = results_df.append(pd.DataFrame.from_records([results]))
         results_df.insert(0, 'n', n)    # Add prediction horizon to test results
         test_metrics_df = test_metrics_df.append(results_df)    # Append results from this value of n
-    test_metrics_df.drop(test_metrics_df.columns[0],axis=1,inplace=True)    # Drop dummy first column
 
     # Save results
     test_metrics_df.to_csv(cfg['PATHS']['HORIZON_SEARCH'], sep=',', header=True, index=False)

@@ -1,10 +1,9 @@
 import pandas as pd
-import numpy as np
 import yaml
 import os
-import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.externals.joblib import dump
 from imblearn.over_sampling import RandomOverSampler
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
@@ -56,14 +55,18 @@ def train_model(save_weights=True):
 
     # Load and partition dataset
     df = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
-    df.drop('ClientID', axis=1, inplace=True)   # Anonymize clients
     num_neg, num_pos = np.bincount(df['GroundTruth'])
     train_split = cfg['TRAIN']['TRAIN_SPLIT']
     val_split = cfg['TRAIN']['VAL_SPLIT']
     test_split = cfg['TRAIN']['TEST_SPLIT']
     train_df, test_df = train_test_split(df, test_size=test_split)
+    test_df.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False) # Save train & test set for LIME
+    test_df.to_csv(cfg['PATHS']['TEST_SET'], sep=',', header=True, index=False)
     relative_val_split = val_split / (train_split + val_split)  # Calculate fraction of train_df to be used for validation
     train_df, val_df = train_test_split(train_df, test_size=relative_val_split)
+    train_df.drop('ClientID', axis=1, inplace=True)   # Anonymize clients
+    val_df.drop('ClientID', axis=1, inplace=True)
+    test_df.drop('ClientID', axis=1, inplace=True)
 
     # Separate ground truth from dataframe and convert to numpy arrays
     Y_train = np.array(train_df.pop('GroundTruth'))
@@ -75,6 +78,7 @@ def train_model(save_weights=True):
     train_df[noncat_features] = scaler.fit_transform(train_df[noncat_features])
     val_df[noncat_features] = scaler.transform(val_df[noncat_features])
     test_df[noncat_features] = scaler.transform(test_df[noncat_features])
+    dump(scaler, cfg['PATHS']['STD_SCALER'], compress=True)
 
     # Convert dataframes to numpy arrays
     X_train = np.array(train_df)
@@ -88,7 +92,7 @@ def train_model(save_weights=True):
     log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
     early_stopping = EarlyStopping(monitor='val_auc', verbose=1, patience=15, mode='max', restore_best_weights=True)
-    callbacks = [early_stopping, tensorboard]
+    callbacks = [early_stopping]
 
     # Define the model.
     model = model1(cfg['NN']['MODEL1'], (X_train.shape[-1],), metrics)   # Build model graph
@@ -119,7 +123,7 @@ def train_model(save_weights=True):
     metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
     #plot_metrics(history, metrics_to_plot, file_path=plot_path)
     #plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
-    #plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
+    plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
 
     if save_weights:
         save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
