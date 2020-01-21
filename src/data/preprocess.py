@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 import yaml
 import os
+from sklearn.compose import ColumnTransformer, make_column_transformer
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
 
 def load_df(path):
     '''
@@ -80,17 +82,30 @@ def vec_single_value_cat_features(df, sv_cat_features):
     :param sv_cat_features: The names of the categorical features to encode
     :return: dataframe containing one-hot encoded features, list of one-hot encoded feature names
     '''
-    vec_cat_features = []
-    cat_feature_idxs = [df.columns.get_loc(c) for c in sv_cat_features if c in df]   # List of categorical column indices
-    cat_value_names = {}    # Dictionary of categorical feature indices and corresponding names of feature values
+
+    # Convert single-valued categorical features to numeric data
+    cat_feature_idxs = [df.columns.get_loc(c) for c in sv_cat_features if c in df]  # List of categorical column indices
+    cat_value_names = {}  # Dictionary of categorical feature indices and corresponding names of feature values
+    col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(), sv_cat_features)])
+    df[sv_cat_features] = col_trans_ordinal.fit_transform(df)
+    # Preserve named values of each categorical feature
     for i in range(len(sv_cat_features)):
-        df_temp = pd.get_dummies(df[sv_cat_features[i]], prefix=sv_cat_features[i])  # Create temporary dataframe of this feature vectorized
-        value_names = [name[(name.index('_') + 1):] for name in df_temp.columns]    # Get list of values of this
-        cat_value_names[cat_feature_idxs[i]] = value_names
-        df = pd.concat((df, df_temp), axis=1)  # Concatenate temp one hot dataframe with original dataframe
-        df = df.drop(sv_cat_features[i], axis=1)  # Drop the original feature
-        vec_cat_features.extend(df_temp.columns)  # Keep track of vectorized feature columns
-    return df, vec_cat_features, cat_feature_idxs, cat_value_names
+        cat_value_names[cat_feature_idxs[i]] = col_trans_ordinal.transformers_[0][1].categories_[i]
+
+    # One hot encode the single-valued categorical features
+    col_trans_ohe = ColumnTransformer(transformers=[('col_trans_ohe', OneHotEncoder(sparse=False), sv_cat_features)])
+    df_ohe = df.copy()
+    df_ohe.drop(sv_cat_features, axis=1, inplace=True)
+    df_transformed = pd.DataFrame(np.array(col_trans_ohe.fit_transform(df)), index=df.index.copy())
+    ohe_feat_names = col_trans_ohe.get_feature_names()
+    df_ohe[ohe_feat_names] = df_transformed
+
+    interpretability_info = {}  # Store some information for later use in LIME
+    interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
+    interpretability_info['VEC_SV_CAT_FEATURES'] = ohe_feat_names
+    interpretability_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
+    interpretability_info['SV_CAT_VALUES'] = cat_value_names
+    return df, df_ohe, interpretability_info
 
 def process_timestamps(df):
     '''
@@ -391,7 +406,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")
-    df_ohe_clients, vec_sv_cat_features, sv_cat_feature_idxs, sv_cat_values = vec_single_value_cat_features(df_clients, sv_cat_features)
+    df_clients, df_ohe_clients, interpretability_info = vec_single_value_cat_features(df_clients, sv_cat_features)
 
     # Save processed dataset
     print("Saving data.")
@@ -400,11 +415,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # For producing interpretable results with categorical data:
     interpretability_info = {}
-    interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
     interpretability_info['MV_CAT_FEATURES'] = mv_cat_features
-    interpretability_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
-    interpretability_info['SV_CAT_FEATURE_IDXS'] = sv_cat_feature_idxs
-    interpretability_info['SV_CAT_VALUES'] = sv_cat_values
     interpretability_info['NON_CAT_FEATURES'] = noncategorical_features
     with open(config['PATHS']['INTERPRETABILITY'], 'w') as file:
         interpretability_doc = yaml.dump(interpretability_info, file)
@@ -417,6 +428,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True)
+    preprocess(n_weeks=None, load_gt=True, classify_cat_feats=True)
 
 
