@@ -104,7 +104,7 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], infer_datetime_format=True, errors='coerce')
     return df
 
-def remove_n_weeks(df, n_weeks, gt_end_date):
+def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats):
     '''
     Remove records from the dataframe that have timestamps in the n weeks leading up to the ground truth date
     :param df: Pandas dataframe
@@ -112,9 +112,15 @@ def remove_n_weeks(df, n_weeks, gt_end_date):
     :param gt_end_date: the date used for ground truth calculation
     :return: updated dataframe with the relevant rows removed
     '''
-    train_end_date = gt_end_date - timedelta(days=(n_weeks * 7))
-    df = df[df['ServiceStartDate'] <= train_end_date]
-    df.loc[df['ServiceEndDate'] > train_end_date, 'ServiceEndDate'] = train_end_date
+    train_end_date = gt_end_date - timedelta(days=(n_weeks * 7))    # Maximum for training set records
+    print("Train end date: ", train_end_date)
+    df = df[df['ServiceStartDate'] <= train_end_date]               # Delete rows where service occurred after this date
+    df['ServiceEndDate'] = df['ServiceEndDate'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
+
+    # Set features with dated events occurring after the maximum training set date to null
+    for feat in dated_feats:
+        idxs_to_update = df[df[feat] > train_end_date].index.tolist()
+        df.loc[idxs_to_update, dated_feats[feat]] = np.nan
     return df
 
 def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
@@ -330,7 +336,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
-    df = remove_n_weeks(df, N_WEEKS, gt_end_date)
+    df = remove_n_weeks(df, N_WEEKS, gt_end_date, config['DATA']['OTHER_TIMED_FEATURES'])
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total stays, monthly income.")
@@ -417,6 +423,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=32, load_gt=True, classify_cat_feats=False)
+    preprocess(n_weeks=16, load_gt=True, classify_cat_feats=True)
 
 

@@ -37,6 +37,14 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
+  OTHER_TIMED_FEATURES:
+      ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssential']
+      IncomeStartDate: ['IncomeType', 'MonthlyAmount']
+      HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'Diagnosed','SelfReported', 'Suspected']
+      ContributingFactorDateStart: ['ContributingFactor']
+      BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
+      LifeEventStartDate: ['LifeEvent']
+      SPDAT_Date: ['TotalScore']
 
 # Neural network models
 NN:
