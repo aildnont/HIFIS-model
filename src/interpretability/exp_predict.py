@@ -12,7 +12,7 @@ from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation
 
 
-def predict_and_explain(x, model, exp, ohe_col_transformer, num_features):
+def predict_and_explain(x, model, exp, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, num_features):
     '''
     Use the model to predict a single example and apply LIME to generate an explanation.
     :param x: An example (i.e. 1 client row)
@@ -33,6 +33,7 @@ def predict_and_explain(x, model, exp, ohe_col_transformer, num_features):
         x = np.insert(x, x.shape[1], [1], axis=1)  # Insert dummy column where GroundTruth would be
         x_ohe = ohe_col_transformer.transform(x)    # One hot encode the single-valued categorical features
         x_ohe = x_ohe[:,:-1]    # Remove the dummy column
+        x_ohe = scaler_col_transformer.transform(x_ohe)
         y = model.predict(x_ohe)    # Run prediction on the perturbations
         probs = np.concatenate([1.0 - y, y], axis=1)    # Compute class probabilities from the output of the model
         return probs
@@ -67,12 +68,11 @@ train_client_ids = train_df.pop('ClientID')
 test_client_ids = test_df.pop('ClientID')
 
 # Load data transformers
-scaler = load(cfg['PATHS']['STD_SCALER'])
+scaler_col_transformer = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
 ohe_col_transformer = load(cfg['PATHS']['OHE_COL_TRANSFORMER'])
 
 # Scale train and test set values
-train_df[noncat_features] = scaler.transform(train_df[noncat_features])
-test_df[noncat_features] = scaler.transform(test_df[noncat_features])
+noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
 
 # Convert datasets to numpy arrays
 X_train = np.array(train_df)
@@ -88,5 +88,5 @@ model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
 # Make a prediction and explain the rationale
 i = 0
-explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, 10)
+explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, 10)
 visualize_explanation(explanation)

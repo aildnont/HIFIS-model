@@ -133,4 +133,9 @@ def plot_horizon_search(results_df, file_path):
 
 
 def visualize_explanation(explanation):
+    '''
+    Visualize top LIME contributing features for an example.
+    :param explanation: Local explanation of example
+    '''
     explanation.as_pyplot_figure()
+    plt.tight_layout()
