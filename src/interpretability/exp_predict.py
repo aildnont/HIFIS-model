@@ -87,6 +87,6 @@ explainer = lime.lime_tabular.LimeTabularExplainer(X_train, feature_names=train_
 model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
 # Make a prediction and explain the rationale
-i = 0
+i = 1
 explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, 10)
-visualize_explanation(explanation)
+visualize_explanation(explanation, test_client_ids.loc[i], Y_test[i])

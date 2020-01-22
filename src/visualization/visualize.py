@@ -1,6 +1,7 @@
 from sklearn.metrics import confusion_matrix, roc_curve
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.backends.backend_agg import FigureCanvasAgg as fc
 import numpy as np
 from scipy import stats
 import datetime
@@ -132,10 +133,16 @@ def plot_horizon_search(results_df, file_path):
     return
 
 
-def visualize_explanation(explanation):
+def visualize_explanation(explanation, client_id, ground_truth):
     '''
     Visualize top LIME contributing features for an example.
     :param explanation: Local explanation of example
+    :param client_id: ClientID of example
+    :param ground_truth: GroundTruth of example
     '''
-    explanation.as_pyplot_figure()
+    fig = explanation.as_pyplot_figure()
+    probs = explanation.predict_proba
+    fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
+    fig.text(0.02, 0.96, "Client ID: " + str(client_id))
+    fig.text(0.02, 0.94, "Ground Truth: " + str(ground_truth))
     plt.tight_layout()
