@@ -4,6 +4,7 @@ import matplotlib as mpl
 import numpy as np
 from scipy import stats
 import datetime
+import lime
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
@@ -129,3 +130,7 @@ def plot_horizon_search(results_df, file_path):
     if file_path is not None:
         plt.savefig(file_path + 'horizon_experiment_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
+
+
+def visualize_explanation(explanation):
+    explanation.as_pyplot_figure()

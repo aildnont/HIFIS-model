@@ -5,6 +5,7 @@ results/*
 !data/processed/.gitkeep
 !data/interpretability/.gitkeep
 !data/raw/.gitkeep
+!data/transformers/.gitkeep
 !documents/.gitkeep
 !documents/images/.gitkeep
 !results/.gitkeep

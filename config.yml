@@ -11,7 +11,9 @@ PATHS:
   HORIZON_SEARCH: 'results/experiments/horizon_search.csv'
   TRAIN_SET: 'data/processed/Train_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
-  STD_SCALER: 'data/interpretability/std_scaler.bin'
+  STD_SCALER: 'data/transformers/std_scaler.bin'
+  ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
+  OHE_COL_TRANSFORMER: 'data/transformers/ohe_col_transformer.bin'
 
 # Constants pertaining to data structure
 DATA:

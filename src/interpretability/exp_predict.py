@@ -5,16 +5,40 @@ import numpy as np
 import lime
 import lime.lime_tabular
 from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
+from src.visualization.visualize import visualize_explanation
 
-def predict(client_data):
-    return
 
-def predict_and_explain(x, exp, sv_cat_features, idx):
-    for feature in sv_cat_features:
-        r = 0
-    return
+def predict_and_explain(x, model, exp, ohe_col_transformer, num_features):
+    '''
+    Use the model to predict a single example and apply LIME to generate an explanation.
+    :param x: An example (i.e. 1 client row)
+    :param model: The trained neural network model
+    :param exp: A LimeTabularExplainer object
+    :param sv_cat_features: List of single-valued categorical features
+    :param ohe_col_transformer: A column transformer for one hot encoding single-valued categorical features
+    :return: The LIME explainer for the instance
+    '''
+
+    def predict_instance(x):
+        '''
+        Helper function for LIME explainer. Runs model prediction on perturbations of the example.
+        :param x: List of perturbed examples from an example
+        :param x: number of top explainable features to report
+        :return: A numpy array constituting a list of class probabilities for each predicted perturbation
+        '''
+        x = np.insert(x, x.shape[1], [1], axis=1)  # Insert dummy column where GroundTruth would be
+        x_ohe = ohe_col_transformer.transform(x)    # One hot encode the single-valued categorical features
+        x_ohe = x_ohe[:,:-1]    # Remove the dummy column
+        y = model.predict(x_ohe)    # Run prediction on the perturbations
+        probs = np.concatenate([1.0 - y, y], axis=1)    # Compute class probabilities from the output of the model
+        return probs
+
+    explanation = exp.explain_instance(x, predict_instance, num_features=num_features)     # Generate explanation for the example
+    return explanation
 
 # Load project config data
 input_stream = open(os.getcwd() + "/config.yml", 'r')
@@ -38,14 +62,17 @@ test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 Y_train = np.array(train_df.pop('GroundTruth'))
 Y_test = np.array(test_df.pop('GroundTruth'))
 
-# Scale train and test set values
-scaler = load(cfg['PATHS']['STD_SCALER'])
-train_df[noncat_features] = scaler.transform(train_df[noncat_features])
-test_df[noncat_features] = scaler.transform(test_df[noncat_features])
-
 # Get list of client IDs
 train_client_ids = train_df.pop('ClientID')
 test_client_ids = test_df.pop('ClientID')
+
+# Load data transformers
+scaler = load(cfg['PATHS']['STD_SCALER'])
+ohe_col_transformer = load(cfg['PATHS']['OHE_COL_TRANSFORMER'])
+
+# Scale train and test set values
+train_df[noncat_features] = scaler.transform(train_df[noncat_features])
+test_df[noncat_features] = scaler.transform(test_df[noncat_features])
 
 # Convert datasets to numpy arrays
 X_train = np.array(train_df)
@@ -54,11 +81,12 @@ X_test = np.array(test_df)
 # Define the LIME explainer
 explainer = lime.lime_tabular.LimeTabularExplainer(X_train, feature_names=train_df.columns,
                                                    class_names=['0', '1'], categorical_features=sv_cat_feature_idxs,
-                                                   categorical_names=sv_cat_values, kernel_width=3)
+                                                   categorical_names=sv_cat_values)
 
 # Load trained model's weights
 model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
+# Make a prediction and explain the rationale
 i = 0
-predict_and_explain(X_test[i], explainer, sv_cat_features, i)
-
+explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, 10)
+visualize_explanation(explanation)
