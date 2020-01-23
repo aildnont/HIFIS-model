@@ -42,6 +42,7 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
+  LIME_NONCAT_FEATURES: []
 
 # Neural network models
 NN:

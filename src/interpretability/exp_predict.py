@@ -59,34 +59,33 @@ vec_sv_cat_features = cfg_feats['VEC_SV_CAT_FEATURES']
 train_df = pd.read_csv(cfg['PATHS']['TRAIN_SET'])
 test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 
-# Get ground truth values
-Y_train = np.array(train_df.pop('GroundTruth'))
-Y_test = np.array(test_df.pop('GroundTruth'))
-
-# Get list of client IDs
-train_client_ids = train_df.pop('ClientID')
-test_client_ids = test_df.pop('ClientID')
+# Get client IDs and corresponding ground truths
+Y_train = pd.concat([train_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+Y_test = pd.concat([test_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
 
 # Load data transformers
 scaler_col_transformer = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
 ohe_col_transformer = load(cfg['PATHS']['OHE_COL_TRANSFORMER'])
 
-# Scale train and test set values
+# Get indices of categorical and noncategorical featuress
 noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
+cat_feat_idxs = [i for i in range(len(test_df.columns)) if i not in noncat_feat_idxs]
 
 # Convert datasets to numpy arrays
 X_train = np.array(train_df)
 X_test = np.array(test_df)
 
 # Define the LIME explainer
-explainer = lime.lime_tabular.LimeTabularExplainer(X_train, feature_names=train_df.columns,
-                                                   class_names=['0', '1'], categorical_features=sv_cat_feature_idxs,
-                                                   categorical_names=sv_cat_values)
+train_labels = Y_train['GroundTruth'].to_numpy()
+explainer = lime.lime_tabular.LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
+                                                   categorical_features=cat_feat_idxs, categorical_names=sv_cat_values,
+                                                   training_labels=train_labels)
 
 # Load trained model's weights
 model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
 # Make a prediction and explain the rationale
-i = 1
-explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, 10)
-visualize_explanation(explanation, test_client_ids.loc[i], Y_test[i])
+client_id = 82644
+i = Y_test.index.get_loc(client_id)
+explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, 15)
+visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])

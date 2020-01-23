@@ -133,7 +133,7 @@ def plot_horizon_search(results_df, file_path):
     return
 
 
-def visualize_explanation(explanation, client_id, ground_truth):
+def visualize_explanation(explanation, client_id, client_gt):
     '''
     Visualize top LIME contributing features for an example.
     :param explanation: Local explanation of example
@@ -144,5 +144,5 @@ def visualize_explanation(explanation, client_id, ground_truth):
     probs = explanation.predict_proba
     fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
     fig.text(0.02, 0.96, "Client ID: " + str(client_id))
-    fig.text(0.02, 0.94, "Ground Truth: " + str(ground_truth))
+    fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()

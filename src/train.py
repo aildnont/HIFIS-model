@@ -64,7 +64,7 @@ def train_model(save_weights=True):
     random_state = np.random.randint(0, high=1000)
     train_df, test_df = train_test_split(df, test_size=test_split, random_state=random_state)
     train_df_prior, test_df_prior = train_test_split(df_prior, test_size=test_split, random_state=random_state)
-    test_df_prior.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False) # Save train & test set for LIME
+    train_df_prior.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False) # Save train & test set for LIME
     test_df_prior.to_csv(cfg['PATHS']['TEST_SET'], sep=',', header=True, index=False)
     relative_val_split = val_split / (train_split + val_split)  # Calculate fraction of train_df to be used for validation
     train_df, val_df = train_test_split(train_df, test_size=relative_val_split)

@@ -103,7 +103,8 @@ def vec_single_value_cat_features(df, sv_cat_features, config):
     ohe_feat_names = []
     for i in range(len(sv_cat_features)):
         for value in cat_value_names[cat_feature_idxs[i]]:
-            ohe_feat_names.append(sv_cat_features[i] + '_' + value)
+            ohe_feat_names.append(sv_cat_features[i] + '_' + str(value))
+    vec_sv_cat_features = ohe_feat_names
     for feat in df.columns:
         if feat not in sv_cat_features:
             ohe_feat_names.append(feat)
@@ -112,7 +113,7 @@ def vec_single_value_cat_features(df, sv_cat_features, config):
 
     interpretability_info = {}  # Store some information for later use in LIME
     interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
-    interpretability_info['VEC_SV_CAT_FEATURES'] = ohe_feat_names
+    interpretability_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
     interpretability_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
     interpretability_info['SV_CAT_VALUES'] = cat_value_names
     return df, df_ohe, interpretability_info
@@ -332,13 +333,13 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         df.drop(feature, axis=1, inplace=True)
 
     # Create a new boolean feature that indicates whether client has family
-    df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 1, 0)
-    noncategorical_features.append('HasFamily')
+    df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 'Y', 'N')
+    categorical_features.append('HasFamily')
     noncategorical_features.remove('FamilyID')
 
     # Convert yes/no features to boolean features
     print("Convert yes/no categorical features to boolean")
-    df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
+    #df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
 
     # Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
     df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
@@ -437,6 +438,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=None, load_gt=True, classify_cat_feats=False)
+    preprocess(n_weeks=16, load_gt=True, classify_cat_feats=True)
 
 
