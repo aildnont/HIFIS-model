@@ -9,6 +9,11 @@ PATHS:
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search.csv'
+  TRAIN_SET: 'data/processed/Train_Set.csv'
+  TEST_SET: 'data/processed/Test_Set.csv'
+  SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
+  ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
+  OHE_COL_TRANSFORMER: 'data/transformers/ohe_col_transformer.bin'
 
 # Constants pertaining to data structure
 DATA:
@@ -46,6 +51,7 @@ DATA:
       LifeEventStartDate: ['LifeEvent']
       SPDAT_Date: ['TotalScore']
 
+
 # Neural network models
 NN:
   MODEL1:
@@ -64,4 +70,4 @@ TRAIN:
   BATCH_SIZE: 128
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
-  RUNS_PER_N: 10
+  RUNS_PER_N: 100

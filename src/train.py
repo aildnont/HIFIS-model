@@ -1,10 +1,10 @@
 import pandas as pd
-import numpy as np
 import yaml
 import os
-import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.externals.joblib import dump
 from imblearn.over_sampling import RandomOverSampler
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
@@ -56,30 +56,44 @@ def train_model(save_weights=True):
 
     # Load and partition dataset
     df = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
-    df.drop('ClientID', axis=1, inplace=True)   # Anonymize clients
+    df_prior = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])   # Data prior to one hot encoding
     num_neg, num_pos = np.bincount(df['GroundTruth'])
     train_split = cfg['TRAIN']['TRAIN_SPLIT']
     val_split = cfg['TRAIN']['VAL_SPLIT']
     test_split = cfg['TRAIN']['TEST_SPLIT']
-    train_df, test_df = train_test_split(df, test_size=test_split)
+    random_state = np.random.randint(0, high=1000)
+    train_df, test_df = train_test_split(df, test_size=test_split, random_state=random_state)
+    train_df_prior, test_df_prior = train_test_split(df_prior, test_size=test_split, random_state=random_state)
+    train_df_prior.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False) # Save train & test set for LIME
+    test_df_prior.to_csv(cfg['PATHS']['TEST_SET'], sep=',', header=True, index=False)
     relative_val_split = val_split / (train_split + val_split)  # Calculate fraction of train_df to be used for validation
     train_df, val_df = train_test_split(train_df, test_size=relative_val_split)
+
+    # Anonymize clients
+    train_df.drop('ClientID', axis=1, inplace=True)
+    val_df.drop('ClientID', axis=1, inplace=True)
+    test_df.drop('ClientID', axis=1, inplace=True)
+
+    # Get indices of noncategorical features
+    noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
 
     # Separate ground truth from dataframe and convert to numpy arrays
     Y_train = np.array(train_df.pop('GroundTruth'))
     Y_val = np.array(val_df.pop('GroundTruth'))
     Y_test = np.array(test_df.pop('GroundTruth'))
 
-    # Normalize numerical data
-    scaler = StandardScaler()
-    train_df[noncat_features] = scaler.fit_transform(train_df[noncat_features])
-    val_df[noncat_features] = scaler.transform(val_df[noncat_features])
-    test_df[noncat_features] = scaler.transform(test_df[noncat_features])
-
     # Convert dataframes to numpy arrays
     X_train = np.array(train_df)
     X_val = np.array(val_df)
     X_test = np.array(test_df)
+
+    # Normalize numerical data
+    col_trans_scaler = ColumnTransformer(transformers=[('col_trans_ordinal', StandardScaler(), noncat_feat_idxs)],
+                                         remainder='passthrough')
+    X_train = col_trans_scaler.fit_transform(X_train)
+    X_val = col_trans_scaler.transform(X_val)
+    X_test = col_trans_scaler.transform(X_test)
+    dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
 
     # Define metrics.
     metrics = [BinaryAccuracy(name="accuracy"), Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
@@ -88,7 +102,7 @@ def train_model(save_weights=True):
     log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
     early_stopping = EarlyStopping(monitor='val_auc', verbose=1, patience=15, mode='max', restore_best_weights=True)
-    callbacks = [early_stopping, tensorboard]
+    callbacks = [early_stopping]
 
     # Define the model.
     model = model1(cfg['NN']['MODEL1'], (X_train.shape[-1],), metrics)   # Build model graph
@@ -119,7 +133,7 @@ def train_model(save_weights=True):
     metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
     #plot_metrics(history, metrics_to_plot, file_path=plot_path)
     #plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
-    #plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
+    plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
 
     if save_weights:
         save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights

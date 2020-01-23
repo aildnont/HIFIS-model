@@ -1,9 +1,11 @@
 from sklearn.metrics import confusion_matrix, roc_curve
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.backends.backend_agg import FigureCanvasAgg as fc
 import numpy as np
 from scipy import stats
 import datetime
+import lime
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
@@ -129,3 +131,18 @@ def plot_horizon_search(results_df, file_path):
     if file_path is not None:
         plt.savefig(file_path + 'horizon_experiment_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
+
+
+def visualize_explanation(explanation, client_id, client_gt):
+    '''
+    Visualize top LIME contributing features for an example.
+    :param explanation: Local explanation of example
+    :param client_id: ClientID of example
+    :param ground_truth: GroundTruth of example
+    '''
+    fig = explanation.as_pyplot_figure()
+    probs = explanation.predict_proba
+    fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
+    fig.text(0.02, 0.96, "Client ID: " + str(client_id))
+    fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
+    plt.tight_layout()
