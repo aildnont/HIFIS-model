@@ -136,15 +136,16 @@ def train_model(save_weights=True, write_logs=True):
     test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
     metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
     #plot_metrics(history, metrics_to_plot, file_path=plot_path)
-    #plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
-    #plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
+    roc_img = plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
+    cm_img = plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
 
-    # Log test set results in TensorBoard
+    # Log test set results and plots in TensorBoard
     if write_logs:
         writer = tf.summary.create_file_writer(logdir=log_dir)
         with writer.as_default():
             tf.summary.text(name='Test set metrics', data=tf.convert_to_tensor(test_summary_str), step=0)
-
+            tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)
+            tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
 
     if save_weights:
         save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
