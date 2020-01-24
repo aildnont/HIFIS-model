@@ -130,7 +130,7 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], infer_datetime_format=True, errors='coerce')
     return df
 
-def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats):
+def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats, cat_feats):
     '''
     Remove records from the dataframe that have timestamps in the n weeks leading up to the ground truth date
     :param df: Pandas dataframe
@@ -146,6 +146,7 @@ def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats):
     # Set features with dated events occurring after the maximum training set date to null
     for feat in dated_feats:
         idxs_to_update = df[df[feat] > train_end_date].index.tolist()
+        dated_feats[feat] = [f for f in dated_feats[feat] if f in cat_feats]
         df.loc[idxs_to_update, dated_feats[feat]] = np.nan
     return df
 
@@ -337,6 +338,10 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     print("Dropping some features.")
     for feature in config['DATA']['FEATURES_TO_DROP_FIRST']:
         df.drop(feature, axis=1, inplace=True)
+        if feature in noncategorical_features:
+            noncategorical_features.remove(feature)
+        elif feature in categorical_features:
+            categorical_features.remove(feature)
 
     # Create a new boolean feature that indicates whether client has family
     df['HasFamily'] = np.where((~df['FamilyID'].isnull()), 'Y', 'N')
@@ -362,7 +367,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
-    df = remove_n_weeks(df, N_WEEKS, gt_end_date, config['DATA']['OTHER_TIMED_FEATURES'])
+    df = remove_n_weeks(df, N_WEEKS, gt_end_date, config['DATA']['OTHER_TIMED_FEATURES'], categorical_features)
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total stays, monthly income.")
@@ -444,6 +449,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=16, load_gt=True, classify_cat_feats=True)
+    preprocess(n_weeks=32, load_gt=True, classify_cat_feats=True)
 
 

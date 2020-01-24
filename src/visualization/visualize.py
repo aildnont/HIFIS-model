@@ -1,15 +1,29 @@
 from sklearn.metrics import confusion_matrix, roc_curve
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib.backends.backend_agg import FigureCanvasAgg as fc
 import numpy as np
 from scipy import stats
 import datetime
-import lime
+import io
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
 
+def plot_to_tensor():
+    '''
+    Converts a matplotlib figure to an image tensor
+    :param figure: A matplotlib figure
+    :return: Tensorflow tensor representing the matplotlib image
+    '''
+    # Save the plot to a PNG in memory.
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+
+    image = tf.image.decode_png(buf.getvalue(), channels=4)     # Convert .png buffer to tensorflow image
+    image = tf.expand_dims(image, 0)     # Add the batch dimension
+    return image
 
 def plot_metrics(history, metrics, file_path=None):
     '''
@@ -57,7 +71,7 @@ def plot_roc(name, labels, predictions, file_path=None):
     ax.set_aspect('equal')
     if file_path is not None:
         plt.savefig(file_path + 'ROC_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
-    return
+    return plot_to_tensor()
 
 def plot_confusion_matrix(labels, predictions, p=0.5, file_path=None):
     '''
@@ -67,7 +81,7 @@ def plot_confusion_matrix(labels, predictions, p=0.5, file_path=None):
     :param p: Classification threshold
     '''
     plt.clf()
-    fig, ax = plt.subplots()
+    ax = plt.subplot()
     cm = confusion_matrix(labels, predictions > p)  # Calculate confusion matrix
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)  # Plot confusion matrix
     ax.figure.colorbar(im, ax=ax)
@@ -92,7 +106,7 @@ def plot_confusion_matrix(labels, predictions, p=0.5, file_path=None):
     # Print these statistics
     print('True (-)ves: ', cm[0][0], '\nFalse (+)ves: ', cm[0][1], '\nFalse (-)ves: ', cm[1][0], '\nTrue (+)ves: ',
           cm[1][1])
-    return
+    return plot_to_tensor()
 
 def plot_horizon_search(results_df, file_path):
     '''
