@@ -38,7 +38,7 @@ def predict_and_explain(x, model, exp, ohe_col_transformer, scaler_col_transform
         probs = np.concatenate([1.0 - y, y], axis=1)    # Compute class probabilities from the output of the model
         return probs
 
-    explanation = exp.explain_instance(x, predict_instance, num_features=num_features)     # Generate explanation for the example
+    explanation = exp.explain_instance(x, predict_instance, num_features=num_features, num_samples=150000)     # Generate explanation for the example
     return explanation
 
 # Load project config data

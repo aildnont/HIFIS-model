@@ -43,9 +43,9 @@ DATA:
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
   OTHER_TIMED_FEATURES:
-      ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssential']
+      ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
       IncomeStartDate: ['IncomeType', 'MonthlyAmount']
-      HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'Diagnosed','SelfReported', 'Suspected']
+      HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
       ContributingFactorDateStart: ['ContributingFactor']
       BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
       LifeEventStartDate: ['LifeEvent']
