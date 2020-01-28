@@ -23,7 +23,7 @@ DATA:
   N_INTERVAL: 4
   GROUND_TRUTH_DATE: '2020-01-09'
   CHRONIC_THRESHOLD: 180
-  FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate']
+  FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType','ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',

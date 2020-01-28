@@ -449,6 +449,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=32, load_gt=True, classify_cat_feats=True)
+    preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True)
 
 

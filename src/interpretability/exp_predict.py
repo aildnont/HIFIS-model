@@ -37,8 +37,7 @@ def predict_and_explain(x, model, exp, ohe_col_transformer, scaler_col_transform
         y = model.predict(x_ohe)    # Run prediction on the perturbations
         probs = np.concatenate([1.0 - y, y], axis=1)    # Compute class probabilities from the output of the model
         return probs
-
-    explanation = exp.explain_instance(x, predict_instance, num_features=num_features, num_samples=150000)     # Generate explanation for the example
+    explanation = exp.explain_instance(x, predict_instance, num_features=num_features, num_samples=50000)     # Generate explanation for the example
     return explanation
 
 # Load project config data
@@ -79,7 +78,7 @@ X_test = np.array(test_df)
 train_labels = Y_train['GroundTruth'].to_numpy()
 explainer = lime.lime_tabular.LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
                                                    categorical_features=cat_feat_idxs, categorical_names=sv_cat_values,
-                                                   training_labels=train_labels)
+                                                   training_labels=train_labels, kernel_width=1.25, feature_selection='lasso_path')
 
 # Load trained model's weights
 model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
@@ -87,5 +86,5 @@ model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 # Make a prediction and explain the rationale
 client_id = 82644
 i = Y_test.index.get_loc(client_id)
-explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, 15)
+explanation = predict_and_explain(X_test[i], model, explainer, ohe_col_transformer, scaler_col_transformer, noncat_feat_idxs, 10)
 visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])

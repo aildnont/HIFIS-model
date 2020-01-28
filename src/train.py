@@ -20,8 +20,8 @@ def get_class_weights(num_pos, num_neg):
     :param num_neg: # negative samples
     :return: A dictionary containing weights for each class
     '''
-    weight_neg = 0.5 * (num_neg + num_pos) / (num_neg)
-    weight_pos = 0.5 * (num_neg + num_pos) / (num_pos)
+    weight_neg = 0.8 * (num_neg + num_pos) / (num_neg)
+    weight_pos = 0.2 * (num_neg + num_pos) / (num_pos)
     class_weight = {0: weight_neg, 1: weight_pos}
     print("Class weights: Class 0 = {:.2f}, Class 1 = {:.2f}".format(weight_neg, weight_pos))
     return class_weight
