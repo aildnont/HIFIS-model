@@ -23,11 +23,12 @@ DATA:
   N_INTERVAL: 4
   GROUND_TRUTH_DATE: '2020-01-09'
   CHRONIC_THRESHOLD: 180
-  FEATURES_TO_DROP_FIRST: ['OrganizationID','DOB','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType','ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth']
+  FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
+                           'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','ServiceProvider']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                          'EducationStartDate','EducationEndDate']
+                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB']
   TIMED_SERVICE_FEATURES: ['Stay']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
@@ -49,7 +50,8 @@ DATA:
       ContributingFactorDateStart: ['ContributingFactor']
       BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
       LifeEventStartDate: ['LifeEvent']
-      SPDAT_Date: ['TotalScore']
+      SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
+      WatchConcernDateStart: ['WatchConcern']
 
 
 # Neural network models

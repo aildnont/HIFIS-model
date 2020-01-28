@@ -126,7 +126,7 @@ def process_timestamps(df):
     '''
     features_list = list(df)  # Get a list of features
     for feature in features_list:
-        if ('Date' in feature) or ('Start' in feature) or ('End' in feature):
+        if ('Date' in feature) or ('Start' in feature) or ('End' in feature) or (feature == 'DOB'):
             df[feature] = pd.to_datetime(df[feature], infer_datetime_format=True, errors='coerce')
     return df
 
@@ -148,6 +148,10 @@ def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats, cat_feats):
         idxs_to_update = df[df[feat] > train_end_date].index.tolist()
         dated_feats[feat] = [f for f in dated_feats[feat] if f in cat_feats]
         df.loc[idxs_to_update, dated_feats[feat]] = np.nan
+
+    # Update client age
+    if 'DOB' in df.columns:
+        df['CurrentAge'] = (train_end_date - df['DOB']).astype('<m8[Y]')
     return df
 
 def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
@@ -203,19 +207,15 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         # Determine if client meets ground truth threshold
         if gt_stays >= chronic_threshold:
             client_df['GroundTruth'] = 1
-            stats['num_pos'] += 1
-        else:
-            stats['num_neg'] += 1
         return client_df
 
     start_date = end_date - timedelta(days=days) # Get start of ground truth window
-    stats = {'num_neg': 0, 'num_pos': 0}  # Record number of clients in each class
     df['GroundTruth'] = 0
     df_temp = df.loc[(df['ServiceType'] == 'Stay')]
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     df_temp = df_temp.droplevel('ClientID', axis='index')
     df.update(df_temp)  # Update all rows with corresponding stay length and ground truth
-    return df, stats['num_pos'], stats['num_neg']
+    return df
 
 def calculate_client_features(df, end_date, counted_services):
     '''
@@ -363,7 +363,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
     if not load_gt:
         print("Calculating ground truth.")
-        df, num_pos, num_neg = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+        df = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
@@ -442,11 +442,12 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         interpretability_doc = yaml.dump(interpretability_info, file)
 
     # Log some useful stats
-    if not load_gt:
-        print("# clients in last year meeting homelessness criteria = ", num_pos)
-        print("# clients in last year meeting homelessness criteria = ", num_neg)
-        print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
-        print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
+    num_pos = df_clients['GroundTruth'].sum()   # Number of clients with positive ground truth
+    num_neg = df_clients.shape[0] - num_pos             # Number of clients with negative ground truth
+    print("# clients in last year meeting homelessness criteria = ", num_pos)
+    print("# clients in last year not meeting homelessness criteria = ", num_neg)
+    print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
+    print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
     preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True)
