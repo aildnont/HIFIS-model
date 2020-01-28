@@ -9,6 +9,7 @@ PATHS:
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search.csv'
+  LIME_EXPERIMENT: 'results/experiments/lime_experiment.csv'
   TRAIN_SET: 'data/processed/Train_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
@@ -72,4 +73,11 @@ TRAIN:
   BATCH_SIZE: 128
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
-  RUNS_PER_N: 100
+  RUNS_PER_N: 10
+
+# LIME
+LIME:
+  KERNEL_WIDTH: 1.75
+  FEATURE_SELECTION: 'lasso_path'
+  NUM_FEATURES: 10
+  NUM_SAMPLES: 50000
