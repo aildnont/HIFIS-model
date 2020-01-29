@@ -100,7 +100,7 @@ def train_model(save_weights=True, write_logs=True):
     metrics = [BinaryAccuracy(name="accuracy"), Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
 
     # Set callbacks.
-    early_stopping = EarlyStopping(monitor='val_auc', verbose=1, patience=15, mode='max', restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
     callbacks = [early_stopping]
     if write_logs:
         log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -136,8 +136,8 @@ def train_model(save_weights=True, write_logs=True):
     test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
     metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
     #plot_metrics(history, metrics_to_plot, file_path=plot_path)
-    roc_img = plot_roc("Test set", Y_test, test_predictions, file_path=plot_path)
-    cm_img = plot_confusion_matrix(Y_test, test_predictions, file_path=plot_path)
+    roc_img = plot_roc("Test set", Y_test, test_predictions, file_path=None)
+    cm_img = plot_confusion_matrix(Y_test, test_predictions, file_path=None)
 
     # Log test set results and plots in TensorBoard
     if write_logs:

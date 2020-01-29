@@ -372,6 +372,8 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total stays, monthly income.")
     df, numerical_service_features = calculate_client_features(df, gt_end_date, config['DATA']['COUNTED_SERVICE_FEATURES'])
+    noncategorical_features.extend(numerical_service_features)
+    noncategorical_features.extend(['IncomeTotal', 'TotalStays'])
 
     # Index dataframe by the service start column
     df = df.set_index('ServiceStartDate')
@@ -407,8 +409,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     noncat_feats_gone = [f for f in noncategorical_features if f not in df_clients.columns]
     for feature in noncat_feats_gone:
         noncategorical_features.remove(feature)
-    noncategorical_features.extend(numerical_service_features)
-    noncategorical_features.extend(['IncomeTotal', 'TotalStays'])
 
     # Replace all instances of NaN in the dataframe with 0 or "Unknown"
     df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")

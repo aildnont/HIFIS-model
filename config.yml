@@ -8,7 +8,8 @@ PATHS:
   MODEL_WEIGHTS: 'results/models/model.h5'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
-  HORIZON_SEARCH: 'results/experiments/horizon_search.csv'
+  HORIZON_SEARCH: 'results/experiments/horizon_search'
+  LIME_EXPERIMENT: 'results/experiments/lime_experiment'
   TRAIN_SET: 'data/processed/Train_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
@@ -24,11 +25,12 @@ DATA:
   GROUND_TRUTH_DATE: '2020-01-09'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
-                           'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','ServiceProvider']
+                           'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
+                           'ServiceProvider','WatchConcern']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB']
+                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB','TotalStays']
   TIMED_SERVICE_FEATURES: ['Stay']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
@@ -51,7 +53,7 @@ DATA:
       BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
       LifeEventStartDate: ['LifeEvent']
       SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-      WatchConcernDateStart: ['WatchConcern']
+      #WatchConcernDateStart: ['WatchConcern']
 
 
 # Neural network models
@@ -72,4 +74,11 @@ TRAIN:
   BATCH_SIZE: 128
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
-  RUNS_PER_N: 100
+  RUNS_PER_N: 10
+
+# LIME
+LIME:
+  KERNEL_WIDTH: 1.75
+  FEATURE_SELECTION: 'lasso_path'
+  NUM_FEATURES: 15
+  NUM_SAMPLES: 50000
