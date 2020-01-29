@@ -119,21 +119,35 @@ def train_model(save_weights=True, write_logs=True):
     if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
         X_train, Y_train = minority_oversample(X_train, Y_train)
 
-    # Train the model.
-    history = model.fit(X_train, Y_train, batch_size=cfg['TRAIN']['BATCH_SIZE'], epochs=cfg['TRAIN']['EPOCHS'],
-                      validation_data=(X_val, Y_val), callbacks=callbacks, class_weight=class_weight)
+    # Train model for a specified number of times and keep the one with the best target test metric
+    metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
+    best_value = 1000.0 if metric_monitor == 'loss' else 0.0
+    for i in range(cfg['TRAIN']['NUM_RUNS']):
+        print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
 
-    # Run the model on the test set and print the resulting performance metrics.
-    test_results = model.evaluate(X_test, Y_test)
-    test_metrics = {}
-    test_summary_str = [['**Metric**','**Value**']]
-    for metric, value in zip(model.metrics_names, test_results):
-        test_metrics[metric] = value
-        print(metric, ' = ', value)
-        test_summary_str.append([metric, str(value)])
+        # Train the model.
+        history = model.fit(X_train, Y_train, batch_size=cfg['TRAIN']['BATCH_SIZE'], epochs=cfg['TRAIN']['EPOCHS'],
+                          validation_data=(X_val, Y_val), callbacks=callbacks, class_weight=class_weight)
+
+        # Run the model on the test set and print the resulting performance metrics.
+        test_results = model.evaluate(X_test, Y_test)
+        test_metrics = {}
+        test_summary_str = [['**Metric**','**Value**']]
+        for metric, value in zip(model.metrics_names, test_results):
+            test_metrics[metric] = value
+            print(metric, ' = ', value)
+            test_summary_str.append([metric, str(value)])
+
+        # If this model outperforms the previous ones based on the specified metric, save this one.
+        if (((metric_monitor == 'loss') and (test_metrics[metric_monitor] < best_value))
+                or ((metric_monitor != 'loss') and (test_metrics[metric_monitor] > best_value))):
+            best_value = test_metrics[metric_monitor]
+            best_model = model
+            best_metrics = test_metrics
+    print("Best model test metrics: ", best_metrics)
 
     # Visualize metrics about the training process
-    test_predictions = model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
+    test_predictions = best_model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
     metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
     #plot_metrics(history, metrics_to_plot, file_path=plot_path)
     roc_img = plot_roc("Test set", Y_test, test_predictions, file_path=None)
@@ -148,9 +162,8 @@ def train_model(save_weights=True, write_logs=True):
             tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
 
     if save_weights:
-        save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
+        save_model(best_model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
     return test_metrics
-
 
 if __name__ == '__main__':
     results = train_model(save_weights=True, write_logs=True)
