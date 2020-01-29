@@ -11,6 +11,7 @@ from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from src.models.models import model1
+from src.custom.metrics import F1Score
 from src.visualization.visualize import *
 
 def get_class_weights(num_pos, num_neg):
@@ -97,13 +98,14 @@ def train_model(save_weights=True, write_logs=True):
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
 
     # Define metrics.
-    metrics = [BinaryAccuracy(name="accuracy"), Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
+    metrics = [BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc'),
+               F1Score(name='f1')]
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
     callbacks = [early_stopping]
     if write_logs:
-        log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
         tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
         callbacks.append(tensorboard)
 
@@ -148,8 +150,8 @@ def train_model(save_weights=True, write_logs=True):
 
     # Visualize metrics about the training process
     test_predictions = best_model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
-    metrics_to_plot = ['loss', 'auc', 'precision', 'recall']
-    #plot_metrics(history, metrics_to_plot, file_path=plot_path)
+    metrics_to_plot = ['loss', 'auc', 'precision', 'recall', 'f1']
+    plot_metrics(history, metrics_to_plot, file_path=plot_path)
     roc_img = plot_roc("Test set", Y_test, test_predictions, file_path=None)
     cm_img = plot_confusion_matrix(Y_test, test_predictions, file_path=None)
 
