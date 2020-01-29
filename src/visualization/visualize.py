@@ -34,7 +34,7 @@ def plot_metrics(history, metrics, file_path=None):
     plt.clf()
     for n, metric in enumerate(metrics):
         name = metric.replace("_"," ").capitalize()
-        plt.subplot(2,2,n+1)
+        plt.subplot(2,3,n+1)
         plt.plot(history.epoch,  history.history[metric], label='Train')    # Plot metric on training data
         plt.plot(history.epoch, history.history['val_'+metric], linestyle="--", label='Val')    # Plot metric on validation data
         plt.xlabel('Epoch')

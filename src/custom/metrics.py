@@ -7,6 +7,9 @@ from tensorflow.python.keras.utils.generic_utils import to_list
 from tensorflow.python.keras import backend as K
 
 class F1Score(Metric):
+    '''
+    Custom tf.keras metric that calculates the F1 Score
+    '''
 
     def __init__(self, thresholds=None, top_k=None, class_id=None, name=None, dtype=None):
         '''
