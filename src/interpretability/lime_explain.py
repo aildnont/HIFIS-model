@@ -1,6 +1,7 @@
 import pandas as pd
 import yaml
 import os
+import datetime
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.preprocessing import StandardScaler
@@ -67,12 +68,12 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     :param num_samples: # of times to perturb the example to be explained
     :param file_path: Path at which to save experiment results
     '''
-    NEG_EXP_PERIOD = 5      # We will explain positive to negative predicted examples at this ratio
+    NEG_EXP_PERIOD = 1      # We will explain positive to negative predicted examples at this ratio
     THRESHOLD = 0.5         # Classification threshold
     pos_exp_counter = 0     # Keeps track of how many positive examples are explained in a row
 
     # Define column names of the DataFrame representing the results
-    col_names = ['ClientID', 'GroundTruth', 'p(neg)', 'p(pos)']
+    col_names = ['ClientID', 'GroundTruth', 'Prediction', 'p(neg)', 'p(pos)']
     col_names.extend(['Exp_' + str(i) for i in range(num_features)])
 
     # Make predictions on the test set. Explain every positive prediction and some negative predictions
@@ -80,10 +81,12 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     for i in range(X_test.shape[0]):
         x = np.expand_dims(X_test[i], axis=0)
         y = np.squeeze(predict_instance(x, model, ohe_ct, scaler_ct).T, axis=1)     # Predict example
-        if y[1] >= THRESHOLD or pos_exp_counter >= NEG_EXP_PERIOD:
+        pred = 1 if y[1] >= THRESHOLD else 0        # Model's classification
+        client_id = Y_test.index[i]
+        gt = Y_test.loc[client_id, 'GroundTruth']   # Ground truth
+        if (pred == 1) or (gt == 1) or (pos_exp_counter >= NEG_EXP_PERIOD):
             print('Explaining test example ', i, '/', X_test.shape[0])
-            client_id = Y_test.index[i]
-            row = [client_id, Y_test.loc[client_id, 'GroundTruth'], y[0], y[1]]
+            row = [client_id, gt, pred, y[0], y[1]]
 
             # Explain this prediction
             explanation = predict_and_explain(X_test[i], model, exp, ohe_ct, scaler_ct, num_features, num_samples)
@@ -91,15 +94,15 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
             rows.append(row)
 
             # Ensure a negative prediction is explained for every NEG_EXP_PERIOD positive predictions
-            if y[1] >= THRESHOLD:
+            if pred == 1:
                 pos_exp_counter += 1
             else:
                 pos_exp_counter = 0
 
     # Convert results to a Pandas dataframe and save
     results_df = pd.DataFrame(rows, columns=col_names)
-    results_df.to_csv(file_path)
-    return
+    results_df.to_csv(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv')
+    return results_df
 
 # Load relevant constants from project config file
 input_stream = open(os.getcwd() + "/config.yml", 'r')
@@ -151,10 +154,10 @@ model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
 # Make a prediction and explain the rationale
 '''
-client_id = Y_test.index[0]
+client_id = 86244
 i = Y_test.index.get_loc(client_id)
 explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
 visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
 '''
 
-lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH)
+results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH)

@@ -4,6 +4,7 @@ from src.visualization.visualize import plot_horizon_search
 import pandas as pd
 import os
 import yaml
+import datetime
 
 def horizon_search():
     # Load relevant values from config
@@ -26,13 +27,15 @@ def horizon_search():
         # Train the model several times at this prediction horizon
         results_df = pd.DataFrame()
         for i in range(RUNS_PER_N):
-            results = train_model(save_weights=False)
+            print('** n = ', n, ' of ', N_MAX, '; i = ', i, ' of ', RUNS_PER_N)
+            results = train_model(save_weights=False, write_logs=False)
             results_df = results_df.append(pd.DataFrame.from_records([results]))
         results_df.insert(0, 'n', n)    # Add prediction horizon to test results
         test_metrics_df = test_metrics_df.append(results_df)    # Append results from this value of n
 
     # Save results
-    test_metrics_df.to_csv(cfg['PATHS']['HORIZON_SEARCH'], sep=',', header=True, index=False)
+    test_metrics_df.to_csv(cfg['PATHS']['HORIZON_SEARCH'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
+                           sep=',', header=True, index=False)
 
     # Plot results
     plot_horizon_search(test_metrics_df, cfg['PATHS']['IMAGES'])
