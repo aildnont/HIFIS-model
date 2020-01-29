@@ -68,12 +68,13 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     :param num_samples: # of times to perturb the example to be explained
     :param file_path: Path at which to save experiment results
     '''
+    run_start = datetime.datetime.today()    # Record start time of experiment
     NEG_EXP_PERIOD = 1      # We will explain positive to negative predicted examples at this ratio
     THRESHOLD = 0.5         # Classification threshold
     pos_exp_counter = 0     # Keeps track of how many positive examples are explained in a row
 
     # Define column names of the DataFrame representing the results
-    col_names = ['ClientID', 'GroundTruth', 'Prediction', 'p(neg)', 'p(pos)']
+    col_names = ['ClientID', 'GroundTruth', 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
     col_names.extend(['Exp_' + str(i) for i in range(num_features)])
 
     # Make predictions on the test set. Explain every positive prediction and some negative predictions
@@ -84,9 +85,21 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
         pred = 1 if y[1] >= THRESHOLD else 0        # Model's classification
         client_id = Y_test.index[i]
         gt = Y_test.loc[client_id, 'GroundTruth']   # Ground truth
+
+        # Determine classification of this example compared to ground truth
+        if pred == 1 and gt == 1:
+            classification = 'TP'
+        elif pred == 1 and gt == 0:
+            classification = 'FP'
+        elif pred == 0 and gt == 1:
+            classification = 'FN'
+        else:
+            classification = 'TN'
+
+        # Explain this example.
         if (pred == 1) or (gt == 1) or (pos_exp_counter >= NEG_EXP_PERIOD):
             print('Explaining test example ', i, '/', X_test.shape[0])
-            row = [client_id, gt, pred, y[0], y[1]]
+            row = [client_id, gt, pred, classification, y[0], y[1]]
 
             # Explain this prediction
             explanation = predict_and_explain(X_test[i], model, exp, ohe_ct, scaler_ct, num_features, num_samples)
@@ -102,6 +115,7 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     # Convert results to a Pandas dataframe and save
     results_df = pd.DataFrame(rows, columns=col_names)
     results_df.to_csv(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv')
+    print("Runtime = ", ((datetime.datetime.today() - run_start).seconds / 60), " min")  # Print runtime of experiment
     return results_df
 
 # Load relevant constants from project config file
