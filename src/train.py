@@ -10,6 +10,7 @@ from imblearn.over_sampling import RandomOverSampler
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
+from tensorboard.plugins.hparams import api as hp
 from src.models.models import model1
 from src.custom.metrics import F1Score
 from src.visualization.visualize import *
@@ -129,6 +130,39 @@ def multi_train(cfg, data, model, callbacks, class_weight):
     print("Best model test metrics: ", best_metrics)
     return best_model, best_metrics
 
+def hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log_dir):
+    hparams = {}
+    HP_NODES = hp.HParam('nodes_dense0', hp.Discrete(cfg['TRAIN']['HP']['NODES']))
+    dropout_vals = cfg['TRAIN']['HP']['DROPOUT']
+    HP_DROPOUT = hp.HParam('dropout', hp.RealInterval(dropout_vals[0], dropout_vals[1]))
+    lr_vals = cfg['TRAIN']['HP']['LR']
+    HP_LR = hp.HParam('dropout', hp.RealInterval(lr_vals[0], lr_vals[1]))
+    hp_metrics = [hp.Metric(metric, display_name=metric) for metric in cfg['TRAIN']['HP']['METRICS']]
+    hparams[HP_NODES] = HP_NODES
+    hparams[HP_DROPOUT] = HP_DROPOUT
+    hparams[HP_LR] = HP_LR
+
+    with tf.summary.create_file_writer(log_dir).as_default():
+        hp.hparams_config(hparams=[HP_NODES, HP_DROPOUT, HP_LR], metrics=hp_metrics)
+
+    session_num = 0
+    for nodes in HP_NODES.domain.values:
+        for dropout in (HP_DROPOUT.domain.min_value, HP_DROPOUT.domain.max_value):
+            for lr in (HP_LR.domain.min_value, HP_LR.domain.max_value):
+                hparams = {
+                    'HP_NODES': nodes,
+                    'HP_DROPOUT': dropout,
+                    'HP_LR': lr,
+                }
+                run_name = "run-%d" % session_num
+                print('--- Starting trial: %s' % run_name)
+                print({h: hparams[h] for h in hparams})
+                model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)  # Build model graph
+                callbacks_hp = callbacks + [hp.KerasCallback(log_dir, hparams)]
+                print(callbacks_hp)
+                model, test_metrics = train_model(cfg, data, model, callbacks_hp, class_weight)
+                session_num += 1
+    return model, test_metrics
 
 def train_experiment(save_weights=True, write_logs=True):
     '''
@@ -148,8 +182,7 @@ def train_experiment(save_weights=True, write_logs=True):
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
 
     # Define metrics.
-    metrics = [BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc'),
-               F1Score(name='f1')]
+    metrics = [BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc')]
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
@@ -168,7 +201,9 @@ def train_experiment(save_weights=True, write_logs=True):
         class_weight = get_class_weights(num_pos, num_neg)
 
     # Train a model
-    model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+    model, test_metrics = multi_train(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), callbacks, class_weight, log_dir)
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
