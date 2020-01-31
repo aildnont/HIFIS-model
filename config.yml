@@ -5,7 +5,7 @@ PATHS:
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   INTERPRETABILITY: './data/interpretability/feature_info.yml'
-  MODEL_WEIGHTS: 'results/models/model.h5'
+  MODEL_WEIGHTS: 'results/models/model'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -82,7 +82,9 @@ TRAIN:
     DROPOUT: [0.1, 0.4]
     LR: [0.0001, 0.002]
     NODES: [100, 125]
-    METRICS: ['accuracy', 'recall']
+    METRICS: ['accuracy', 'loss', 'recall']
+    COMBINATIONS: 3
+    REPEATS: 2
 
 # LIME
 LIME:

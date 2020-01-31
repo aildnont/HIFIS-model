@@ -17,10 +17,10 @@ def model1(config, input_dim, metrics, hparams=None):
         nodes_dense0 = config['NODES']['DENSE0']
         nodes_dense1 = config['NODES']['DENSE1']
     else:
-        dropout = hparams['HP_DROPOUT']
-        lr = hparams['HP_LR']
-        nodes_dense0 = hparams['HP_NODES']
-        nodes_dense1 = hparams['HP_NODES']
+        dropout = hparams['DROPOUT']
+        lr = hparams['LR']
+        nodes_dense0 = hparams['NODES']
+        nodes_dense1 = hparams['NODES']
 
     # Define model architecture.
     model = Sequential(name='HIFIS-v2-1')

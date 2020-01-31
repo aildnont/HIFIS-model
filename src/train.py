@@ -1,7 +1,9 @@
 import pandas as pd
 import yaml
 import os
+import random
 import tensorflow as tf
+from six.moves import xrange
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
@@ -111,7 +113,6 @@ def train_model(cfg, data, model, callbacks, class_weight):
 
 
 def multi_train(cfg, data, model, callbacks, class_weight):
-
     # Train model for a specified number of times and keep the one with the best target test metric
     metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
     best_value = 1000.0 if metric_monitor == 'loss' else 0.0
@@ -130,38 +131,50 @@ def multi_train(cfg, data, model, callbacks, class_weight):
     print("Best model test metrics: ", best_metrics)
     return best_model, best_metrics
 
-def hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log_dir):
-    hparams = {}
-    HP_NODES = hp.HParam('nodes_dense0', hp.Discrete(cfg['TRAIN']['HP']['NODES']))
+def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log_dir):
+    '''
+    Conduct a random hyperparameter search over the ranges given for the hyperparameters in config.yml and log results
+    in TensorBoard. Model is trained x times for y random combinations of hyperparameters.
+    :param cfg: Project config
+    :param data: Dict containing the partitioned datasets
+    :param metrics: List of model metrics
+    :param shape: Shape of input examples
+    :param callbacks: List of callbacks (excluding TensorBoard)
+    :param class_weight: Weight for calculation of loss function for each class
+    :param log_dir: Base directory in which to store logs
+    :return: (Last model trained, esultant test set metrics)
+    '''
+
+    # Define HParam objects for each hyperparameter we wish to tune.
+    HP_NODES = hp.HParam('NODES', hp.Discrete(cfg['TRAIN']['HP']['NODES']))
     dropout_vals = cfg['TRAIN']['HP']['DROPOUT']
-    HP_DROPOUT = hp.HParam('dropout', hp.RealInterval(dropout_vals[0], dropout_vals[1]))
+    HP_DROPOUT = hp.HParam('DROPOUT', hp.RealInterval(dropout_vals[0], dropout_vals[1]))
     lr_vals = cfg['TRAIN']['HP']['LR']
-    HP_LR = hp.HParam('dropout', hp.RealInterval(lr_vals[0], lr_vals[1]))
-    hp_metrics = [hp.Metric(metric, display_name=metric) for metric in cfg['TRAIN']['HP']['METRICS']]
-    hparams[HP_NODES] = HP_NODES
-    hparams[HP_DROPOUT] = HP_DROPOUT
-    hparams[HP_LR] = HP_LR
+    HP_LR = hp.HParam('LR', hp.RealInterval(lr_vals[0], lr_vals[1]))
+    HPARAMS = [HP_DROPOUT, HP_LR, HP_NODES]
 
+    # Define metrics that we wish to log to TensorBoard for each training run
+    HP_METRICS = [hp.Metric('epoch_' + metric, group='validation', display_name='Val ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
+
+    # Configure TensorBoard to log the results
     with tf.summary.create_file_writer(log_dir).as_default():
-        hp.hparams_config(hparams=[HP_NODES, HP_DROPOUT, HP_LR], metrics=hp_metrics)
+        hp.hparams_config(hparams=HPARAMS, metrics=HP_METRICS)
 
-    session_num = 0
-    for nodes in HP_NODES.domain.values:
-        for dropout in (HP_DROPOUT.domain.min_value, HP_DROPOUT.domain.max_value):
-            for lr in (HP_LR.domain.min_value, HP_LR.domain.max_value):
-                hparams = {
-                    'HP_NODES': nodes,
-                    'HP_DROPOUT': dropout,
-                    'HP_LR': lr,
-                }
-                run_name = "run-%d" % session_num
-                print('--- Starting trial: %s' % run_name)
-                print({h: hparams[h] for h in hparams})
-                model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)  # Build model graph
-                callbacks_hp = callbacks + [hp.KerasCallback(log_dir, hparams)]
-                print(callbacks_hp)
-                model, test_metrics = train_model(cfg, data, model, callbacks_hp, class_weight)
-                session_num += 1
+    # Complete a number of training runs at different hparam values and log the results.
+    repeats_per_combo = cfg['TRAIN']['HP']['REPEATS']   # Number of times to train the model per combination of hparams
+    num_combos = cfg['TRAIN']['HP']['COMBINATIONS']     # Number of random combinations of hparams to attempt
+    num_sessions = num_combos * repeats_per_combo       # Total number of runs in this experiment
+    for group_index in xrange(num_combos):
+        rand = random.Random()
+        hparams = {h.name: h.domain.sample_uniform(rand) for h in HPARAMS}  # To pass to model definition
+        HPARAMS = {h: h.domain.sample_uniform(rand) for h in HPARAMS}
+        for trial_id in xrange(repeats_per_combo):
+            print("Running training session %d/%d" % (trial_id, num_sessions))
+            trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
+            callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0),
+                                        hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
+            model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)
+            model, test_metrics = train_model(cfg, data, model, callbacks_hp, class_weight)
     return model, test_metrics
 
 def train_experiment(save_weights=True, write_logs=True):
@@ -182,7 +195,7 @@ def train_experiment(save_weights=True, write_logs=True):
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
 
     # Define metrics.
-    metrics = [BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc')]
+    metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc')]
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
@@ -201,9 +214,9 @@ def train_experiment(save_weights=True, write_logs=True):
         class_weight = get_class_weights(num_pos, num_neg)
 
     # Train a model
-    #model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
-    model, test_metrics = multi_train(cfg, data, model, callbacks, class_weight)
-    #model, test_metrics = hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), callbacks, class_weight, log_dir)
+    model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = multi_train(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], class_weight, log_dir)
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
@@ -222,9 +235,9 @@ def train_experiment(save_weights=True, write_logs=True):
             tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
 
     if save_weights:
-        save_model(model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
+        save_model(model, cfg['PATHS']['MODEL_WEIGHTS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.h5')        # Save model weights
     return test_metrics
 
 if __name__ == '__main__':
-    results = train_experiment(save_weights=True, write_logs=True)
+    results = train_experiment(save_weights=False, write_logs=True)
 
