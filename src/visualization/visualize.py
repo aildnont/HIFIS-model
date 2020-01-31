@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 from scipy import stats
+import pandas as pd
 import datetime
 import io
+from math import floor
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
@@ -160,3 +162,54 @@ def visualize_explanation(explanation, client_id, client_gt):
     fig.text(0.02, 0.96, "Client ID: " + str(client_id))
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()
+
+def visualize_avg_explanations(results_df, file_path=None):
+    '''
+    Builds a graph for visualizing the average weights of LIME explanations over all provided explanations
+    :param results_df: Output dataframe of running a LIME experiment to explain multiple predictions
+    :param file_path: The path at which to save the resulting image
+    '''
+
+    # Concatenate all feature explanations and their corresponding weights for each example
+    exp_cols = [col for col in results_df.columns if ('Exp' in col)]
+    weight_cols = [col for col in results_df.columns if ('Weight' in col)]
+    exps = np.concatenate([results_df[[exp_cols[i], weight_cols[i]]].values for i in range(len(exp_cols))], axis=0)
+    exps_df = pd.DataFrame(exps, columns=['Exp', 'Weight']).astype({'Weight' : 'float64'})
+
+    # Compute the average weight for each distinct feature explanation (e.g. TotalScore > 0)
+    avg_exps = exps_df.groupby('Exp', as_index=False).agg({'Weight' : np.mean}).sort_values(by='Weight').values
+    exps = [x[0] for x in avg_exps]
+    weights = [x[1] for x in avg_exps]
+
+    # Plot the results
+    ax = plt.subplot()
+    colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and neagive weights
+    positions = np.arange(len(exps))    # Positions for bars on y axis
+    ax.barh(positions, weights, align='center', color=colours)  # Plot a horizontal bar graph of the average weights
+
+    # Print the average weight in the center of its corresponding bar
+    for bar, weight in zip(ax.patches, weights):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                color='white', ha='center', va='center', fontweight='semibold')
+
+    # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
+    ax.set_yticks(positions)
+    ax.set_yticklabels(exps)
+    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
+    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
+
+    # Display a grid behind the bars.
+    ax.grid(True, which='major')
+    ax.grid(True, which='minor', axis='x', linewidth=1, linestyle=':')
+    ax.set_axisbelow(True)
+
+    # Set plot axis labels and title.
+    ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
+    ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
+    ax.set_title("Average Weights for LIME Explanations on Test Set", pad=15, size=20)   # Set title
+    plt.tight_layout()      # Ensure rule labels are not cut off the image
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + 'LIME_Explanations_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
