@@ -3,13 +3,14 @@ import yaml
 import os
 import datetime
 import numpy as np
+from ast import literal_eval
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
-from src.visualization.visualize import visualize_explanation
+from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
 
 
 def predict_instance(x, model, ohe_ct, scaler_ct):
@@ -55,7 +56,7 @@ def predict_and_explain(x, model, exp, ohe_ct, scaler_ct, num_features, num_samp
     explanation = exp.explain_instance(x, predict, num_features=num_features, num_samples=num_samples)
     return explanation
 
-def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features, num_samples, file_path):
+def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features, num_samples, file_path, all=False):
     '''
     Conduct an experiment to assess the predictions of all predicted positive and some negative cases in the test set.
     :param X_test: Numpy array of the test set
@@ -75,7 +76,8 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
 
     # Define column names of the DataFrame representing the results
     col_names = ['ClientID', 'GroundTruth', 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
-    col_names.extend(['Exp_' + str(i) for i in range(num_features)])
+    for i in range(num_features):
+        col_names.extend(['Exp_' + str(i), 'Weight_' + str(i)])
 
     # Make predictions on the test set. Explain every positive prediction and some negative predictions
     rows = []
@@ -97,13 +99,15 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
             classification = 'TN'
 
         # Explain this example.
-        if (pred == 1) or (gt == 1) or (pos_exp_counter >= NEG_EXP_PERIOD):
+        if (pred == 1) or (gt == 1) or (pos_exp_counter >= NEG_EXP_PERIOD) or all:
             print('Explaining test example ', i, '/', X_test.shape[0])
             row = [client_id, gt, pred, classification, y[0], y[1]]
 
             # Explain this prediction
             explanation = predict_and_explain(X_test[i], model, exp, ohe_ct, scaler_ct, num_features, num_samples)
-            row.extend(explanation.as_list())
+            exp_tuples = explanation.as_list()
+            for exp_tuple in exp_tuples:
+                row.extend(list(exp_tuple))
             rows.append(row)
 
             # Ensure a negative prediction is explained for every NEG_EXP_PERIOD positive predictions
@@ -113,7 +117,7 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
                 pos_exp_counter = 0
 
     # Convert results to a Pandas dataframe and save
-    results_df = pd.DataFrame(rows, columns=col_names)
+    results_df = pd.DataFrame(rows, columns=col_names).set_index('ClientID')
     results_df.to_csv(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv')
     print("Runtime = ", ((datetime.datetime.today() - run_start).seconds / 60), " min")  # Print runtime of experiment
     return results_df
@@ -174,4 +178,5 @@ explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct, scaler_ct
 visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
 '''
 
-results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH)
+results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=True)
+visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
