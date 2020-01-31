@@ -5,7 +5,7 @@ PATHS:
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   INTERPRETABILITY: './data/interpretability/feature_info.yml'
-  MODEL_WEIGHTS: 'results/models/model.h5'
+  MODEL_WEIGHTS: 'results/models/model'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -64,6 +64,7 @@ NN:
       DENSE1: 100
     L2_LAMBDA: 0.01
     DROPOUT: 0.3
+    LR: 0.001
 
 # Training
 TRAIN:
@@ -75,8 +76,15 @@ TRAIN:
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
   METRIC_MONITOR: 'recall'
-  NUM_RUNS: 1
+  NUM_RUNS: 10
   RUNS_PER_N: 10
+  HP:
+    DROPOUT: [0.1, 0.4]
+    LR: [0.0001, 0.002]
+    NODES: [100, 125]
+    METRICS: ['accuracy', 'loss', 'recall']
+    COMBINATIONS: 3
+    REPEATS: 2
 
 # LIME
 LIME:

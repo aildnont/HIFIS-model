@@ -1,7 +1,9 @@
 import pandas as pd
 import yaml
 import os
+import random
 import tensorflow as tf
+from six.moves import xrange
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
@@ -10,6 +12,7 @@ from imblearn.over_sampling import RandomOverSampler
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
+from tensorboard.plugins.hparams import api as hp
 from src.models.models import model1
 from src.custom.metrics import F1Score
 from src.visualization.visualize import *
@@ -39,27 +42,16 @@ def minority_oversample(X_train, Y_train):
     print("Train set shape before oversampling: ", X_train.shape, " Train set shape after resampling: ", X_resampled.shape)
     return X_resampled, Y_resampled
 
-def train_model(save_weights=True, write_logs=True):
-    '''
-    Defines and trains HIFIS-v2 model. Prints and logs relevant metrics.
-    :param save_weights: A flag indicating whether to save the model weights
-    :return: A dictionary of metrics on the test set
-    '''
-
-    # Load project config data
-    input_stream = open(os.getcwd() + "/config.yml", 'r')
-    cfg = yaml.full_load(input_stream)
+def load_dataset(cfg):
 
     # Load config data generated from preprocessing
     input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
-    cfg_gen = yaml.full_load(input_stream)
-    noncat_features = cfg_gen['NON_CAT_FEATURES']   # Noncategorical features to be scaled
-    plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
+    feature_info = yaml.full_load(input_stream)
+    noncat_features = feature_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
 
     # Load and partition dataset
     df_ohe = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
     df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])   # Data prior to one hot encoding
-    num_neg, num_pos = np.bincount(df_ohe['GroundTruth'])
     train_split = cfg['TRAIN']['TRAIN_SPLIT']
     val_split = cfg['TRAIN']['VAL_SPLIT']
     test_split = cfg['TRAIN']['TEST_SPLIT']
@@ -80,26 +72,130 @@ def train_model(save_weights=True, write_logs=True):
     noncat_feat_idxs = [test_df_ohe.columns.get_loc(c) for c in noncat_features if c in test_df_ohe]
 
     # Separate ground truth from dataframe and convert to numpy arrays
-    Y_train = np.array(train_df_ohe.pop('GroundTruth'))
-    Y_val = np.array(val_df_ohe.pop('GroundTruth'))
-    Y_test = np.array(test_df_ohe.pop('GroundTruth'))
+    data = {}
+    data['Y_train'] = np.array(train_df_ohe.pop('GroundTruth'))
+    data['Y_val'] = np.array(val_df_ohe.pop('GroundTruth'))
+    data['Y_test'] = np.array(test_df_ohe.pop('GroundTruth'))
 
-    # Convert dataframes to numpy arrays
-    X_train = np.array(train_df_ohe)
-    X_val = np.array(val_df_ohe)
-    X_test = np.array(test_df_ohe)
+    # Convert feature dataframes to numpy arrays
+    data['X_train'] = np.array(train_df_ohe)
+    data['X_val'] = np.array(val_df_ohe)
+    data['X_test'] = np.array(test_df_ohe)
 
-    # Normalize numerical data
+    # Oversample minority class
+    if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
+        data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'])
+
+    # Normalize numerical data and save the scaler for prediction.
     col_trans_scaler = ColumnTransformer(transformers=[('col_trans_ordinal', StandardScaler(), noncat_feat_idxs)],
                                          remainder='passthrough')
-    X_train = col_trans_scaler.fit_transform(X_train)
-    X_val = col_trans_scaler.transform(X_val)
-    X_test = col_trans_scaler.transform(X_test)
+    data['X_train'] = col_trans_scaler.fit_transform(data['X_train'])   # Only fit train data to prevent data leakage
+    data['X_val'] = col_trans_scaler.transform(data['X_val'])
+    data['X_test'] = col_trans_scaler.transform(data['X_test'])
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
+    return data
+
+def train_model(cfg, data, model, callbacks, class_weight):
+    # Train the model.
+    history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
+                        epochs=cfg['TRAIN']['EPOCHS'],
+                        validation_data=(data['X_val'], data['Y_val']), callbacks=callbacks, class_weight=class_weight)
+
+    # Run the model on the test set and print the resulting performance metrics.
+    test_results = model.evaluate(data['X_test'], data['Y_test'])
+    test_metrics = {}
+    test_summary_str = [['**Metric**', '**Value**']]
+    for metric, value in zip(model.metrics_names, test_results):
+        test_metrics[metric] = value
+        print(metric, ' = ', value)
+        test_summary_str.append([metric, str(value)])
+    return model, test_metrics
+
+
+def multi_train(cfg, data, model, callbacks, class_weight):
+    # Train model for a specified number of times and keep the one with the best target test metric
+    metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
+    best_value = 1000.0 if metric_monitor == 'loss' else 0.0
+    for i in range(cfg['TRAIN']['NUM_RUNS']):
+        print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
+
+        # Train the model and evaluate performance on test set
+        model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+
+        # If this model outperforms the previous ones based on the specified metric, save this one.
+        if (((metric_monitor == 'loss') and (test_metrics[metric_monitor] < best_value))
+                or ((metric_monitor != 'loss') and (test_metrics[metric_monitor] > best_value))):
+            best_value = test_metrics[metric_monitor]
+            best_model = model
+            best_metrics = test_metrics
+    print("Best model test metrics: ", best_metrics)
+    return best_model, best_metrics
+
+def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log_dir):
+    '''
+    Conduct a random hyperparameter search over the ranges given for the hyperparameters in config.yml and log results
+    in TensorBoard. Model is trained x times for y random combinations of hyperparameters.
+    :param cfg: Project config
+    :param data: Dict containing the partitioned datasets
+    :param metrics: List of model metrics
+    :param shape: Shape of input examples
+    :param callbacks: List of callbacks (excluding TensorBoard)
+    :param class_weight: Weight for calculation of loss function for each class
+    :param log_dir: Base directory in which to store logs
+    :return: (Last model trained, esultant test set metrics)
+    '''
+
+    # Define HParam objects for each hyperparameter we wish to tune.
+    HP_NODES = hp.HParam('NODES', hp.Discrete(cfg['TRAIN']['HP']['NODES']))
+    dropout_vals = cfg['TRAIN']['HP']['DROPOUT']
+    HP_DROPOUT = hp.HParam('DROPOUT', hp.RealInterval(dropout_vals[0], dropout_vals[1]))
+    lr_vals = cfg['TRAIN']['HP']['LR']
+    HP_LR = hp.HParam('LR', hp.RealInterval(lr_vals[0], lr_vals[1]))
+    HPARAMS = [HP_DROPOUT, HP_LR, HP_NODES]
+
+    # Define metrics that we wish to log to TensorBoard for each training run
+    HP_METRICS = [hp.Metric('epoch_' + metric, group='validation', display_name='Val ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
+
+    # Configure TensorBoard to log the results
+    with tf.summary.create_file_writer(log_dir).as_default():
+        hp.hparams_config(hparams=HPARAMS, metrics=HP_METRICS)
+
+    # Complete a number of training runs at different hparam values and log the results.
+    repeats_per_combo = cfg['TRAIN']['HP']['REPEATS']   # Number of times to train the model per combination of hparams
+    num_combos = cfg['TRAIN']['HP']['COMBINATIONS']     # Number of random combinations of hparams to attempt
+    num_sessions = num_combos * repeats_per_combo       # Total number of runs in this experiment
+    for group_index in xrange(num_combos):
+        rand = random.Random()
+        hparams = {h.name: h.domain.sample_uniform(rand) for h in HPARAMS}  # To pass to model definition
+        HPARAMS = {h: h.domain.sample_uniform(rand) for h in HPARAMS}
+        for trial_id in xrange(repeats_per_combo):
+            print("Running training session %d/%d" % (trial_id, num_sessions))
+            trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
+            callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0),
+                                        hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
+            model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)
+            model, test_metrics = train_model(cfg, data, model, callbacks_hp, class_weight)
+    return model, test_metrics
+
+def train_experiment(save_weights=True, write_logs=True):
+    '''
+    Defines and trains HIFIS-v2 model. Prints and logs relevant metrics.
+    :param save_weights: A flag indicating whether to save the model weights
+    :return: A dictionary of metrics on the test set
+    '''
+
+    # Load project config data
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    cfg = yaml.full_load(input_stream)
+
+    # Load preprocessed data and partition into training, validation and test sets.
+    data = load_dataset(cfg)
+
+    num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
+    plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
 
     # Define metrics.
-    metrics = [BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc'),
-               F1Score(name='f1')]
+    metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc')]
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
@@ -110,63 +206,38 @@ def train_model(save_weights=True, write_logs=True):
         callbacks.append(tensorboard)
 
     # Define the model.
-    model = model1(cfg['NN']['MODEL1'], (X_train.shape[-1],), metrics)   # Build model graph
+    model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics)   # Build model graph
 
     # Calculate class weights
     class_weight = None
     if cfg['TRAIN']['CLASS_WEIGHT']:
         class_weight = get_class_weights(num_pos, num_neg)
 
-    # Oversample minority class
-    if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
-        X_train, Y_train = minority_oversample(X_train, Y_train)
+    # Train a model
+    model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = multi_train(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], class_weight, log_dir)
 
-    # Train model for a specified number of times and keep the one with the best target test metric
-    metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
-    best_value = 1000.0 if metric_monitor == 'loss' else 0.0
-    for i in range(cfg['TRAIN']['NUM_RUNS']):
-        print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
-
-        # Train the model.
-        history = model.fit(X_train, Y_train, batch_size=cfg['TRAIN']['BATCH_SIZE'], epochs=cfg['TRAIN']['EPOCHS'],
-                          validation_data=(X_val, Y_val), callbacks=callbacks, class_weight=class_weight)
-
-        # Run the model on the test set and print the resulting performance metrics.
-        test_results = model.evaluate(X_test, Y_test)
-        test_metrics = {}
-        test_summary_str = [['**Metric**','**Value**']]
-        for metric, value in zip(model.metrics_names, test_results):
-            test_metrics[metric] = value
-            print(metric, ' = ', value)
-            test_summary_str.append([metric, str(value)])
-
-        # If this model outperforms the previous ones based on the specified metric, save this one.
-        if (((metric_monitor == 'loss') and (test_metrics[metric_monitor] < best_value))
-                or ((metric_monitor != 'loss') and (test_metrics[metric_monitor] > best_value))):
-            best_value = test_metrics[metric_monitor]
-            best_model = model
-            best_metrics = test_metrics
-    print("Best model test metrics: ", best_metrics)
-
-    # Visualize metrics about the training process
-    test_predictions = best_model.predict(X_test, batch_size=cfg['TRAIN']['BATCH_SIZE'])
-    metrics_to_plot = ['loss', 'auc', 'precision', 'recall', 'f1']
-    plot_metrics(history, metrics_to_plot, file_path=plot_path)
-    roc_img = plot_roc("Test set", Y_test, test_predictions, file_path=None)
-    cm_img = plot_confusion_matrix(Y_test, test_predictions, file_path=None)
+    # Visualization of test results
+    test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
+    roc_img = plot_roc("Test set", data['Y_test'], test_predictions, file_path=None)
+    cm_img = plot_confusion_matrix(data['Y_test'], test_predictions, file_path=None)
 
     # Log test set results and plots in TensorBoard
     if write_logs:
         writer = tf.summary.create_file_writer(logdir=log_dir)
+        test_summary_str = [['**Metric**','**Value**']]
+        for metric in test_metrics:
+            test_summary_str.append([metric, str(test_metrics[metric])])
         with writer.as_default():
             tf.summary.text(name='Test set metrics', data=tf.convert_to_tensor(test_summary_str), step=0)
             tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)
             tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
 
     if save_weights:
-        save_model(best_model, cfg['PATHS']['MODEL_WEIGHTS'])        # Save model weights
+        save_model(model, cfg['PATHS']['MODEL_WEIGHTS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.h5')        # Save model weights
     return test_metrics
 
 if __name__ == '__main__':
-    results = train_model(save_weights=True, write_logs=True)
+    results = train_experiment(save_weights=False, write_logs=True)
 
