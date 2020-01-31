@@ -198,12 +198,15 @@ def visualize_avg_explanations(results_df, file_path=None):
     ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
     ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
 
-    # Display a grid behind the bars
+    # Display a grid behind the bars.
     ax.grid(True, which='major')
     ax.grid(True, which='minor', axis='x', linewidth=1, linestyle=':')
     ax.set_axisbelow(True)
 
-    ax.set_title("Average Weights for LIME Explanations on Test Set", size='x-large')   # Set title
+    # Set plot axis labels and title.
+    ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
+    ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
+    ax.set_title("Average Weights for LIME Explanations on Test Set", pad=15, size=20)   # Set title
     plt.tight_layout()      # Ensure rule labels are not cut off the image
 
     # Save the image
