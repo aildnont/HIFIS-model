@@ -193,6 +193,7 @@ def train_experiment(save_weights=True, write_logs=True):
 
     num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
+    cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
     # Define metrics.
     metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc')]
@@ -201,7 +202,7 @@ def train_experiment(save_weights=True, write_logs=True):
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
     callbacks = [early_stopping]
     if write_logs:
-        log_dir = cfg['PATHS']['LOGS'] + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        log_dir = cfg['PATHS']['LOGS'] + cur_date
         tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
         callbacks.append(tensorboard)
 
@@ -235,9 +236,10 @@ def train_experiment(save_weights=True, write_logs=True):
             tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
 
     if save_weights:
-        save_model(model, cfg['PATHS']['MODEL_WEIGHTS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.h5')        # Save model weights
+        model_path = os.path.splitext(cfg['PATHS']['MODEL_WEIGHTS'])[0] + cur_date + '.h5'
+        save_model(model, model_path)        # Save model weights
     return test_metrics
 
 if __name__ == '__main__':
-    results = train_experiment(save_weights=False, write_logs=True)
+    results = train_experiment(save_weights=True, write_logs=True)
 
