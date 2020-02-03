@@ -146,12 +146,15 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log
     '''
 
     # Define HParam objects for each hyperparameter we wish to tune.
-    HP_NODES = hp.HParam('NODES', hp.Discrete(cfg['TRAIN']['HP']['NODES']))
-    dropout_vals = cfg['TRAIN']['HP']['DROPOUT']
-    HP_DROPOUT = hp.HParam('DROPOUT', hp.RealInterval(dropout_vals[0], dropout_vals[1]))
-    lr_vals = cfg['TRAIN']['HP']['LR']
-    HP_LR = hp.HParam('LR', hp.RealInterval(lr_vals[0], lr_vals[1]))
-    HPARAMS = [HP_DROPOUT, HP_LR, HP_NODES]
+    hp_ranges = cfg['TRAIN']['HP']['RANGES']
+    HP_NODES0 = hp.HParam('NODES0', hp.Discrete(hp_ranges['NODES0']))
+    HP_NODES1 = hp.HParam('NODES1', hp.Discrete(hp_ranges['NODES1']))
+    HP_DROPOUT = hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1]))
+    HP_L2_LAMBDA = hp.HParam('L2_LAMBDA', hp.RealInterval(hp_ranges['L2_LAMBDA'][0], hp_ranges['L2_LAMBDA'][1]))
+    HP_LR = hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1]))
+    HP_OPTIMIZER = hp.HParam('OPTIMIZER', hp.Discrete(hp_ranges['OPTIMIZER']))
+    HP_BATCH_SIZE = hp.HParam('BATCH_SIZE', hp.Discrete(hp_ranges['BATCH_SIZE']))
+    HPARAMS = [HP_NODES0, HP_NODES1, HP_DROPOUT, HP_L2_LAMBDA, HP_LR, HP_OPTIMIZER, HP_BATCH_SIZE]
 
     # Define metrics that we wish to log to TensorBoard for each training run
     HP_METRICS = [hp.Metric('epoch_' + metric, group='validation', display_name='Val ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
@@ -170,10 +173,12 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log
         HPARAMS = {h: h.domain.sample_uniform(rand) for h in HPARAMS}
         for trial_id in xrange(repeats_per_combo):
             print("Running training session %d/%d" % (trial_id, num_sessions))
+            print("Hparam values: ", {h.name: HPARAMS[h] for h in HPARAMS})
             trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
             callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0),
                                         hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
             model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)
+            cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']  # This hparam is not set in model definition
             model, test_metrics = train_model(cfg, data, model, callbacks_hp, class_weight)
     return model, test_metrics
 
@@ -215,9 +220,9 @@ def train_experiment(save_weights=True, write_logs=True):
         class_weight = get_class_weights(num_pos, num_neg)
 
     # Train a model
-    model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+    #model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
     #model, test_metrics = multi_train(cfg, data, model, callbacks, class_weight)
-    #model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], class_weight, log_dir)
+    model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], class_weight, log_dir)
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])

@@ -71,7 +71,7 @@ TRAIN:
   TRAIN_SPLIT: 0.8
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
-  EPOCHS: 100
+  EPOCHS: 200
   BATCH_SIZE: 128
   CLASS_WEIGHT: true
   MINORITY_OVERSAMPLE: false
@@ -79,12 +79,17 @@ TRAIN:
   NUM_RUNS: 10
   RUNS_PER_N: 10
   HP:
-    DROPOUT: [0.1, 0.4]
-    LR: [0.0001, 0.002]
-    NODES: [100, 125]
-    METRICS: ['accuracy', 'loss', 'recall']
-    COMBINATIONS: 3
-    REPEATS: 2
+    METRICS: ['accuracy', 'loss', 'recall', 'precision']
+    COMBINATIONS: 50
+    REPEATS: 3
+    RANGES:
+      NODES0: [100, 125, 150]
+      NODES1: [75, 100, 125]
+      DROPOUT: [0.15, 0.5]
+      LR: [-4.0, -2.5]  # Logarithmic scale (10^x)
+      OPTIMIZER: ['adam', 'sgd']
+      L2_LAMBDA: [-4.0, -2.0]   # Logarithmic scale (10^x)
+      BATCH_SIZE: [64, 128, 256]
 
 # LIME
 LIME:
