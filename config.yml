@@ -5,7 +5,7 @@ PATHS:
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   INTERPRETABILITY: './data/interpretability/feature_info.yml'
-  MODEL_WEIGHTS: 'results/models/model'
+  MODEL_WEIGHTS: 'results/models/model.h5'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
