@@ -8,24 +8,24 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.externals.joblib import dump
-from imblearn.over_sampling import RandomOverSampler
+from imblearn.over_sampling import RandomOverSampler, SMOTE
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
-from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau
 from tensorboard.plugins.hparams import api as hp
 from src.models.models import model1
 from src.custom.metrics import F1Score
 from src.visualization.visualize import *
 
-def get_class_weights(num_pos, num_neg):
+def get_class_weights(num_pos, num_neg, pos_weight=0.5):
     '''
     Computes weights for each class to be applied in the loss function during training.
     :param num_pos: # positive samples
     :param num_neg: # negative samples
     :return: A dictionary containing weights for each class
     '''
-    weight_neg = 0.5 * (num_neg + num_pos) / (num_neg)
-    weight_pos = 0.5 * (num_neg + num_pos) / (num_pos)
+    weight_neg = (1 - pos_weight) * (num_neg + num_pos) / (num_neg)
+    weight_pos = pos_weight * (num_neg + num_pos) / (num_pos)
     class_weight = {0: weight_neg, 1: weight_pos}
     print("Class weights: Class 0 = {:.2f}, Class 1 = {:.2f}".format(weight_neg, weight_pos))
     return class_weight
@@ -37,9 +37,15 @@ def minority_oversample(X_train, Y_train):
     :param Y_train: Training set labels
     :return: A new training set containing oversampled examples
     '''
-    ros = RandomOverSampler(random_state=0)
+    ros = RandomOverSampler(random_state=np.random.randint(0, high=1000))
     X_resampled, Y_resampled = ros.fit_resample(X_train, Y_train)
     print("Train set shape before oversampling: ", X_train.shape, " Train set shape after resampling: ", X_resampled.shape)
+    return X_resampled, Y_resampled
+
+def smote(X_train, Y_train):
+    smote = SMOTE(random_state=np.random.randint(0, high=1000))
+    X_resampled, Y_resampled = smote.fit_resample(X_train, Y_train)
+    print("Train set shape before SMOTE: ", X_train.shape, " Train set shape after SMOTE: ", X_resampled.shape)
     return X_resampled, Y_resampled
 
 def load_dataset(cfg):
@@ -85,6 +91,8 @@ def load_dataset(cfg):
     # Oversample minority class
     if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
         data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'])
+    elif cfg['TRAIN']['SMOTE']:
+        data['X_train'], data['Y_train'] = smote(data['X_train'], data['Y_train'])
 
     # Normalize numerical data and save the scaler for prediction.
     col_trans_scaler = ColumnTransformer(transformers=[('col_trans_ordinal', StandardScaler(), noncat_feat_idxs)],
@@ -95,11 +103,18 @@ def load_dataset(cfg):
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
     return data
 
-def train_model(cfg, data, model, callbacks, class_weight):
+def train_model(cfg, data, model, callbacks, verbose=1):
+
+    # Calculate class weights
+    num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
+    class_weight = None
+    if cfg['TRAIN']['CLASS_WEIGHT']:
+        class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
+
     # Train the model.
     history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
-                        epochs=cfg['TRAIN']['EPOCHS'],
-                        validation_data=(data['X_val'], data['Y_val']), callbacks=callbacks, class_weight=class_weight)
+                        epochs=cfg['TRAIN']['EPOCHS'], validation_data=(data['X_val'], data['Y_val']),
+                        callbacks=callbacks, class_weight=class_weight, verbose=verbose)
 
     # Run the model on the test set and print the resulting performance metrics.
     test_results = model.evaluate(data['X_test'], data['Y_test'])
@@ -112,7 +127,7 @@ def train_model(cfg, data, model, callbacks, class_weight):
     return model, test_metrics
 
 
-def multi_train(cfg, data, model, callbacks, class_weight):
+def multi_train(cfg, data, model, callbacks):
     # Train model for a specified number of times and keep the one with the best target test metric
     metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
     best_value = 1000.0 if metric_monitor == 'loss' else 0.0
@@ -120,7 +135,7 @@ def multi_train(cfg, data, model, callbacks, class_weight):
         print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
 
         # Train the model and evaluate performance on test set
-        model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
+        model, test_metrics = train_model(cfg, data, model, callbacks)
 
         # If this model outperforms the previous ones based on the specified metric, save this one.
         if (((metric_monitor == 'loss') and (test_metrics[metric_monitor] < best_value))
@@ -131,7 +146,7 @@ def multi_train(cfg, data, model, callbacks, class_weight):
     print("Best model test metrics: ", best_metrics)
     return best_model, best_metrics
 
-def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log_dir):
+def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
     '''
     Conduct a random hyperparameter search over the ranges given for the hyperparameters in config.yml and log results
     in TensorBoard. Model is trained x times for y random combinations of hyperparameters.
@@ -140,21 +155,23 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log
     :param metrics: List of model metrics
     :param shape: Shape of input examples
     :param callbacks: List of callbacks (excluding TensorBoard)
-    :param class_weight: Weight for calculation of loss function for each class
     :param log_dir: Base directory in which to store logs
     :return: (Last model trained, esultant test set metrics)
     '''
 
     # Define HParam objects for each hyperparameter we wish to tune.
     hp_ranges = cfg['TRAIN']['HP']['RANGES']
-    HP_NODES0 = hp.HParam('NODES0', hp.Discrete(hp_ranges['NODES0']))
-    HP_NODES1 = hp.HParam('NODES1', hp.Discrete(hp_ranges['NODES1']))
-    HP_DROPOUT = hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1]))
-    HP_L2_LAMBDA = hp.HParam('L2_LAMBDA', hp.RealInterval(hp_ranges['L2_LAMBDA'][0], hp_ranges['L2_LAMBDA'][1]))
-    HP_LR = hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1]))
-    HP_OPTIMIZER = hp.HParam('OPTIMIZER', hp.Discrete(hp_ranges['OPTIMIZER']))
-    HP_BATCH_SIZE = hp.HParam('BATCH_SIZE', hp.Discrete(hp_ranges['BATCH_SIZE']))
-    HPARAMS = [HP_NODES0, HP_NODES1, HP_DROPOUT, HP_L2_LAMBDA, HP_LR, HP_OPTIMIZER, HP_BATCH_SIZE]
+    HPARAMS = []
+    HPARAMS.append(hp.HParam('NODES', hp.Discrete(hp_ranges['NODES'])))
+    HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
+    HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
+    HPARAMS.append(hp.HParam('L2_LAMBDA', hp.RealInterval(hp_ranges['L2_LAMBDA'][0], hp_ranges['L2_LAMBDA'][1])))
+    HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
+    HPARAMS.append(hp.HParam('BETA_1', hp.RealInterval(hp_ranges['BETA_1'][0], hp_ranges['BETA_1'][1])))
+    HPARAMS.append(hp.HParam('BETA_2', hp.RealInterval(hp_ranges['BETA_2'][0], hp_ranges['BETA_2'][1])))
+    HPARAMS.append(hp.HParam('OPTIMIZER', hp.Discrete(hp_ranges['OPTIMIZER'])))
+    HPARAMS.append(hp.HParam('BATCH_SIZE', hp.Discrete(hp_ranges['BATCH_SIZE'])))
+    HPARAMS.append(hp.HParam('POS_WEIGHT', hp.RealInterval(hp_ranges['POS_WEIGHT'][0], hp_ranges['POS_WEIGHT'][1])))
 
     # Define metrics that we wish to log to TensorBoard for each training run
     HP_METRICS = [hp.Metric('epoch_' + metric, group='validation', display_name='Val ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
@@ -167,19 +184,22 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, class_weight, log
     repeats_per_combo = cfg['TRAIN']['HP']['REPEATS']   # Number of times to train the model per combination of hparams
     num_combos = cfg['TRAIN']['HP']['COMBINATIONS']     # Number of random combinations of hparams to attempt
     num_sessions = num_combos * repeats_per_combo       # Total number of runs in this experiment
-    for group_index in xrange(num_combos):
+    trial_id = 0
+    for group_idx in xrange(num_combos):
         rand = random.Random()
         hparams = {h.name: h.domain.sample_uniform(rand) for h in HPARAMS}  # To pass to model definition
         HPARAMS = {h: h.domain.sample_uniform(rand) for h in HPARAMS}
-        for trial_id in xrange(repeats_per_combo):
+        for repeat_idx in xrange(repeats_per_combo):
+            trial_id += 1
             print("Running training session %d/%d" % (trial_id, num_sessions))
             print("Hparam values: ", {h.name: HPARAMS[h] for h in HPARAMS})
             trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
-            callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0),
+            callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0, write_graph=False),
                                         hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
             model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)
             cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']  # This hparam is not set in model definition
-            model, test_metrics = train_model(cfg, data, model, callbacks_hp, class_weight)
+            cfg['TRAIN']['POS_WEIGHT'] = hparams['POS_WEIGHT']  # This hparam is not set in model definition
+            model, test_metrics = train_model(cfg, data, model, callbacks_hp, verbose=2)
     return model, test_metrics
 
 def train_experiment(save_weights=True, write_logs=True):
@@ -196,7 +216,6 @@ def train_experiment(save_weights=True, write_logs=True):
     # Load preprocessed data and partition into training, validation and test sets.
     data = load_dataset(cfg)
 
-    num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
     cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
@@ -205,6 +224,7 @@ def train_experiment(save_weights=True, write_logs=True):
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.0001, verbose=1)
     callbacks = [early_stopping]
     if write_logs:
         log_dir = cfg['PATHS']['LOGS'] + cur_date
@@ -214,15 +234,10 @@ def train_experiment(save_weights=True, write_logs=True):
     # Define the model.
     model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics)   # Build model graph
 
-    # Calculate class weights
-    class_weight = None
-    if cfg['TRAIN']['CLASS_WEIGHT']:
-        class_weight = get_class_weights(num_pos, num_neg)
-
     # Train a model
-    #model, test_metrics = train_model(cfg, data, model, callbacks, class_weight)
-    #model, test_metrics = multi_train(cfg, data, model, callbacks, class_weight)
-    model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], class_weight, log_dir)
+    #model, test_metrics = train_model(cfg, data, model, callbacks)
+    #model, test_metrics = multi_train(cfg, data, model, callbacks)
+    model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])

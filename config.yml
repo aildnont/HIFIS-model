@@ -60,36 +60,42 @@ DATA:
 NN:
   MODEL1:
     NODES:
-      DENSE0: 100
-      DENSE1: 100
+      DENSE0: 80
+      DENSE1: 80
+    LAYERS: 2
     L2_LAMBDA: 0.01
     DROPOUT: 0.3
-    LR: 0.001
+    LR: 0.0005
 
 # Training
 TRAIN:
   TRAIN_SPLIT: 0.8
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
-  EPOCHS: 200
-  BATCH_SIZE: 128
+  EPOCHS: 300
+  BATCH_SIZE: 64
   CLASS_WEIGHT: true
+  POS_WEIGHT: 0.60
   MINORITY_OVERSAMPLE: false
+  SMOTE: false
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   RUNS_PER_N: 10
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision']
-    COMBINATIONS: 50
-    REPEATS: 3
+    COMBINATIONS: 60
+    REPEATS: 2
     RANGES:
-      NODES0: [100, 125, 150]
-      NODES1: [75, 100, 125]
-      DROPOUT: [0.15, 0.5]
-      LR: [-4.0, -2.5]  # Logarithmic scale (10^x)
-      OPTIMIZER: ['adam', 'sgd']
-      L2_LAMBDA: [-4.0, -2.0]   # Logarithmic scale (10^x)
-      BATCH_SIZE: [64, 128, 256]
+      NODES: [30, 40, 50, 60, 70, 80]
+      LAYERS: [2, 2]
+      DROPOUT: [0.3, 0.3]
+      LR: [-3.0, -3.0]  # Logarithmic scale (10^x)
+      OPTIMIZER: ['adam']
+      BETA_1: [-1.0, -1.0]  # 1st moment for Adam. Log scale (1 - 10^x)
+      BETA_2: [-3.0, -3.0]  # 2nd moment for Adam. Log scale (1 - 10^x)
+      L2_LAMBDA: [-2.0, -2.0]   # Logarithmic scale (10^x)
+      BATCH_SIZE: [128, 128]
+      POS_WEIGHT: [0.5, 0.5]  # Weight multiplier for positive class
 
 # LIME
 LIME:
