@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.externals.joblib import dump
-from imblearn.over_sampling import RandomOverSampler, SMOTE
+from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau
@@ -46,6 +46,12 @@ def smote(X_train, Y_train):
     smote = SMOTE(random_state=np.random.randint(0, high=1000))
     X_resampled, Y_resampled = smote.fit_resample(X_train, Y_train)
     print("Train set shape before SMOTE: ", X_train.shape, " Train set shape after SMOTE: ", X_resampled.shape)
+    return X_resampled, Y_resampled
+
+def adasyn(X_train, Y_train):
+    adasyn = ADASYN(random_state=np.random.randint(0, high=1000))
+    X_resampled, Y_resampled = adasyn.fit_resample(X_train, Y_train)
+    print("Train set shape before ADASYN: ", X_train.shape, " Train set shape after ADASYN: ", X_resampled.shape)
     return X_resampled, Y_resampled
 
 def load_dataset(cfg):
@@ -88,12 +94,6 @@ def load_dataset(cfg):
     data['X_val'] = np.array(val_df_ohe)
     data['X_test'] = np.array(test_df_ohe)
 
-    # Oversample minority class
-    if cfg['TRAIN']['MINORITY_OVERSAMPLE']:
-        data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'])
-    elif cfg['TRAIN']['SMOTE']:
-        data['X_train'], data['Y_train'] = smote(data['X_train'], data['Y_train'])
-
     # Normalize numerical data and save the scaler for prediction.
     col_trans_scaler = ColumnTransformer(transformers=[('col_trans_ordinal', StandardScaler(), noncat_feat_idxs)],
                                          remainder='passthrough')
@@ -101,14 +101,25 @@ def load_dataset(cfg):
     data['X_val'] = col_trans_scaler.transform(data['X_val'])
     data['X_test'] = col_trans_scaler.transform(data['X_test'])
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
+
+
+
     return data
 
 def train_model(cfg, data, model, callbacks, verbose=1):
 
+    # Oversample minority class
+    if cfg['TRAIN']['IMB_STRATEGY'] == 'minority_oversample':
+        data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'])
+    elif cfg['TRAIN']['IMB_STRATEGY'] == 'smote':
+        data['X_train'], data['Y_train'] = smote(data['X_train'], data['Y_train'])
+    elif cfg['TRAIN']['IMB_STRATEGY'] == 'adasyn':
+        data['X_train'], data['Y_train'] = adasyn(data['X_train'], data['Y_train'])
+
     # Calculate class weights
     num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
     class_weight = None
-    if cfg['TRAIN']['CLASS_WEIGHT']:
+    if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight':
         class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
 
     # Train the model.
@@ -172,9 +183,11 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
     HPARAMS.append(hp.HParam('OPTIMIZER', hp.Discrete(hp_ranges['OPTIMIZER'])))
     HPARAMS.append(hp.HParam('BATCH_SIZE', hp.Discrete(hp_ranges['BATCH_SIZE'])))
     HPARAMS.append(hp.HParam('POS_WEIGHT', hp.RealInterval(hp_ranges['POS_WEIGHT'][0], hp_ranges['POS_WEIGHT'][1])))
+    HPARAMS.append(hp.HParam('IMB_STRATEGY', hp.Discrete(hp_ranges['IMB_STRATEGY'])))
 
     # Define metrics that we wish to log to TensorBoard for each training run
     HP_METRICS = [hp.Metric('epoch_' + metric, group='validation', display_name='Val ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
+    HP_METRICS.append(hp.Metric('epoch_loss', group='train', display_name='Train loss'))    # Help catch overfitting
 
     # Configure TensorBoard to log the results
     with tf.summary.create_file_writer(log_dir).as_default():
@@ -199,6 +212,12 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
             model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)
             cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']  # This hparam is not set in model definition
             cfg['TRAIN']['POS_WEIGHT'] = hparams['POS_WEIGHT']  # This hparam is not set in model definition
+            if hparams['IMB_STRATEGY'] == 'class_weight':
+                cfg['CLASS_WEIGHT'] = True
+            if hparams['IMB_STRATEGY'] == 'min_oversample':
+                cfg['MINORITY_OVERSAMPLE'] = True
+            if hparams['IMB_STRATEGY'] == 'smote':
+                cfg['SMOTE'] = True
             model, test_metrics = train_model(cfg, data, model, callbacks_hp, verbose=2)
     return model, test_metrics
 
@@ -235,9 +254,9 @@ def train_experiment(save_weights=True, write_logs=True):
     model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics)   # Build model graph
 
     # Train a model
-    #model, test_metrics = train_model(cfg, data, model, callbacks)
+    model, test_metrics = train_model(cfg, data, model, callbacks)
     #model, test_metrics = multi_train(cfg, data, model, callbacks)
-    model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
+    #model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])

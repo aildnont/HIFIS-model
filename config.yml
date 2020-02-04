@@ -74,10 +74,8 @@ TRAIN:
   TEST_SPLIT: 0.1
   EPOCHS: 300
   BATCH_SIZE: 64
-  CLASS_WEIGHT: true
-  POS_WEIGHT: 0.60
-  MINORITY_OVERSAMPLE: false
-  SMOTE: false
+  POS_WEIGHT: 0.50
+  IMB_STRATEGY: 'class_weight'
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   RUNS_PER_N: 10
@@ -86,7 +84,7 @@ TRAIN:
     COMBINATIONS: 60
     REPEATS: 2
     RANGES:
-      NODES: [30, 40, 50, 60, 70, 80]
+      NODES: [80, 80]
       LAYERS: [2, 2]
       DROPOUT: [0.3, 0.3]
       LR: [-3.0, -3.0]  # Logarithmic scale (10^x)
@@ -96,6 +94,7 @@ TRAIN:
       L2_LAMBDA: [-2.0, -2.0]   # Logarithmic scale (10^x)
       BATCH_SIZE: [128, 128]
       POS_WEIGHT: [0.5, 0.5]  # Weight multiplier for positive class
+      IMB_STRATEGY: ['class_weight', 'min_oversample', 'smote']
 
 # LIME
 LIME:
