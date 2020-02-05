@@ -11,7 +11,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
-
+from src.custom.metrics import F1Score
 
 def predict_instance(x, model, ohe_ct, scaler_ct):
     '''
@@ -171,12 +171,13 @@ explainer = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_
 model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
 # Make a prediction and explain the rationale
-'''
+
 client_id = 86244
 i = Y_test.index.get_loc(client_id)
 explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
 visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
-'''
 
-results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=True)
+'''
+results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=False)
 visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
+'''

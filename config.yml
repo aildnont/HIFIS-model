@@ -26,11 +26,11 @@ DATA:
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
-                           'ServiceProvider','WatchConcern']
+                           'ServiceProvider']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB','TotalStays']
+                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB']
   TIMED_SERVICE_FEATURES: ['Stay']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
@@ -53,38 +53,50 @@ DATA:
       BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
       LifeEventStartDate: ['LifeEvent']
       SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-      #WatchConcernDateStart: ['WatchConcern']
+      WatchConcernDateStart: ['WatchConcern']
 
 
 # Neural network models
 NN:
   MODEL1:
     NODES:
-      DENSE0: 100
-      DENSE1: 100
-    L2_LAMBDA: 0.01
-    DROPOUT: 0.3
-    LR: 0.001
+      DENSE0: 80
+      DENSE1: 60
+    LAYERS: 2
+    L2_LAMBDA: 0.03
+    DROPOUT: 0.5
+    LR: 0.0003
 
 # Training
 TRAIN:
   TRAIN_SPLIT: 0.8
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
-  EPOCHS: 100
+  EPOCHS: 300
   BATCH_SIZE: 128
-  CLASS_WEIGHT: true
-  MINORITY_OVERSAMPLE: false
+  POS_WEIGHT: 0.6
+  IMB_STRATEGY: 'class_weight'
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   RUNS_PER_N: 10
+  THRESHOLDS: [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
   HP:
-    DROPOUT: [0.1, 0.4]
-    LR: [0.0001, 0.002]
-    NODES: [100, 125]
-    METRICS: ['accuracy', 'loss', 'recall']
-    COMBINATIONS: 3
+    METRICS: ['accuracy', 'loss', 'recall', 'precision']
+    COMBINATIONS: 60
     REPEATS: 2
+    RANGES:
+      NODES0: [60, 80, 100, 120, 140]
+      NODES1: [40, 60, 80, 100]
+      LAYERS: [2, 3, 4]
+      DROPOUT: [0.5, 0.5]
+      LR: [-3.5, -3.5]  # Logarithmic scale (10^x)
+      OPTIMIZER: ['adam']
+      BETA_1: [-1.0, -1.0]  # 1st moment for Adam. Log scale (1 - 10^x)
+      BETA_2: [-3.0, -3.0]  # 2nd moment for Adam. Log scale (1 - 10^x)
+      L2_LAMBDA: [-1.5, -1.5]   # Logarithmic scale (10^x)
+      BATCH_SIZE: [128, 128]
+      POS_WEIGHT: [0.6, 0.6]  # Weight multiplier for positive class
+      IMB_STRATEGY: ['class_weight']
 
 # LIME
 LIME:
