@@ -22,7 +22,7 @@ DATA:
   N_MIN: 0
   N_MAX: 52
   N_INTERVAL: 4
-  GROUND_TRUTH_DATE: '2020-01-09'
+  GROUND_TRUTH_DATE: '2020-02-05'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
