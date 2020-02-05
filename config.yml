@@ -60,12 +60,12 @@ DATA:
 NN:
   MODEL1:
     NODES:
-      DENSE0: 80
+      DENSE0: 120
       DENSE1: 80
     LAYERS: 2
-    L2_LAMBDA: 0.01
-    DROPOUT: 0.3
-    LR: 0.0005
+    L2_LAMBDA: 0.03
+    DROPOUT: 0.5
+    LR: 0.0003
 
 # Training
 TRAIN:
@@ -73,8 +73,8 @@ TRAIN:
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
   EPOCHS: 300
-  BATCH_SIZE: 64
-  POS_WEIGHT: 0.50
+  BATCH_SIZE: 128
+  POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
@@ -84,17 +84,18 @@ TRAIN:
     COMBINATIONS: 60
     REPEATS: 2
     RANGES:
-      NODES: [80, 80]
-      LAYERS: [2, 2]
-      DROPOUT: [0.3, 0.3]
-      LR: [-3.0, -3.0]  # Logarithmic scale (10^x)
+      NODES0: [60, 80, 100, 120, 140]
+      NODES1: [40, 60, 80, 100]
+      LAYERS: [2, 3, 4]
+      DROPOUT: [0.5, 0.5]
+      LR: [-3.5, -3.5]  # Logarithmic scale (10^x)
       OPTIMIZER: ['adam']
       BETA_1: [-1.0, -1.0]  # 1st moment for Adam. Log scale (1 - 10^x)
       BETA_2: [-3.0, -3.0]  # 2nd moment for Adam. Log scale (1 - 10^x)
-      L2_LAMBDA: [-2.0, -2.0]   # Logarithmic scale (10^x)
+      L2_LAMBDA: [-1.5, -1.5]   # Logarithmic scale (10^x)
       BATCH_SIZE: [128, 128]
-      POS_WEIGHT: [0.5, 0.5]  # Weight multiplier for positive class
-      IMB_STRATEGY: ['class_weight', 'min_oversample', 'smote']
+      POS_WEIGHT: [0.6, 0.6]  # Weight multiplier for positive class
+      IMB_STRATEGY: ['class_weight']
 
 # LIME
 LIME:

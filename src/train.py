@@ -30,31 +30,33 @@ def get_class_weights(num_pos, num_neg, pos_weight=0.5):
     print("Class weights: Class 0 = {:.2f}, Class 1 = {:.2f}".format(weight_neg, weight_pos))
     return class_weight
 
-def minority_oversample(X_train, Y_train):
+def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     '''
-    Oversample the minority class by duplicating some of its samples
+    Oversample the minority class using the specified algorithm
     :param X_train: Training set features
     :param Y_train: Training set labels
+    :param algorithm: The oversampling algorithm to use. One of {"random_oversample", "smote", "adasyn"}
     :return: A new training set containing oversampled examples
     '''
-    ros = RandomOverSampler(random_state=np.random.randint(0, high=1000))
-    X_resampled, Y_resampled = ros.fit_resample(X_train, Y_train)
+    if algorithm == 'random_oversample':
+        sampler = RandomOverSampler(random_state=np.random.randint(0, high=1000))
+    if algorithm == 'smote':
+        sampler = SMOTE(random_state=np.random.randint(0, high=1000))
+    elif algorithm == 'adasyn':
+        sampler = ADASYN(random_state=np.random.randint(0, high=1000))
+    else:
+        sampler = RandomOverSampler(random_state=np.random.randint(0, high=1000))
+    X_resampled, Y_resampled = sampler.fit_resample(X_train, Y_train)
     print("Train set shape before oversampling: ", X_train.shape, " Train set shape after resampling: ", X_resampled.shape)
     return X_resampled, Y_resampled
 
-def smote(X_train, Y_train):
-    smote = SMOTE(random_state=np.random.randint(0, high=1000))
-    X_resampled, Y_resampled = smote.fit_resample(X_train, Y_train)
-    print("Train set shape before SMOTE: ", X_train.shape, " Train set shape after SMOTE: ", X_resampled.shape)
-    return X_resampled, Y_resampled
-
-def adasyn(X_train, Y_train):
-    adasyn = ADASYN(random_state=np.random.randint(0, high=1000))
-    X_resampled, Y_resampled = adasyn.fit_resample(X_train, Y_train)
-    print("Train set shape before ADASYN: ", X_train.shape, " Train set shape after ADASYN: ", X_resampled.shape)
-    return X_resampled, Y_resampled
 
 def load_dataset(cfg):
+    '''
+    Load the dataset from disk and partition into train/val/test sets. Normalize numerical data.
+    :param cfg: Project config (from config.yml)
+    :return: A dict of partitioned and normalized datasets, split into examples and labels
+    '''
 
     # Load config data generated from preprocessing
     input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
@@ -101,26 +103,27 @@ def load_dataset(cfg):
     data['X_val'] = col_trans_scaler.transform(data['X_val'])
     data['X_test'] = col_trans_scaler.transform(data['X_test'])
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
-
-
-
     return data
 
-def train_model(cfg, data, model, callbacks, verbose=1):
+def train_model(cfg, data, model, callbacks, verbose=2):
+    '''
+    Train a and evaluate model on given data.
+    :param cfg: Project config (from config.yml)
+    :param data: dict of partitioned dataset
+    :param model: Keras model to train
+    :param callbacks: list of callbacks for Keras model
+    :param verbose: Verbosity mode to pass to model.fit()
+    :return: Trained model and associated performance metrics on the test set
+    '''
 
-    # Oversample minority class
-    if cfg['TRAIN']['IMB_STRATEGY'] == 'minority_oversample':
-        data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'])
-    elif cfg['TRAIN']['IMB_STRATEGY'] == 'smote':
-        data['X_train'], data['Y_train'] = smote(data['X_train'], data['Y_train'])
-    elif cfg['TRAIN']['IMB_STRATEGY'] == 'adasyn':
-        data['X_train'], data['Y_train'] = adasyn(data['X_train'], data['Y_train'])
-
-    # Calculate class weights
+    # Apply class imbalance strategy
     num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
     class_weight = None
     if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight':
         class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
+    else:
+        data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'],
+                                                               algorithm=cfg['TRAIN']['IMB_STRATEGY'])
 
     # Train the model.
     history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
@@ -139,6 +142,14 @@ def train_model(cfg, data, model, callbacks, verbose=1):
 
 
 def multi_train(cfg, data, model, callbacks):
+    '''
+    Trains a model a series of times and returns the model with the best test set metric (specified in cfg)
+    :param cfg: Project config (from config.yml)
+    :param data: Partitioned dataset
+    :param model: Keras model to be trained
+    :param callbacks: List of callbacks to pass to model.fit()
+    :return: The trained Keras model with best test set performance on the metric specified in cfg
+    '''
     # Train model for a specified number of times and keep the one with the best target test metric
     metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
     best_value = 1000.0 if metric_monitor == 'loss' else 0.0
@@ -146,13 +157,13 @@ def multi_train(cfg, data, model, callbacks):
         print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
 
         # Train the model and evaluate performance on test set
-        model, test_metrics = train_model(cfg, data, model, callbacks)
+        new_model, test_metrics = train_model(cfg, data, model, callbacks)
 
         # If this model outperforms the previous ones based on the specified metric, save this one.
         if (((metric_monitor == 'loss') and (test_metrics[metric_monitor] < best_value))
                 or ((metric_monitor != 'loss') and (test_metrics[metric_monitor] > best_value))):
             best_value = test_metrics[metric_monitor]
-            best_model = model
+            best_model = new_model
             best_metrics = test_metrics
     print("Best model test metrics: ", best_metrics)
     return best_model, best_metrics
@@ -165,7 +176,7 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
     :param data: Dict containing the partitioned datasets
     :param metrics: List of model metrics
     :param shape: Shape of input examples
-    :param callbacks: List of callbacks (excluding TensorBoard)
+    :param callbacks: List of callbacks for Keras model (excluding TensorBoard)
     :param log_dir: Base directory in which to store logs
     :return: (Last model trained, esultant test set metrics)
     '''
@@ -173,7 +184,8 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
     # Define HParam objects for each hyperparameter we wish to tune.
     hp_ranges = cfg['TRAIN']['HP']['RANGES']
     HPARAMS = []
-    HPARAMS.append(hp.HParam('NODES', hp.Discrete(hp_ranges['NODES'])))
+    HPARAMS.append(hp.HParam('NODES0', hp.Discrete(hp_ranges['NODES0'])))
+    HPARAMS.append(hp.HParam('NODES1', hp.Discrete(hp_ranges['NODES1'])))
     HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
     HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
     HPARAMS.append(hp.HParam('L2_LAMBDA', hp.RealInterval(hp_ranges['L2_LAMBDA'][0], hp_ranges['L2_LAMBDA'][1])))
@@ -209,9 +221,11 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
             trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
             callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0, write_graph=False),
                                         hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
-            model = model1(cfg['NN']['MODEL1'], shape, metrics, hparams)
-            cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']  # This hparam is not set in model definition
-            cfg['TRAIN']['POS_WEIGHT'] = hparams['POS_WEIGHT']  # This hparam is not set in model definition
+            model = model1(cfg['NN']['MODEL1'], shape, metrics, output_bias=cfg['OUTPUT_BIAS'], hparams=hparams)
+
+            # Set some hyperparameters that cannot be set in model definition
+            cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']
+            cfg['TRAIN']['POS_WEIGHT'] = hparams['POS_WEIGHT']
             if hparams['IMB_STRATEGY'] == 'class_weight':
                 cfg['CLASS_WEIGHT'] = True
             if hparams['IMB_STRATEGY'] == 'min_oversample':
@@ -225,6 +239,7 @@ def train_experiment(save_weights=True, write_logs=True):
     '''
     Defines and trains HIFIS-v2 model. Prints and logs relevant metrics.
     :param save_weights: A flag indicating whether to save the model weights
+    :param write_logs: A flag indicating whether to write TensorBoard logs
     :return: A dictionary of metrics on the test set
     '''
 
@@ -243,7 +258,7 @@ def train_experiment(save_weights=True, write_logs=True):
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.0001, verbose=1)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.00001, verbose=1)
     callbacks = [early_stopping]
     if write_logs:
         log_dir = cfg['PATHS']['LOGS'] + cur_date
@@ -251,7 +266,9 @@ def train_experiment(save_weights=True, write_logs=True):
         callbacks.append(tensorboard)
 
     # Define the model.
-    model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics)   # Build model graph
+    num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
+    cfg['OUTPUT_BIAS'] = np.log([num_pos / num_neg])
+    model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, output_bias=cfg['OUTPUT_BIAS'])   # Build model graph
 
     # Train a model
     model, test_metrics = train_model(cfg, data, model, callbacks)
