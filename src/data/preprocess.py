@@ -16,9 +16,6 @@ def load_df(path):
     '''
     # Read HIFIS data into a Pandas dataframe
     df = pd.read_csv(path, encoding="ISO-8859-1", low_memory=False)
-
-    # Delete the first row of "-------" entries, as it is an artifact of the script used to pull down the database
-    df.drop(df.index[0], inplace=True)
     return df
 
 def cleanse_categorical_features(df, categorical_features):
@@ -127,7 +124,7 @@ def process_timestamps(df):
     features_list = list(df)  # Get a list of features
     for feature in features_list:
         if ('Date' in feature) or ('Start' in feature) or ('End' in feature) or (feature == 'DOB'):
-            df[feature] = pd.to_datetime(df[feature], infer_datetime_format=True, errors='coerce')
+            df[feature] = pd.to_datetime(df[feature], errors='coerce')
     return df
 
 def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats, cat_feats):
