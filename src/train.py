@@ -254,7 +254,9 @@ def train_experiment(save_weights=True, write_logs=True):
     cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
     # Define metrics.
-    metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision'), Recall(name='recall'), AUC(name='auc')]
+    thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
+    metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
+               Recall(name='recall', thresholds=thresholds), AUC(name='auc')]
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
@@ -285,7 +287,11 @@ def train_experiment(save_weights=True, write_logs=True):
         writer = tf.summary.create_file_writer(logdir=log_dir)
         test_summary_str = [['**Metric**','**Value**']]
         for metric in test_metrics:
-            test_summary_str.append([metric, str(test_metrics[metric])])
+            if metric in ['precision', 'recall']:
+                metric_values = dict(zip(thresholds, test_metrics[metric]))
+            else:
+                metric_values = test_metrics[metric]
+            test_summary_str.append([metric, str(metric_values)])
         with writer.as_default():
             tf.summary.text(name='Test set metrics', data=tf.convert_to_tensor(test_summary_str), step=0)
             tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)

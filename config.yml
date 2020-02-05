@@ -26,11 +26,11 @@ DATA:
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
-                           'ServiceProvider','WatchConcern']
+                           'ServiceProvider']
   FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB','TotalStays']
+                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB']
   TIMED_SERVICE_FEATURES: ['Stay']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
@@ -53,15 +53,15 @@ DATA:
       BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
       LifeEventStartDate: ['LifeEvent']
       SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-      #WatchConcernDateStart: ['WatchConcern']
+      WatchConcernDateStart: ['WatchConcern']
 
 
 # Neural network models
 NN:
   MODEL1:
     NODES:
-      DENSE0: 120
-      DENSE1: 80
+      DENSE0: 80
+      DENSE1: 60
     LAYERS: 2
     L2_LAMBDA: 0.03
     DROPOUT: 0.5
@@ -79,6 +79,7 @@ TRAIN:
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   RUNS_PER_N: 10
+  THRESHOLDS: [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision']
     COMBINATIONS: 60
