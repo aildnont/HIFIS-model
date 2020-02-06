@@ -235,7 +235,7 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
             model, test_metrics = train_model(cfg, data, model, callbacks_hp, verbose=2)
     return model, test_metrics
 
-def train_experiment(save_weights=True, write_logs=True):
+def train_experiment(experiment='single_train', save_weights=True, write_logs=True):
     '''
     Defines and trains HIFIS-v2 model. Prints and logs relevant metrics.
     :param save_weights: A flag indicating whether to save the model weights
@@ -272,10 +272,13 @@ def train_experiment(save_weights=True, write_logs=True):
     cfg['OUTPUT_BIAS'] = np.log([num_pos / num_neg])
     model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, output_bias=cfg['OUTPUT_BIAS'])   # Build model graph
 
-    # Train a model
-    model, test_metrics = train_model(cfg, data, model, callbacks)
-    #model, test_metrics = multi_train(cfg, data, model, callbacks)
-    #model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
+    # Conduct desired train experiment
+    if experiment == 'multi_train':
+        model, test_metrics = multi_train(cfg, data, model, callbacks)
+    elif experiment == 'hparam_search':
+        model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
+    else:
+        model, test_metrics = train_model(cfg, data, model, callbacks)
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
@@ -303,5 +306,5 @@ def train_experiment(save_weights=True, write_logs=True):
     return test_metrics
 
 if __name__ == '__main__':
-    results = train_experiment(save_weights=True, write_logs=True)
+    results = train_experiment(experiment='single_train', save_weights=True, write_logs=True)
 

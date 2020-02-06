@@ -19,9 +19,6 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 4
-  N_MIN: 0
-  N_MAX: 52
-  N_INTERVAL: 4
   GROUND_TRUTH_DATE: '2020-02-05'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
@@ -78,7 +75,6 @@ TRAIN:
   IMB_STRATEGY: 'class_weight'
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
-  RUNS_PER_N: 10
   THRESHOLDS: [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision']
@@ -104,3 +100,9 @@ LIME:
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
   NUM_SAMPLES: 50000
+
+HORIZON_SEARCH:
+  N_MIN: 0
+  N_MAX: 52
+  N_INTERVAL: 4
+  RUNS_PER_N: 10
