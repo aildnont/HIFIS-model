@@ -5,8 +5,9 @@ from tqdm import tqdm
 import yaml
 import os
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.externals.joblib import dump, load
+from category_encoders import OrdinalEncoder
 
 def load_df(path):
     '''
@@ -70,7 +71,7 @@ def vec_multi_value_cat_features(df, mv_cat_features, config, load_ct=False):
     mv_cat_feature_idxs = [df.columns.get_loc(c) for c in mv_cat_features if c in df]  # List of categorical column indices
     if load_ct:
         col_trans_ohe = load(config['PATHS']['OHE_COL_TRANSFORMER_MV'])
-        df_ohe = pd.DataFrame(col_trans_ohe.fit_(df), index=df.index.copy())
+        df_ohe = pd.DataFrame(col_trans_ohe.fit(df), index=df.index.copy())
     else:
         col_trans_ohe = ColumnTransformer(
             transformers=[('col_trans_mv_ohe', OneHotEncoder(sparse=False, handle_unknown='ignore', dtype=int), mv_cat_feature_idxs)],
@@ -103,30 +104,44 @@ def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     # Convert single-valued categorical features to numeric data
     cat_feature_idxs = [df.columns.get_loc(c) for c in sv_cat_features if c in df]  # List of categorical column indices
     cat_value_names = {}  # Dictionary of categorical feature indices and corresponding names of feature values
-    col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(), sv_cat_features)])
-    df[sv_cat_features] = col_trans_ordinal.fit_transform(df)
-    dump(col_trans_ordinal, config['PATHS']['ORDINAL_COL_TRANSFORMER'], compress=True)  # Save the column transformer
+    if load_ct:
+        col_trans_ordinal = load(config['PATHS']['ORDINAL_COL_TRANSFORMER'])
+        df[sv_cat_features] = col_trans_ordinal.fit(df)
+    else:
+        col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(handle_unknown='value'), sv_cat_features)])
+        df[sv_cat_features] = col_trans_ordinal.fit_transform(df)
+        dump(col_trans_ordinal, config['PATHS']['ORDINAL_COL_TRANSFORMER'], compress=True)  # Save the column transformer
 
     # Preserve named values of each categorical feature
     for i in range(len(sv_cat_features)):
-        cat_value_names[cat_feature_idxs[i]] = list(col_trans_ordinal.transformers_[0][1].categories_[i])
+        cat_value_names[cat_feature_idxs[i]] = []
+        for j in range(len(col_trans_ordinal.transformers_[0][1].category_mapping[i])):
+            # Last one is nan; we don't want that
+            cat_value_names[cat_feature_idxs[i]] = col_trans_ordinal.transformers_[0][1].category_mapping[i]['mapping'].index.tolist()[:-1]
+
 
     # One hot encode the single-valued categorical features
-    col_trans_ohe = ColumnTransformer(transformers=[('col_trans_ohe', OneHotEncoder(sparse=False), cat_feature_idxs)],
-                                      remainder='passthrough')
-    df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
+    if load_ct:
+        col_trans_ohe = load(config['PATHS']['OHE_COL_TRANSFORMER_SV'])
+        df_ohe = pd.DataFrame(col_trans_ohe.fit(df), index=df.index.copy())
+    else:
+        col_trans_ohe = ColumnTransformer(
+            transformers=[('col_trans_ohe', OneHotEncoder(sparse=False, handle_unknown='ignore'), cat_feature_idxs)],
+            remainder='passthrough'
+        )
+        df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
+        dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER_SV'], compress=True)  # Save the column transformer
 
     # Build list of feature names for OHE dataset
     ohe_feat_names = []
     for i in range(len(sv_cat_features)):
         for value in cat_value_names[cat_feature_idxs[i]]:
             ohe_feat_names.append(sv_cat_features[i] + '_' + str(value))
-    vec_sv_cat_features = ohe_feat_names
+    vec_sv_cat_features = ohe_feat_names.copy()
     for feat in df.columns:
         if feat not in sv_cat_features:
             ohe_feat_names.append(feat)
     df_ohe.columns = ohe_feat_names
-    dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER_SV'], compress=True)  # Save the column transformer
 
     interpretability_info = {}  # Store some information for later use in LIME
     interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
@@ -285,9 +300,9 @@ def calculate_client_features(df, end_date, counted_services):
         df['Num_' + service] = 0
         numerical_service_features.append('Num_' + service)
     df_temp = df.copy()
-    df_temp = df_temp.groupby('ClientID').progress_apply(client_features)
-    df_temp = df_temp.droplevel('ClientID', axis='index')
-    df.update(df_temp)  # Update all rows with corresponding stay length and total income
+    #df_temp = df_temp.groupby('ClientID').progress_apply(client_features)
+    #df_temp = df_temp.droplevel('ClientID', axis='index')
+    #df.update(df_temp)  # Update all rows with corresponding stay length and total income
     return df, numerical_service_features
 
 def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_sv_categorical_features, numerical_service_features):
@@ -312,7 +327,7 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(vec_mv_categorical_features)):
-        temp_dict[vec_mv_categorical_features[i]] = 'max'  # Group multi-valued categorical features by max value
+        temp_dict[vec_mv_categorical_features[i]] = lambda x: 1 if any(x) else 0  # Group multi-valued categorical features
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(numerical_service_features)):
@@ -329,7 +344,7 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     return df_unique_clients
 
 
-def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
+def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=False):
     '''
     Load results of the HIFIS SQL query and process the data into features for training a model.
     :param n_weeks: Prediction horizon
@@ -418,7 +433,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # Vectorize the multi-valued categorical features
     print("Vectorizing multi-valued categorical features.")
-    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features, config)
+    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features, config, load_ct)
 
     # Amalgamate rows to have one entry per client
     print("Aggregating the dataframe.")
@@ -443,7 +458,7 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")
-    df_clients, df_ohe_clients, interpretability_info = vec_single_value_cat_features(df_clients, sv_cat_features, config)
+    df_clients, df_ohe_clients, interpretability_info = vec_single_value_cat_features(df_clients, sv_cat_features, config, load_ct)
 
     # Append ground truth to dataset
     df_clients.index = df_clients.index.astype(int)
@@ -473,6 +488,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=12, load_gt=True, classify_cat_feats=False)
+    preprocess(n_weeks=12, load_gt=True, classify_cat_feats=False, load_ct=False)
 
 
