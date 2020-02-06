@@ -176,7 +176,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     :param chronic_threshold: Minimum # of days spent in shelter to be considered chronically homeless
     :param days: Number of days over which to cound # days spent in shelter
     :param end_date: The last date of the time period to consider
-    :return: the dataframe with ground truth appended at the end
+    :return: a DataSeries mapping ClientID to ground truth
     '''
 
     def client_gt(client_df):
@@ -210,9 +210,9 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     df['GroundTruth'] = 0
     df_temp = df.loc[(df['ServiceType'] == 'Stay')]
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
-    df_temp = df_temp.droplevel('ClientID', axis='index')
-    df.update(df_temp)  # Update all rows with corresponding stay length and ground truth
-    return df
+    ds_gt = df_temp['GroundTruth']
+    ds_gt = ds_gt.groupby(['ClientID']).agg({'GroundTruth': 'max'})
+    return ds_gt
 
 def calculate_client_features(df, end_date, counted_services):
     '''
@@ -356,11 +356,16 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     print("Converting timestamps to datetimes.")
     df = process_timestamps(df)
 
-    # Calculate ground truth
+    # Calculate ground truth and save it. Or load pre-saved ground truth.
     gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
     if not load_gt:
         print("Calculating ground truth.")
-        df = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+        ds_gt = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+        ds_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)  # Save ground truth
+    else:
+        ds_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
+        ds_gt = ds_gt.set_index('ClientID')
+        ds_gt.index = ds_gt.index.astype(int)
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
@@ -411,21 +416,13 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
     df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
 
-    # Load ground truth if not calculated already. Otherwise, save ground truth.
-    if load_gt:
-        df_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
-        df_gt = df_gt.set_index('ClientID')
-        df_gt.index = df_gt.index.astype(int)
-        df_clients.index = df_clients.index.astype(int)
-        df_clients = df_clients.join(df_gt) # Set ground truth for all clients to their saved values
-        df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
-    else:
-        df_gt = df_clients['GroundTruth']
-        df_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)    # Save ground truth
-
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")
     df_clients, df_ohe_clients, interpretability_info = vec_single_value_cat_features(df_clients, sv_cat_features, config)
+
+    # Append ground truth to dataset
+    df_clients = df_clients.join(ds_gt)  # Set ground truth for all clients to their saved values
+    df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
 
     # Save processed dataset
     print("Saving data.")
@@ -447,6 +444,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
 if __name__ == '__main__':
-    preprocess(n_weeks=12, load_gt=False, classify_cat_feats=True)
+    preprocess(n_weeks=12, load_gt=True, classify_cat_feats=False)
 
 
