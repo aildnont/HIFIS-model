@@ -14,7 +14,8 @@ PATHS:
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
   ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
-  OHE_COL_TRANSFORMER: 'data/transformers/ohe_col_transformer.bin'
+  OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
+  OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
 
 # Constants pertaining to data structure
 DATA:

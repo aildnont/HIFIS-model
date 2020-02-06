@@ -6,7 +6,7 @@ import yaml
 import os
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
-from sklearn.externals.joblib import dump
+from sklearn.externals.joblib import dump, load
 
 def load_df(path):
     '''
@@ -55,24 +55,44 @@ def classify_cat_features(df, cat_features):
     df.groupby('ClientID').progress_apply(classify_features)
     return sv_cat_features, mv_cat_features
 
-def vec_multi_value_cat_features(df, mv_cat_features):
+def vec_multi_value_cat_features(df, mv_cat_features, config, load_ct=False):
     '''
         Converts multi-valued categorical features to vectorized format and appends to the dataframe
         :param df: A Pandas dataframe
         :param mv_categorical_features: The names of the categorical features to vectorize
+        :param config: project config
+        :param load_ct: Flag indicating whether to load a saved column transformer
         :return: dataframe containing vectorized features, list of vectorized feature names
         '''
-    mv_vec_categorical_features = []
-    for feature in mv_cat_features:
-        df_temp = pd.get_dummies(df[feature], prefix=feature)  # Create temporary dataframe of this feature vectorized
-        df = pd.concat((df, df_temp), axis=1)  # Concatenate temp one hot dataframe with original dataframe
-        df = df.drop(feature, axis=1)  # Drop the original feature
-        vectorized_headers_list = list(df_temp)
-        for i in range(len(vectorized_headers_list)):
-            mv_vec_categorical_features.append(vectorized_headers_list[i])  # Keep track of vectorized features
-    return df, mv_vec_categorical_features
+    orig_col_names = df.columns
 
-def vec_single_value_cat_features(df, sv_cat_features, config):
+    # One hot encode the multi-valued categorical features
+    mv_cat_feature_idxs = [df.columns.get_loc(c) for c in mv_cat_features if c in df]  # List of categorical column indices
+    if load_ct:
+        col_trans_ohe = load(config['PATHS']['OHE_COL_TRANSFORMER_MV'])
+        df_ohe = pd.DataFrame(col_trans_ohe.fit_(df), index=df.index.copy())
+    else:
+        col_trans_ohe = ColumnTransformer(
+            transformers=[('col_trans_mv_ohe', OneHotEncoder(sparse=False, handle_unknown='ignore', dtype=int), mv_cat_feature_idxs)],
+            remainder='passthrough'
+        )
+        df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
+        dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER_MV'], compress=True)  # Save the column transformer
+
+    # Build list of feature names for the new DataFrame
+    mv_vec_cat_features = []
+    for i in range(len(mv_cat_features)):
+        feat_names = list(col_trans_ohe.transformers_[0][1].categories_[i])
+        for j in range(len(feat_names)):
+            mv_vec_cat_features.append(mv_cat_features[i] + '_' + feat_names[j])
+    ohe_feat_names = mv_vec_cat_features.copy()
+    for feat in orig_col_names:
+        if feat not in mv_cat_features:
+            ohe_feat_names.append(feat)
+    df_ohe.columns = ohe_feat_names
+    return df_ohe, mv_vec_cat_features
+
+def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     '''
     Converts single-valued categorical features to one-hot encoded format (i.e. vectorization) and appends to the dataframe.
     Keeps track of a mapping from feature indices to categorical values, for interpretability purposes.
@@ -106,7 +126,7 @@ def vec_single_value_cat_features(df, sv_cat_features, config):
         if feat not in sv_cat_features:
             ohe_feat_names.append(feat)
     df_ohe.columns = ohe_feat_names
-    dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER'], compress=True)  # Save the column transformer
+    dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER_SV'], compress=True)  # Save the column transformer
 
     interpretability_info = {}  # Store some information for later use in LIME
     interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
@@ -288,11 +308,11 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     for i in range(len(non_categorical_features)):
         grouping_dictionary[non_categorical_features[i]] = 'first'  # Group noncategorical features by first occurrence
     for i in range(len(vec_sv_categorical_features)):
-        temp_dict[vec_sv_categorical_features[i]] = 'first'  # Group one hot features by max value
+        temp_dict[vec_sv_categorical_features[i]] = 'first'  # Group single-valued categorical features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(vec_mv_categorical_features)):
-        temp_dict[vec_mv_categorical_features[i]] = 'max'  # Group single categorical features by first value
+        temp_dict[vec_mv_categorical_features[i]] = 'max'  # Group multi-valued categorical features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(numerical_service_features)):
@@ -393,12 +413,18 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
         sv_cat_features = cfg_gen['SV_CAT_FEATURES']
         mv_cat_features = cfg_gen['MV_CAT_FEATURES']
 
+    # Replace all instances of NaN in the dataframe with 0 or "Unknown"
+    df[mv_cat_features] = df[mv_cat_features].fillna("None")
+
     # Vectorize the multi-valued categorical features
     print("Vectorizing multi-valued categorical features.")
-    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features)
+    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features, config)
 
     # Amalgamate rows to have one entry per client
-    print("Grouping the dataframe.")
+    print("Aggregating the dataframe.")
+    #df = df.infer_objects()
+    #for col in df.columns:
+    #    print(col, df[col].dtype)
     df_clients = aggregate_df(df, noncategorical_features, vec_mv_cat_features, sv_cat_features, numerical_service_features)
 
     # Drop unnecessary features
@@ -412,7 +438,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     for feature in noncat_feats_gone:
         noncategorical_features.remove(feature)
 
-    # Replace all instances of NaN in the dataframe with 0 or "Unknown"
     df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
     df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
 
