@@ -1,4 +1,4 @@
-from src.train import train_model
+from src.train import *
 from src.data.preprocess import preprocess
 from src.visualization.visualize import plot_horizon_search
 import pandas as pd
@@ -7,13 +7,19 @@ import yaml
 import datetime
 
 def horizon_search():
+    '''
+    Experiment to demonstrate the effect of the predictive horizon on model performance on the test set.
+    Trains models at different values of predictive horizon (N) in weeks.
+    Set experiment options in config.yml.
+    '''
+
     # Load relevant values from config
     input_stream = open(os.getcwd() + "/config.yml", 'r')
     cfg = yaml.full_load(input_stream)
-    N_MIN = cfg['DATA']['N_MIN']
-    N_MAX = cfg['DATA']['N_MAX']
-    N_INTERVAL = cfg['DATA']['N_INTERVAL']
-    RUNS_PER_N = cfg['TRAIN']['RUNS_PER_N']
+    N_MIN = cfg['HORIZON_SEARCH']['N_MIN']
+    N_MAX = cfg['HORIZON_SEARCH']['N_MAX']
+    N_INTERVAL = cfg['HORIZON_SEARCH']['N_INTERVAL']
+    RUNS_PER_N = cfg['HORIZON_SEARCH']['RUNS_PER_N']
 
     test_metrics_df = pd.DataFrame()
     for n in range(N_MIN, N_MAX + N_INTERVAL, N_INTERVAL):
@@ -27,8 +33,8 @@ def horizon_search():
         # Train the model several times at this prediction horizon
         results_df = pd.DataFrame()
         for i in range(RUNS_PER_N):
-            print('** n = ', n, ' of ', N_MAX, '; i = ', i, ' of ', RUNS_PER_N)
-            results = train_model(save_weights=False, write_logs=False)
+            print('** n = ', n, ' of ', N_MAX, '; i = ', i + 1, ' of ', RUNS_PER_N)
+            results = train_experiment(experiment='single_train', save_weights=False, write_logs=False)
             results_df = results_df.append(pd.DataFrame.from_records([results]))
         results_df.insert(0, 'n', n)    # Add prediction horizon to test results
         test_metrics_df = test_metrics_df.append(results_df)    # Append results from this value of n
