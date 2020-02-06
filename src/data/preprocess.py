@@ -421,8 +421,12 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     df_clients, df_ohe_clients, interpretability_info = vec_single_value_cat_features(df_clients, sv_cat_features, config)
 
     # Append ground truth to dataset
+    df_clients.index = df_clients.index.astype(int)
+    df_ohe_clients.index = df_ohe_clients.index.astype(int)
     df_clients = df_clients.join(ds_gt)  # Set ground truth for all clients to their saved values
+    df_ohe_clients = df_ohe_clients.join(ds_gt)
     df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
+    df_ohe_clients['GroundTruth'] = df_ohe_clients['GroundTruth'].fillna(0)
 
     # Save processed dataset
     print("Saving data.")
