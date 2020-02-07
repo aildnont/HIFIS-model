@@ -4,16 +4,17 @@ import os
 import dill
 import numpy as np
 from tqdm import tqdm
+from datetime import datetime
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
 from src.data.preprocess import preprocess
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
 
-def predict_and_explain_set(data_path=None):
+def predict_and_explain_set(data_path=None, save_results=True):
     '''
-    Get model predictions for a raw
-    :param data_path:
-    :return:
+    Preprocess a raw dataset. Then get model predictions and corresponding LIME explanations.
+    :param data_path: Path at which to save results of this prediction
+    :return: Dataframe of prediction results, including explanations.
     '''
 
     # Load project config data
@@ -25,6 +26,8 @@ def predict_and_explain_set(data_path=None):
     ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
 
     # Preprocess the data, using pre-existing sklearn transformers and classification of categorical features.
+    if data_path is None:
+        data_path = cfg['PATHS']['RAW_DATA']
     df = preprocess(n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False, load_ct=True,
                       data_path=data_path)
     client_ids = np.array(df.index)     # index is ClientID
@@ -54,7 +57,7 @@ def predict_and_explain_set(data_path=None):
 
     # Predict and explain all items in dataset
     print('Predicting and explaining examples.')
-    for i in tqdm(range(X.shape[0])):
+    for i in tqdm(range(2)):
 
         # Predict this example
         x = np.expand_dims(X[i], axis=0)
@@ -71,8 +74,39 @@ def predict_and_explain_set(data_path=None):
         rows.append(row)
 
     # Convert results to a Pandas dataframe and save
-    results_df = pd.DataFrame(rows, columns=col_names).set_index('ClientID')
-    results_df.to_csv(results_df.to_csv(cfg['PATHS']['BULK_PREDICTIONS']))
+    results_df = pd.DataFrame(rows, columns=col_names)
+    if save_results:
+        results_df.to_csv(results_df.to_csv(cfg['PATHS']['BULK_PREDICTIONS']), index_label=False, index=False)
+    return results_df
+
+
+def trending_prediction(data_path=None):
+    '''
+    Gets predictions and explanations from the provided raw data and adds a timestamp. Concatenates results with those
+    of previous predictions on same client. Running this function periodically enables trend analysis for clients as the
+    data changes over time.
+    :param data_path: Path of raw data
+    '''
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    cfg = yaml.full_load(input_stream)
+    trending_pred_path = cfg['PATHS']['TRENDING_PREDICTIONS']
+
+    # Get model predictions and explanations.
+    results_df = predict_and_explain_set(data_path=data_path, save_results=False)
+    print(results_df.head())
+    results_df.insert(0, 'Timestamp', pd.to_datetime(datetime.today()))     # Add a timestamp to these results
+
+    # If previous prediction file exists, load it and append the predictions we just made.
+    if os.path.exists(trending_pred_path):
+        prev_results_df = pd.read_csv(trending_pred_path)
+        print(prev_results_df.head())
+        results_df = pd.concat([prev_results_df, results_df], axis=0)
+
+    # Save the updated trend analysis prediction spreadsheet
+    results_df.to_csv(trending_pred_path, index_label=False, index=False)
+    return
+
 
 if __name__ == '__main__':
-    results = predict_and_explain_set(data_path='data/raw/HIFIS_Clients_test.csv')
+    #results = predict_and_explain_set(data_path='data/raw/HIFIS_Clients_test.csv', save_results=True)
+    trending_prediction(data_path='data/raw/HIFIS_Clients_test.csv')

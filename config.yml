@@ -18,6 +18,7 @@ PATHS:
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
   BULK_PREDICTIONS: './results/predictions/predictions.csv'
+  TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
 
 # Constants pertaining to data structure
 DATA:
