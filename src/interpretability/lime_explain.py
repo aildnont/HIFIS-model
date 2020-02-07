@@ -13,24 +13,22 @@ from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
 from src.custom.metrics import F1Score
 
-def predict_instance(x, model, ohe_ct, scaler_ct):
+def predict_instance(x, model, ohe_ct_sv, scaler_ct):
     '''
     Helper function for LIME explainer. Runs model prediction on perturbations of the example.
     :param x: List of perturbed examples from an example
     :param model: Keras model
-    :param ohe_ct: A column transformer for one hot encoding single-valued categorical features
+    :param ohe_ct_sv: A column transformer for one hot encoding single-valued categorical features
     :param: scaler_ct: A column transformer for scaling numerical features
     :return: A numpy array constituting a list of class probabilities for each predicted perturbation
     '''
-    x = np.insert(x, x.shape[1], [1], axis=1)  # Insert dummy column where GroundTruth would be
-    x_ohe = ohe_ct.transform(x)  # One hot encode the single-valued categorical features
-    x_ohe = x_ohe[:, :-1]  # Remove the dummy column
+    x_ohe = ohe_ct_sv.transform(x)      # One hot encode the single-valued categorical features
     x_ohe = scaler_ct.transform(x_ohe)
     y = model.predict(x_ohe)  # Run prediction on the perturbations
     probs = np.concatenate([1.0 - y, y], axis=1)  # Compute class probabilities from the output of the model
     return probs
 
-def predict_and_explain(x, model, exp, ohe_ct, scaler_ct, num_features, num_samples):
+def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_samples):
     '''
     Use the model to predict a single example and apply LIME to generate an explanation.
     :param x: An example (i.e. 1 client row)
@@ -49,7 +47,7 @@ def predict_and_explain(x, model, exp, ohe_ct, scaler_ct, num_features, num_samp
         :param x: List of perturbed examples from an example
         :return: A numpy array constituting a list of class probabilities for each predicted perturbation
         '''
-        probs = predict_instance(x, model, ohe_ct, scaler_ct)
+        probs = predict_instance(x, model, ohe_ct_sv, scaler_ct)
         return probs
 
     # Generate explanation for the example
@@ -151,7 +149,7 @@ Y_test = pd.concat([test_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1
 
 # Load data transformers
 scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
-ohe_ct = load(cfg['PATHS']['OHE_COL_TRANSFORMER'])
+ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
 
 # Get indices of categorical and noncategorical featuress
 noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
@@ -172,12 +170,12 @@ model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
 # Make a prediction and explain the rationale
 
-client_id = 86244
+client_id = 76037
 i = Y_test.index.get_loc(client_id)
-explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
+explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
 visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
 
 '''
-results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=False)
+results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=False)
 visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
 '''

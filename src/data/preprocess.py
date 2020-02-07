@@ -108,10 +108,10 @@ def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     cat_value_names = {}  # Dictionary of categorical feature indices and corresponding names of feature values
     if load_ct:
         col_trans_ordinal = load(config['PATHS']['ORDINAL_COL_TRANSFORMER'])
-        df[sv_cat_features] = col_trans_ordinal.transform(df)
+        df[sv_cat_features] = col_trans_ordinal.transform(df) - 1
     else:
         col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(handle_unknown='value'), sv_cat_features)])
-        df[sv_cat_features] = col_trans_ordinal.fit_transform(df)
+        df[sv_cat_features] = col_trans_ordinal.fit_transform(df) - 1   # Want integer representation of features to start at 0
         dump(col_trans_ordinal, config['PATHS']['ORDINAL_COL_TRANSFORMER'], compress=True)  # Save the column transformer
 
     # Preserve named values of each categorical feature
@@ -346,9 +346,20 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     return df_unique_clients
 
 
-def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=False):
+def preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False, data_path=None):
     '''
-    Load results of the HIFIS SQL query and process the data into features for training a model.
+    Load results of the HIFIS SQL query and process the data into features for model training or prediction.
+    :param n_weeks: Prediction horizon [weeks]
+    :param include_gt: Boolean describing whether to include ground truth in preprocessed data. Set False if using data to predict.
+    :param calculate_gt: Boolean describing whether to load precomputed ground truth from disk. Set False to compute ground truth.
+    :param classify_cat_feats: Boolean describing whether to classify categorical features as single- or multi-valued.
+                               If False, load from disk.
+    :param load_ct: Boolean describing whether to load pre-fitted data transformers
+    :param data_path: Path to load raw data from
+    :return: dict containing preprocessed data before and after encoding single-value categorical features
+    '''
+    '''
+
     :param n_weeks: Prediction horizon
     '''
     run_start = datetime.today()
@@ -366,7 +377,9 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=Fal
 
     # Load HIFIS database into Pandas dataframe
     print("Loading HIFIS data.")
-    df = load_df(config['PATHS']['RAW_DATA'])
+    if data_path == None:
+        data_path = config['PATHS']['RAW_DATA']
+    df = load_df(data_path)
 
     # Delete unwanted columns
     print("Dropping some features.")
@@ -395,14 +408,15 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=Fal
 
     # Calculate ground truth and save it. Or load pre-saved ground truth.
     gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
-    if not load_gt:
-        print("Calculating ground truth.")
-        ds_gt = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
-        ds_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)  # Save ground truth
-    else:
-        ds_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
-        ds_gt = ds_gt.set_index('ClientID')
-        ds_gt.index = ds_gt.index.astype(int)
+    if include_gt:
+        if not calculate_gt:
+            print("Calculating ground truth.")
+            ds_gt = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+            ds_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)  # Save ground truth
+        else:
+            ds_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
+            ds_gt = ds_gt.set_index('ClientID')
+            ds_gt.index = ds_gt.index.astype(int)
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
@@ -439,9 +453,6 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=Fal
 
     # Amalgamate rows to have one entry per client
     print("Aggregating the dataframe.")
-    #df = df.infer_objects()
-    #for col in df.columns:
-    #    print(col, df[col].dtype)
     df_clients = aggregate_df(df, noncategorical_features, vec_mv_cat_features, sv_cat_features, numerical_service_features)
 
     # Drop unnecessary features
@@ -463,12 +474,13 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=Fal
     df_clients, df_ohe_clients, cat_feat_info = vec_single_value_cat_features(df_clients, sv_cat_features, config, load_ct)
 
     # Append ground truth to dataset
-    df_clients.index = df_clients.index.astype(int)
-    df_ohe_clients.index = df_ohe_clients.index.astype(int)
-    df_clients = df_clients.join(ds_gt)  # Set ground truth for all clients to their saved values
-    df_ohe_clients = df_ohe_clients.join(ds_gt)
-    df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
-    df_ohe_clients['GroundTruth'] = df_ohe_clients['GroundTruth'].fillna(0)
+    if include_gt:
+        df_clients.index = df_clients.index.astype(int)
+        df_ohe_clients.index = df_ohe_clients.index.astype(int)
+        df_clients = df_clients.join(ds_gt)  # Set ground truth for all clients to their saved values
+        df_ohe_clients = df_ohe_clients.join(ds_gt)
+        df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
+        df_ohe_clients['GroundTruth'] = df_ohe_clients['GroundTruth'].fillna(0)
 
     # Save processed dataset
     print("Saving data.")
@@ -489,7 +501,10 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True, load_ct=Fal
     print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
 
+    preprocessed_data = {'tabular': df_clients, 'ohe': df_ohe_clients}
+    return preprocessed_data
+
 if __name__ == '__main__':
-    preprocess(n_weeks=12, load_gt=False, classify_cat_feats=True, load_ct=False)
+    preprocessed_data = preprocess(n_weeks=12, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False)
 
 
