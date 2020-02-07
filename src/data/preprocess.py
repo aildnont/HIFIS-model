@@ -144,12 +144,12 @@ def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
             ohe_feat_names.append(feat)
     df_ohe.columns = ohe_feat_names
 
-    cat_feat_info = {}  # To store info for later use in LIME
-    cat_feat_info['SV_CAT_FEATURES'] = sv_cat_features
-    cat_feat_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
-    cat_feat_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
-    cat_feat_info['SV_CAT_VALUES'] = cat_value_names
-    return df, df_ohe, cat_feat_info
+    data_info = {}  # To store info for later use in LIME
+    data_info['SV_CAT_FEATURES'] = sv_cat_features
+    data_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
+    data_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
+    data_info['SV_CAT_VALUES'] = cat_value_names
+    return df, df_ohe, data_info
 
 def process_timestamps(df):
     '''
@@ -439,7 +439,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_f
     if classify_cat_feats:
         sv_cat_features, mv_cat_features = classify_cat_features(df, categorical_features)
     else:
-        input_stream = open(os.getcwd() + config['PATHS']['CAT_FEAT_INFO'], 'r')
+        input_stream = open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r')
         cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
         sv_cat_features = cfg_gen['SV_CAT_FEATURES']
         mv_cat_features = cfg_gen['MV_CAT_FEATURES']
@@ -471,40 +471,40 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_f
 
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")
-    df_clients, df_ohe_clients, cat_feat_info = vec_single_value_cat_features(df_clients, sv_cat_features, config, load_ct)
+    df_clients, df_ohe_clients, data_info = vec_single_value_cat_features(df_clients, sv_cat_features, config, load_ct)
 
-    # Append ground truth to dataset
+    # Append ground truth to dataset and log some useful stats about ground truth
     if include_gt:
+        print("Appending ground truth.")
         df_clients.index = df_clients.index.astype(int)
         df_ohe_clients.index = df_ohe_clients.index.astype(int)
         df_clients = df_clients.join(ds_gt)  # Set ground truth for all clients to their saved values
         df_ohe_clients = df_ohe_clients.join(ds_gt)
         df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
         df_ohe_clients['GroundTruth'] = df_ohe_clients['GroundTruth'].fillna(0)
+        num_pos = df_clients['GroundTruth'].sum()  # Number of clients with positive ground truth
+        num_neg = df_clients.shape[0] - num_pos  # Number of clients with negative ground truth
+        print("# clients in last year meeting homelessness criteria = ", num_pos)
+        print("# clients in last year not meeting homelessness criteria = ", num_neg)
+        print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
 
-    # Save processed dataset
+    # If not preprocessing for prediction, save processed dataset
     print("Saving data.")
-    df_clients.to_csv(config['PATHS']['PROCESSED_DATA'], sep=',', header=True)
-    df_ohe_clients.to_csv(config['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
+    if include_gt:
+        df_clients.to_csv(config['PATHS']['PROCESSED_DATA'], sep=',', header=True)
+        df_ohe_clients.to_csv(config['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
 
     # For producing interpretable results with categorical data:
-    cat_feat_info['MV_CAT_FEATURES'] = mv_cat_features
-    cat_feat_info['NON_CAT_FEATURES'] = noncategorical_features
-    with open(config['PATHS']['CAT_FEAT_INFO'], 'w') as file:
-        cat_feat_doc = yaml.dump(cat_feat_info, file)
+    data_info['MV_CAT_FEATURES'] = mv_cat_features
+    data_info['NON_CAT_FEATURES'] = noncategorical_features
+    data_info['N_WEEKS'] = n_weeks
+    with open(config['PATHS']['DATA_INFO'], 'w') as file:
+        cat_feat_doc = yaml.dump(data_info, file)
 
-    # Log some useful stats
-    num_pos = df_clients['GroundTruth'].sum()   # Number of clients with positive ground truth
-    num_neg = df_clients.shape[0] - num_pos             # Number of clients with negative ground truth
-    print("# clients in last year meeting homelessness criteria = ", num_pos)
-    print("# clients in last year not meeting homelessness criteria = ", num_neg)
-    print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
-
-    preprocessed_data = {'tabular': df_clients, 'ohe': df_ohe_clients}
-    return preprocessed_data
+    return df_clients
 
 if __name__ == '__main__':
-    preprocessed_data = preprocess(n_weeks=12, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False)
+    preprocessed_data = preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False)
 
 

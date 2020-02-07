@@ -2,12 +2,9 @@ import pandas as pd
 import yaml
 import os
 import datetime
+import dill
 import numpy as np
-from ast import literal_eval
 from lime.lime_tabular import LimeTabularExplainer
-from sklearn.preprocessing import StandardScaler
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
@@ -54,13 +51,14 @@ def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_s
     explanation = exp.explain_instance(x, predict, num_features=num_features, num_samples=num_samples)
     return explanation
 
-def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features, num_samples, file_path, all=False):
+def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, num_features, num_samples, file_path, all=False):
     '''
     Conduct an experiment to assess the predictions of all predicted positive and some negative cases in the test set.
     :param X_test: Numpy array of the test set
     :param Y_test: Pandas dataframe consisting of ClientIDs and corresponding ground truths
     :param model: Keras model
     :param exp: LimeTabularExplainer object
+    :param threshold: Prediction threshold
     :param ohe_ct: A column transformer for one hot encoding single-valued categorical features
     :param: scaler_ct: A column transformer for scaling numerical features
     :param num_features: # of features to use in explanation
@@ -69,7 +67,6 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     '''
     run_start = datetime.datetime.today()    # Record start time of experiment
     NEG_EXP_PERIOD = 1      # We will explain positive to negative predicted examples at this ratio
-    THRESHOLD = 0.5         # Classification threshold
     pos_exp_counter = 0     # Keeps track of how many positive examples are explained in a row
 
     # Define column names of the DataFrame representing the results
@@ -82,7 +79,7 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     for i in range(X_test.shape[0]):
         x = np.expand_dims(X_test[i], axis=0)
         y = np.squeeze(predict_instance(x, model, ohe_ct, scaler_ct).T, axis=1)     # Predict example
-        pred = 1 if y[1] >= THRESHOLD else 0        # Model's classification
+        pred = 1 if y[1] >= threshold else 0        # Model's classification
         client_id = Y_test.index[i]
         gt = Y_test.loc[client_id, 'GroundTruth']   # Ground truth
 
@@ -120,62 +117,68 @@ def lime_experiment(X_test, Y_test, model, exp, ohe_ct, scaler_ct, num_features,
     print("Runtime = ", ((datetime.datetime.today() - run_start).seconds / 60), " min")  # Print runtime of experiment
     return results_df
 
-# Load relevant constants from project config file
-input_stream = open(os.getcwd() + "/config.yml", 'r')
-cfg = yaml.full_load(input_stream)
-NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
-NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
-KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
-FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
-FILE_PATH = cfg['PATHS']['LIME_EXPERIMENT']
+def run_lime():
+    # Load relevant constants from project config file
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    cfg = yaml.full_load(input_stream)
+    NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
+    NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
+    KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
+    FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
+    FILE_PATH = cfg['PATHS']['LIME_EXPERIMENT']
 
-# Load feature information
-input_stream = open(os.getcwd() + cfg['PATHS']['CAT_FEAT_INFO'], 'r')
-cfg_feats = yaml.full_load(input_stream)
-mv_cat_features = cfg_feats['MV_CAT_FEATURES']
-sv_cat_features = cfg_feats['SV_CAT_FEATURES']
-noncat_features = cfg_feats['NON_CAT_FEATURES']
-sv_cat_feature_idxs = cfg_feats['SV_CAT_FEATURE_IDXS']
-sv_cat_values = cfg_feats['SV_CAT_VALUES']
-vec_sv_cat_features = cfg_feats['VEC_SV_CAT_FEATURES']
+    # Load feature information
+    input_stream = open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r')
+    cfg_feats = yaml.full_load(input_stream)
+    mv_cat_features = cfg_feats['MV_CAT_FEATURES']
+    sv_cat_features = cfg_feats['SV_CAT_FEATURES']
+    noncat_features = cfg_feats['NON_CAT_FEATURES']
+    sv_cat_feature_idxs = cfg_feats['SV_CAT_FEATURE_IDXS']
+    sv_cat_values = cfg_feats['SV_CAT_VALUES']
+    vec_sv_cat_features = cfg_feats['VEC_SV_CAT_FEATURES']
 
-# Load train and test sets
-train_df = pd.read_csv(cfg['PATHS']['TRAIN_SET'])
-test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
+    # Load train and test sets
+    train_df = pd.read_csv(cfg['PATHS']['TRAIN_SET'])
+    test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 
-# Get client IDs and corresponding ground truths
-Y_train = pd.concat([train_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
-Y_test = pd.concat([test_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    # Get client IDs and corresponding ground truths
+    Y_train = pd.concat([train_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    Y_test = pd.concat([test_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
 
-# Load data transformers
-scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
-ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
+    # Load data transformers
+    scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
+    ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
 
-# Get indices of categorical and noncategorical featuress
-noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
-cat_feat_idxs = [i for i in range(len(test_df.columns)) if i not in noncat_feat_idxs]
+    # Get indices of categorical and noncategorical featuress
+    noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
+    cat_feat_idxs = [i for i in range(len(test_df.columns)) if i not in noncat_feat_idxs]
 
-# Convert datasets to numpy arrays
-X_train = np.array(train_df)
-X_test = np.array(test_df)
+    # Convert datasets to numpy arrays
+    X_train = np.array(train_df)
+    X_test = np.array(test_df)
 
-# Define the LIME explainer
-train_labels = Y_train['GroundTruth'].to_numpy()
-explainer = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
-                                categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION)
+    # Define the LIME explainer
+    train_labels = Y_train['GroundTruth'].to_numpy()
+    explainer = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
+                                    categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
+                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION)
+    dill.dump(explainer, open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Save
 
-# Load trained model's weights
-model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    # Load trained model's weights
+    model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
 
-# Make a prediction and explain the rationale
+    # Make a prediction and explain the rationale
+    '''
+    client_id = 76037
+    i = Y_test.index.get_loc(client_id)
+    explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
+    visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
+    '''
 
-client_id = 76037
-i = Y_test.index.get_loc(client_id)
-explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
-visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
+    '''
+    results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=False)
+    visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
+    '''
 
-'''
-results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=False)
-visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
-'''
+if __name__ == '__main__':
+    results = run_lime()
