@@ -59,7 +59,7 @@ def load_dataset(cfg):
     '''
 
     # Load config data generated from preprocessing
-    input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
+    input_stream = open(os.getcwd() + cfg['PATHS']['CAT_FEAT_INFO'], 'r')
     feature_info = yaml.full_load(input_stream)
     noncat_features = feature_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
 
@@ -290,7 +290,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
         writer = tf.summary.create_file_writer(logdir=log_dir)
         test_summary_str = [['**Metric**','**Value**']]
         for metric in test_metrics:
-            if metric in ['precision', 'recall']:
+            if metric in ['precision', 'recall'] and isinstance(metric, list):
                 metric_values = dict(zip(thresholds, test_metrics[metric]))
             else:
                 metric_values = test_metrics[metric]

@@ -132,7 +132,7 @@ FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
 FILE_PATH = cfg['PATHS']['LIME_EXPERIMENT']
 
 # Load feature information
-input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
+input_stream = open(os.getcwd() + cfg['PATHS']['CAT_FEAT_INFO'], 'r')
 cfg_feats = yaml.full_load(input_stream)
 mv_cat_features = cfg_feats['MV_CAT_FEATURES']
 sv_cat_features = cfg_feats['SV_CAT_FEATURES']
