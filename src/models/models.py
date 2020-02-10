@@ -4,11 +4,15 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
 
-def model1(config, input_dim, metrics, output_bias=None, hparams=None):
+def model1(config, input_dim, metrics, n_weeks, output_bias=None, hparams=None):
     '''
-    Defines a Keras model
+    Defines a Keras model for HIFIS-v1
     :param config: A dictionary of parameters associated with the model architecture
     :param input_dim: The shape of the model input
+    :param metrics: Metrics to track model's performance
+    :param n_weeks: Predictive horizon
+    :param output_bias: initial bias applied to output layer
+    :param hparams: dict of hyperparameters
     :return: a Keras model object with the architecture defined in this method
     '''
 
@@ -39,7 +43,7 @@ def model1(config, input_dim, metrics, output_bias=None, hparams=None):
         output_bias = Constant(output_bias)
 
     # Define model architecture.
-    model = Sequential(name='HIFIS-v2-1')
+    model = Sequential(name='HIFIS-v2-1_' + str(n_weeks) + '-weeks')
     model.add(Dense(nodes_dense0, input_shape=input_dim, activation='relu', kernel_regularizer=l2(l2_lambda),
               bias_regularizer=l2(l2_lambda), name="dense0"))
     model.add(Dropout(dropout, name='dropout0'))

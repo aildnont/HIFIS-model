@@ -5,8 +5,9 @@ from tqdm import tqdm
 import yaml
 import os
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
-from sklearn.externals.joblib import dump
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.externals.joblib import dump, load
+from category_encoders import OrdinalEncoder
 
 def load_df(path):
     '''
@@ -55,65 +56,100 @@ def classify_cat_features(df, cat_features):
     df.groupby('ClientID').progress_apply(classify_features)
     return sv_cat_features, mv_cat_features
 
-def vec_multi_value_cat_features(df, mv_cat_features):
+def vec_multi_value_cat_features(df, mv_cat_features, config, load_ct=False):
     '''
         Converts multi-valued categorical features to vectorized format and appends to the dataframe
         :param df: A Pandas dataframe
         :param mv_categorical_features: The names of the categorical features to vectorize
+        :param config: project config
+        :param load_ct: Flag indicating whether to load a saved column transformer
         :return: dataframe containing vectorized features, list of vectorized feature names
         '''
-    mv_vec_categorical_features = []
-    for feature in mv_cat_features:
-        df_temp = pd.get_dummies(df[feature], prefix=feature)  # Create temporary dataframe of this feature vectorized
-        df = pd.concat((df, df_temp), axis=1)  # Concatenate temp one hot dataframe with original dataframe
-        df = df.drop(feature, axis=1)  # Drop the original feature
-        vectorized_headers_list = list(df_temp)
-        for i in range(len(vectorized_headers_list)):
-            mv_vec_categorical_features.append(vectorized_headers_list[i])  # Keep track of vectorized features
-    return df, mv_vec_categorical_features
+    orig_col_names = df.columns
 
-def vec_single_value_cat_features(df, sv_cat_features, config):
+    # One hot encode the multi-valued categorical features
+    mv_cat_feature_idxs = [df.columns.get_loc(c) for c in mv_cat_features if c in df]  # List of categorical column indices
+    if load_ct:
+        col_trans_ohe = load(config['PATHS']['OHE_COL_TRANSFORMER_MV'])
+        df_ohe = pd.DataFrame(col_trans_ohe.transform(df), index=df.index.copy())
+    else:
+        col_trans_ohe = ColumnTransformer(
+            transformers=[('col_trans_mv_ohe', OneHotEncoder(sparse=False, handle_unknown='ignore', dtype=int), mv_cat_feature_idxs)],
+            remainder='passthrough'
+        )
+        df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
+        dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER_MV'], compress=True)  # Save the column transformer
+
+    # Build list of feature names for the new DataFrame
+    mv_vec_cat_features = []
+    for i in range(len(mv_cat_features)):
+        feat_names = list(col_trans_ohe.transformers_[0][1].categories_[i])
+        for j in range(len(feat_names)):
+            mv_vec_cat_features.append(mv_cat_features[i] + '_' + feat_names[j])
+    ohe_feat_names = mv_vec_cat_features.copy()
+    for feat in orig_col_names:
+        if feat not in mv_cat_features:
+            ohe_feat_names.append(feat)
+    df_ohe.columns = ohe_feat_names
+    return df_ohe, mv_vec_cat_features
+
+def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     '''
     Converts single-valued categorical features to one-hot encoded format (i.e. vectorization) and appends to the dataframe.
     Keeps track of a mapping from feature indices to categorical values, for interpretability purposes.
     :param df: A Pandas dataframe
     :param sv_cat_features: The names of the categorical features to encode
+    :param config: project config dict
+    :param load_ct: Flag indicating whether to load saved column transformers
     :return: dataframe containing one-hot encoded features, list of one-hot encoded feature names
     '''
     # Convert single-valued categorical features to numeric data
     cat_feature_idxs = [df.columns.get_loc(c) for c in sv_cat_features if c in df]  # List of categorical column indices
     cat_value_names = {}  # Dictionary of categorical feature indices and corresponding names of feature values
-    col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(), sv_cat_features)])
-    df[sv_cat_features] = col_trans_ordinal.fit_transform(df)
-    dump(col_trans_ordinal, config['PATHS']['ORDINAL_COL_TRANSFORMER'], compress=True)  # Save the column transformer
+    if load_ct:
+        col_trans_ordinal = load(config['PATHS']['ORDINAL_COL_TRANSFORMER'])
+        df[sv_cat_features] = col_trans_ordinal.transform(df) - 1
+    else:
+        col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(handle_unknown='value'), sv_cat_features)])
+        df[sv_cat_features] = col_trans_ordinal.fit_transform(df) - 1   # Want integer representation of features to start at 0
+        dump(col_trans_ordinal, config['PATHS']['ORDINAL_COL_TRANSFORMER'], compress=True)  # Save the column transformer
 
     # Preserve named values of each categorical feature
     for i in range(len(sv_cat_features)):
-        cat_value_names[cat_feature_idxs[i]] = list(col_trans_ordinal.transformers_[0][1].categories_[i])
+        cat_value_names[cat_feature_idxs[i]] = []
+        for j in range(len(col_trans_ordinal.transformers_[0][1].category_mapping[i])):
+            # Last one is nan; we don't want that
+            cat_value_names[cat_feature_idxs[i]] = col_trans_ordinal.transformers_[0][1].category_mapping[i]['mapping'].index.tolist()[:-1]
 
     # One hot encode the single-valued categorical features
-    col_trans_ohe = ColumnTransformer(transformers=[('col_trans_ohe', OneHotEncoder(sparse=False), cat_feature_idxs)],
-                                      remainder='passthrough')
-    df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
+    if load_ct:
+        col_trans_ohe = load(config['PATHS']['OHE_COL_TRANSFORMER_SV'])
+        df_ohe = pd.DataFrame(col_trans_ohe.transform(df), index=df.index.copy())
+    else:
+        col_trans_ohe = ColumnTransformer(
+            transformers=[('col_trans_ohe', OneHotEncoder(sparse=False, handle_unknown='ignore'), cat_feature_idxs)],
+            remainder='passthrough'
+        )
+        df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
+        dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER_SV'], compress=True)  # Save the column transformer
 
     # Build list of feature names for OHE dataset
     ohe_feat_names = []
     for i in range(len(sv_cat_features)):
         for value in cat_value_names[cat_feature_idxs[i]]:
             ohe_feat_names.append(sv_cat_features[i] + '_' + str(value))
-    vec_sv_cat_features = ohe_feat_names
+    vec_sv_cat_features = ohe_feat_names.copy()
     for feat in df.columns:
         if feat not in sv_cat_features:
             ohe_feat_names.append(feat)
     df_ohe.columns = ohe_feat_names
-    dump(col_trans_ohe, config['PATHS']['OHE_COL_TRANSFORMER'], compress=True)  # Save the column transformer
 
-    interpretability_info = {}  # Store some information for later use in LIME
-    interpretability_info['SV_CAT_FEATURES'] = sv_cat_features
-    interpretability_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
-    interpretability_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
-    interpretability_info['SV_CAT_VALUES'] = cat_value_names
-    return df, df_ohe, interpretability_info
+    data_info = {}  # To store info for later use in LIME
+    data_info['SV_CAT_FEATURES'] = sv_cat_features
+    data_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
+    data_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
+    data_info['SV_CAT_VALUES'] = cat_value_names
+    return df, df_ohe, data_info
 
 def process_timestamps(df):
     '''
@@ -176,7 +212,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     :param chronic_threshold: Minimum # of days spent in shelter to be considered chronically homeless
     :param days: Number of days over which to cound # days spent in shelter
     :param end_date: The last date of the time period to consider
-    :return: the dataframe with ground truth appended at the end
+    :return: a DataSeries mapping ClientID to ground truth
     '''
 
     def client_gt(client_df):
@@ -207,12 +243,13 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         return client_df
 
     start_date = end_date - timedelta(days=days) # Get start of ground truth window
-    df['GroundTruth'] = 0
-    df_temp = df.loc[(df['ServiceType'] == 'Stay')]
+    df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
+    df_temp['GroundTruth'] = 0
+    df_temp = df_temp.loc[(df_temp['ServiceType'] == 'Stay')]
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
-    df_temp = df_temp.droplevel('ClientID', axis='index')
-    df.update(df_temp)  # Update all rows with corresponding stay length and ground truth
-    return df
+    ds_gt = df_temp['GroundTruth']
+    ds_gt = ds_gt.groupby(['ClientID']).agg({'GroundTruth': 'max'})
+    return ds_gt
 
 def calculate_client_features(df, end_date, counted_services):
     '''
@@ -288,11 +325,11 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     for i in range(len(non_categorical_features)):
         grouping_dictionary[non_categorical_features[i]] = 'first'  # Group noncategorical features by first occurrence
     for i in range(len(vec_sv_categorical_features)):
-        temp_dict[vec_sv_categorical_features[i]] = 'first'  # Group one hot features by max value
+        temp_dict[vec_sv_categorical_features[i]] = 'first'  # Group single-valued categorical features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(vec_mv_categorical_features)):
-        temp_dict[vec_mv_categorical_features[i]] = 'max'  # Group single categorical features by first value
+        temp_dict[vec_mv_categorical_features[i]] = lambda x: 1 if any(x) else 0  # Group multi-valued categorical features
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(numerical_service_features)):
@@ -309,9 +346,20 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     return df_unique_clients
 
 
-def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
+def preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False, data_path=None):
     '''
-    Load results of the HIFIS SQL query and process the data into features for training a model.
+    Load results of the HIFIS SQL query and process the data into features for model training or prediction.
+    :param n_weeks: Prediction horizon [weeks]
+    :param include_gt: Boolean describing whether to include ground truth in preprocessed data. Set False if using data to predict.
+    :param calculate_gt: Boolean describing whether to load precomputed ground truth from disk. Set False to compute ground truth.
+    :param classify_cat_feats: Boolean describing whether to classify categorical features as single- or multi-valued.
+                               If False, load from disk.
+    :param load_ct: Boolean describing whether to load pre-fitted data transformers
+    :param data_path: Path to load raw data from
+    :return: dict containing preprocessed data before and after encoding single-value categorical features
+    '''
+    '''
+
     :param n_weeks: Prediction horizon
     '''
     run_start = datetime.today()
@@ -329,7 +377,9 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
 
     # Load HIFIS database into Pandas dataframe
     print("Loading HIFIS data.")
-    df = load_df(config['PATHS']['RAW_DATA'])
+    if data_path == None:
+        data_path = config['PATHS']['RAW_DATA']
+    df = load_df(data_path)
 
     # Delete unwanted columns
     print("Dropping some features.")
@@ -356,11 +406,17 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     print("Converting timestamps to datetimes.")
     df = process_timestamps(df)
 
-    # Calculate ground truth
+    # Calculate ground truth and save it. Or load pre-saved ground truth.
     gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
-    if not load_gt:
-        print("Calculating ground truth.")
-        df = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+    if include_gt:
+        if not calculate_gt:
+            print("Calculating ground truth.")
+            ds_gt = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
+            ds_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)  # Save ground truth
+        else:
+            ds_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
+            ds_gt = ds_gt.set_index('ClientID')
+            ds_gt.index = ds_gt.index.astype(int)
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
@@ -376,24 +432,27 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     df = df.set_index('ServiceStartDate')
 
     # Create an "Other" value for each categorical variable, which will serve as the value for unique entries
-    print("Cleansing categorical features of unique values.")
-    df = cleanse_categorical_features(df, categorical_features)
+    #print("Cleansing categorical features of unique values.")
+    #df = cleanse_categorical_features(df, categorical_features)
 
     print("Separating multi and single-valued categorical features.")
     if classify_cat_feats:
         sv_cat_features, mv_cat_features = classify_cat_features(df, categorical_features)
     else:
-        input_stream = open(os.getcwd() + config['PATHS']['INTERPRETABILITY'], 'r')
+        input_stream = open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r')
         cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
         sv_cat_features = cfg_gen['SV_CAT_FEATURES']
         mv_cat_features = cfg_gen['MV_CAT_FEATURES']
 
+    # Replace all instances of NaN in the dataframe with 0 or "Unknown"
+    df[mv_cat_features] = df[mv_cat_features].fillna("None")
+
     # Vectorize the multi-valued categorical features
     print("Vectorizing multi-valued categorical features.")
-    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features)
+    df, vec_mv_cat_features = vec_multi_value_cat_features(df, mv_cat_features, config, load_ct)
 
     # Amalgamate rows to have one entry per client
-    print("Grouping the dataframe.")
+    print("Aggregating the dataframe.")
     df_clients = aggregate_df(df, noncategorical_features, vec_mv_cat_features, sv_cat_features, numerical_service_features)
 
     # Drop unnecessary features
@@ -407,46 +466,45 @@ def preprocess(n_weeks=None, load_gt=False, classify_cat_feats=True):
     for feature in noncat_feats_gone:
         noncategorical_features.remove(feature)
 
-    # Replace all instances of NaN in the dataframe with 0 or "Unknown"
     df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
     df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
 
-    # Load ground truth if not calculated already. Otherwise, save ground truth.
-    if load_gt:
-        df_gt = load_df(config['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
-        df_gt = df_gt.set_index('ClientID')
-        df_gt.index = df_gt.index.astype(int)
-        df_clients.index = df_clients.index.astype(int)
-        df_clients = df_clients.join(df_gt) # Set ground truth for all clients to their saved values
-        df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
-    else:
-        df_gt = df_clients['GroundTruth']
-        df_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)    # Save ground truth
-
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")
-    df_clients, df_ohe_clients, interpretability_info = vec_single_value_cat_features(df_clients, sv_cat_features, config)
+    df_clients, df_ohe_clients, data_info = vec_single_value_cat_features(df_clients, sv_cat_features, config, load_ct)
 
-    # Save processed dataset
+    # Append ground truth to dataset and log some useful stats about ground truth
+    if include_gt:
+        print("Appending ground truth.")
+        df_clients.index = df_clients.index.astype(int)
+        df_ohe_clients.index = df_ohe_clients.index.astype(int)
+        df_clients = df_clients.join(ds_gt)  # Set ground truth for all clients to their saved values
+        df_ohe_clients = df_ohe_clients.join(ds_gt)
+        df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
+        df_ohe_clients['GroundTruth'] = df_ohe_clients['GroundTruth'].fillna(0)
+        num_pos = df_clients['GroundTruth'].sum()  # Number of clients with positive ground truth
+        num_neg = df_clients.shape[0] - num_pos  # Number of clients with negative ground truth
+        print("# clients in last year meeting homelessness criteria = ", num_pos)
+        print("# clients in last year not meeting homelessness criteria = ", num_neg)
+        print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
+
+    # If not preprocessing for prediction, save processed dataset
     print("Saving data.")
-    df_clients.to_csv(config['PATHS']['PROCESSED_DATA'], sep=',', header=True)
-    df_ohe_clients.to_csv(config['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
+    if include_gt:
+        df_clients.to_csv(config['PATHS']['PROCESSED_DATA'], sep=',', header=True)
+        df_ohe_clients.to_csv(config['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
 
     # For producing interpretable results with categorical data:
-    interpretability_info['MV_CAT_FEATURES'] = mv_cat_features
-    interpretability_info['NON_CAT_FEATURES'] = noncategorical_features
-    with open(config['PATHS']['INTERPRETABILITY'], 'w') as file:
-        interpretability_doc = yaml.dump(interpretability_info, file)
+    data_info['MV_CAT_FEATURES'] = mv_cat_features
+    data_info['NON_CAT_FEATURES'] = noncategorical_features
+    data_info['N_WEEKS'] = n_weeks
+    with open(config['PATHS']['DATA_INFO'], 'w') as file:
+        cat_feat_doc = yaml.dump(data_info, file)
 
-    # Log some useful stats
-    num_pos = df_clients['GroundTruth'].sum()   # Number of clients with positive ground truth
-    num_neg = df_clients.shape[0] - num_pos             # Number of clients with negative ground truth
-    print("# clients in last year meeting homelessness criteria = ", num_pos)
-    print("# clients in last year not meeting homelessness criteria = ", num_neg)
-    print("% positive for chronic homelessness = ", 100 * num_pos / (num_pos + num_neg))
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
+    return df_clients
 
 if __name__ == '__main__':
-    preprocess(n_weeks=12, load_gt=False, classify_cat_feats=True)
+    preprocessed_data = preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False)
 
 

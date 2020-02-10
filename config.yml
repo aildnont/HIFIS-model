@@ -4,7 +4,7 @@ PATHS:
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
-  INTERPRETABILITY: './data/interpretability/feature_info.yml'
+  DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
   IMAGES: 'documents/images/'
   LOGS: 'results\\logs\\'
@@ -14,11 +14,15 @@ PATHS:
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
   ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
-  OHE_COL_TRANSFORMER: 'data/transformers/ohe_col_transformer.bin'
+  OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
+  OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
+  LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
+  BULK_PREDICTIONS: './results/predictions/predictions.csv'
+  TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
 
 # Constants pertaining to data structure
 DATA:
-  N_WEEKS: 4
+  N_WEEKS: 12
   GROUND_TRUTH_DATE: '2020-02-05'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
@@ -106,3 +110,7 @@ HORIZON_SEARCH:
   N_MAX: 52
   N_INTERVAL: 4
   RUNS_PER_N: 10
+
+PREDICTION:
+  THRESHOLD: 0.5
+  CLASS_NAMES: {0: 'not at risk', 1: 'at risk'}

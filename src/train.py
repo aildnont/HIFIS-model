@@ -51,17 +51,13 @@ def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     return X_resampled, Y_resampled
 
 
-def load_dataset(cfg):
+def load_dataset(cfg, data_info):
     '''
     Load the dataset from disk and partition into train/val/test sets. Normalize numerical data.
     :param cfg: Project config (from config.yml)
     :return: A dict of partitioned and normalized datasets, split into examples and labels
     '''
-
-    # Load config data generated from preprocessing
-    input_stream = open(os.getcwd() + cfg['PATHS']['INTERPRETABILITY'], 'r')
-    feature_info = yaml.full_load(input_stream)
-    noncat_features = feature_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
+    noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
 
     # Load and partition dataset
     df_ohe = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
@@ -168,13 +164,14 @@ def multi_train(cfg, data, model, callbacks):
     print("Best model test metrics: ", best_metrics)
     return best_model, best_metrics
 
-def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
+def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir):
     '''
     Conduct a random hyperparameter search over the ranges given for the hyperparameters in config.yml and log results
     in TensorBoard. Model is trained x times for y random combinations of hyperparameters.
     :param cfg: Project config
     :param data: Dict containing the partitioned datasets
     :param metrics: List of model metrics
+    :param: n_weeks: Predictive horizon
     :param shape: Shape of input examples
     :param callbacks: List of callbacks for Keras model (excluding TensorBoard)
     :param log_dir: Base directory in which to store logs
@@ -221,7 +218,7 @@ def random_hparam_search(cfg, data, metrics, shape, callbacks, log_dir):
             trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
             callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0, write_graph=False),
                                         hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
-            model = model1(cfg['NN']['MODEL1'], shape, metrics, output_bias=cfg['OUTPUT_BIAS'], hparams=hparams)
+            model = model1(cfg['NN']['MODEL1'], shape, metrics, n_weeks, output_bias=cfg['OUTPUT_BIAS'], hparams=hparams)
 
             # Set some hyperparameters that cannot be set in model definition
             cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']
@@ -247,11 +244,17 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     input_stream = open(os.getcwd() + "/config.yml", 'r')
     cfg = yaml.full_load(input_stream)
 
+    # Load data info generated during preprocessing
+    input_stream = open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r')
+    data_info = yaml.full_load(input_stream)
+    n_weeks = data_info['N_WEEKS']
+
     # Load preprocessed data and partition into training, validation and test sets.
-    data = load_dataset(cfg)
+    data = load_dataset(cfg, data_info)
 
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
     cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    n_weeks = cfg['DATA']['N_WEEKS']
 
     # Define metrics.
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
@@ -270,13 +273,13 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     # Define the model.
     num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
     cfg['OUTPUT_BIAS'] = np.log([num_pos / num_neg])
-    model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, output_bias=cfg['OUTPUT_BIAS'])   # Build model graph
+    model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, n_weeks, output_bias=cfg['OUTPUT_BIAS'])   # Build model graph
 
     # Conduct desired train experiment
     if experiment == 'multi_train':
         model, test_metrics = multi_train(cfg, data, model, callbacks)
     elif experiment == 'hparam_search':
-        model, test_metrics = random_hparam_search(cfg, data, metrics, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
+        model, test_metrics = random_hparam_search(cfg, data, metrics, n_weeks, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
     else:
         model, test_metrics = train_model(cfg, data, model, callbacks)
 
@@ -290,7 +293,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
         writer = tf.summary.create_file_writer(logdir=log_dir)
         test_summary_str = [['**Metric**','**Value**']]
         for metric in test_metrics:
-            if metric in ['precision', 'recall']:
+            if metric in ['precision', 'recall'] and isinstance(metric, list):
                 metric_values = dict(zip(thresholds, test_metrics[metric]))
             else:
                 metric_values = test_metrics[metric]
