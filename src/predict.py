@@ -49,7 +49,7 @@ def predict_and_explain_set(data_path=None, save_results=True):
     CLASS_NAMES = cfg['PREDICTION']['CLASS_NAMES']
 
     # Define column names of the DataFrame representing the prediction results
-    col_names = ['ClientID', 'Predictive Horizon [weeks]', 'Predicted chronic homelessness',
+    col_names = ['ClientID', 'Predictive Horizon [weeks]', 'At risk of chronic homelessness',
                  'Probability of chronic homelessness [%]']
     for i in range(NUM_FEATURES):
         col_names.extend(['Explanation ' + str(i+1), 'Weight ' + str(i+1)])
@@ -108,5 +108,5 @@ def trending_prediction(data_path=None):
 
 
 if __name__ == '__main__':
-    #results = predict_and_explain_set(data_path='data/raw/HIFIS_Clients_test.csv', save_results=True)
-    trending_prediction(data_path='data/raw/HIFIS_Clients_test.csv')
+    #results = predict_and_explain_set(save_results=True)
+    trending_prediction()
