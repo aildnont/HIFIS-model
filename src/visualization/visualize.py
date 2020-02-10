@@ -27,11 +27,12 @@ def plot_to_tensor():
     image = tf.expand_dims(image, 0)     # Add the batch dimension
     return image
 
-def plot_metrics(history, metrics, file_path=None):
+def plot_metrics(history, metrics, dir_path=None):
     '''
     Plot metrics for the training and validation sets over the training history.
     :param history: Model history; returned from model.fit()
     :param metrics: List of metrics to plot
+    :param dir_path: Directory in which to save image
     '''
     plt.clf()
     for n, metric in enumerate(metrics):
@@ -50,16 +51,17 @@ def plot_metrics(history, metrics, file_path=None):
         else:
           plt.ylim([0,1])
         plt.legend()
-    if file_path is not None:
-        plt.savefig(file_path + 'metrics_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    if dir_path is not None:
+        plt.savefig(dir_path + 'metrics_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
-def plot_roc(name, labels, predictions, file_path=None):
+def plot_roc(name, labels, predictions, dir_path=None):
     '''
     Plots the ROC curve for predictions on a dataset
     :param name: Name of dataset on the plot
     :param labels: Ground truth labels
     :param predictions: Model predictions corresponding to the labels
+    :param dir_path: Directory in which to save image
     '''
     plt.clf()
     fp, tp, _ = roc_curve(labels, predictions)  # Get values for true positive and true negative
@@ -71,16 +73,17 @@ def plot_roc(name, labels, predictions, file_path=None):
     plt.grid(True)
     ax = plt.gca()
     ax.set_aspect('equal')
-    if file_path is not None:
-        plt.savefig(file_path + 'ROC_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    if dir_path is not None:
+        plt.savefig(dir_path + 'ROC_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return plot_to_tensor()
 
-def plot_confusion_matrix(labels, predictions, p=0.5, file_path=None):
+def plot_confusion_matrix(labels, predictions, p=0.5, dir_path=None):
     '''
     Plot a confusion matrix for the ground truth labels and corresponding model predictions.
     :param labels: Ground truth labels
     :param predictions: Model predictions
     :param p: Classification threshold
+    :param dir_path: Directory in which to save image
     '''
     plt.clf()
     ax = plt.subplot()
@@ -102,8 +105,8 @@ def plot_confusion_matrix(labels, predictions, p=0.5, file_path=None):
     plt.xlabel('Predicted label')
 
     # Save the image
-    if file_path is not None:
-        plt.savefig(file_path + 'CM_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    if dir_path is not None:
+        plt.savefig(dir_path + 'CM_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
 
     # Print these statistics
     print('True (-)ves: ', cm[0][0], '\nFalse (+)ves: ', cm[0][1], '\nFalse (-)ves: ', cm[1][0], '\nTrue (+)ves: ',

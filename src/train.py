@@ -235,6 +235,7 @@ def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir)
 def train_experiment(experiment='single_train', save_weights=True, write_logs=True):
     '''
     Defines and trains HIFIS-v2 model. Prints and logs relevant metrics.
+    :param experiment: The type of training experiment. Choices are {'single_train', 'multi_train', 'hparam_search'}
     :param save_weights: A flag indicating whether to save the model weights
     :param write_logs: A flag indicating whether to write TensorBoard logs
     :return: A dictionary of metrics on the test set

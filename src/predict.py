@@ -14,6 +14,7 @@ def predict_and_explain_set(data_path=None, save_results=True):
     '''
     Preprocess a raw dataset. Then get model predictions and corresponding LIME explanations.
     :param data_path: Path at which to save results of this prediction
+    :param save_results: Flag specifying whether to save the prediction results to disk
     :return: Dataframe of prediction results, including explanations.
     '''
 
@@ -108,5 +109,4 @@ def trending_prediction(data_path=None):
 
 
 if __name__ == '__main__':
-    #results = predict_and_explain_set(save_results=True)
-    trending_prediction()
+    results = predict_and_explain_set(save_results=True)
