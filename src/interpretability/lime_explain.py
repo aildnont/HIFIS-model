@@ -117,15 +117,21 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
     print("Runtime = ", ((datetime.datetime.today() - run_start).seconds / 60), " min")  # Print runtime of experiment
     return results_df
 
-def run_lime():
+
+def setup_lime():
+    '''
+    Load relevant information and create a LIME Explainer
+    :return: dict containing important information and objects for explanation experiments
+    '''
+    lime_dict = {}
     # Load relevant constants from project config file
     input_stream = open(os.getcwd() + "/config.yml", 'r')
     cfg = yaml.full_load(input_stream)
-    NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
-    NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
+    lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
+    lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
     KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
     FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
-    FILE_PATH = cfg['PATHS']['LIME_EXPERIMENT']
+    lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
 
     # Load feature information
     input_stream = open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r')
@@ -142,12 +148,12 @@ def run_lime():
     test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 
     # Get client IDs and corresponding ground truths
-    Y_train = pd.concat([train_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
-    Y_test = pd.concat([test_df.pop(x) for x in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    Y_train = pd.concat([train_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
 
     # Load data transformers
-    scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
-    ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
+    lime_dict['SCALER_CT'] = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
+    lime_dict['OHE_CT_SV'] = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
 
     # Get indices of categorical and noncategorical featuress
     noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
@@ -155,30 +161,47 @@ def run_lime():
 
     # Convert datasets to numpy arrays
     X_train = np.array(train_df)
-    X_test = np.array(test_df)
+    lime_dict['X_TEST'] = np.array(test_df)
 
     # Define the LIME explainer
     train_labels = Y_train['GroundTruth'].to_numpy()
-    explainer = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
+    lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
                                     kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION)
-    dill.dump(explainer, open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Save
+    dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
-    model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    return lime_dict
 
+
+def explain_single_client(lime_dict, client_id):
+    '''
     # Make a prediction and explain the rationale
+    :param lime_dict: dict containing important information and objects for explanation experiments
+    :param client_id: Client to predict and explain
     '''
-    client_id = 76037
-    i = Y_test.index.get_loc(client_id)
-    explanation = predict_and_explain(X_test[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
-    visualize_explanation(explanation, client_id, Y_test.loc[client_id, 'GroundTruth'])
-    '''
+    i = lime_dict['Y_TEST'].index.get_loc(client_id)
+    explanation = predict_and_explain(lime_dict['X_TEST'][i], lime_dict['MODEL'], lime_dict['EXPLAINER'],
+                                      lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
+                                      lime_dict['NUM_SAMPLES'])
+    visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'])
+    return
 
+def run_lime_experiment_and_visualize(lime_dict):
     '''
-    results_df = lime_experiment(X_test, Y_test, model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES, FILE_PATH, all=False)
+    Run LIME experiment on test set and visualize average explanations
+    :param lime_dict: dict containing important information and objects for explanation experiments
+    '''
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    cfg = yaml.full_load(input_stream)
+    results_df = lime_experiment(lime_dict['X_TEST'], lime_dict['Y_TEST'], lime_dict['MODEL'], lime_dict['EXPLAINER'],
+                              cfg['PREDICTION']['THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
+                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=True)
     visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
-    '''
+    return
 
 if __name__ == '__main__':
-    results = run_lime()
+    lime_dict = setup_lime()
+    #explain_single_client(lime_dict, 87020)
+    run_lime_experiment_and_visualize(lime_dict)
