@@ -19,6 +19,18 @@ def load_df(path):
     df = pd.read_csv(path, encoding="ISO-8859-1", low_memory=False)
     return df
 
+def cleanse_categorical_features(df, categorical_features):
+    '''
+    For all categorical features, replace entries containing unique values with "Other"
+    :param df: a Pandas dataframe
+    :param categorical_features: list of categorical features in the dataframe
+    :return: the updated dataframe
+    '''
+    for feature in categorical_features:
+        counts = df[feature].value_counts() # Get a Pandas series of all the values for
+        single_values = counts[counts == 1] # Get values for this categorical feature unique to 1 row
+        df[feature].loc[(df[feature].isin(list(single_values.index)))] = "Other" # Replace unique instances of categorical values with "Other"
+    return df
 
 def classify_cat_features(df, cat_features):
     '''
@@ -175,6 +187,23 @@ def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats, cat_feats):
         df['CurrentAge'] = (train_end_date - df['DOB']).astype('<m8[Y]')
     return df
 
+def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
+    '''
+    Convert yes/no features to boolean features. Avoids vectorization.
+    :param df: a Pandas dataframe
+    :return: updated dataframe with the yes/no features converted to boolean values
+    '''
+    yn_features = []    # List of Yes/No feature names
+    for feature in categorical_features:
+        if "YN" in feature:
+            new_feature = feature[0:feature.index('YN')]
+            df[new_feature] = np.where(df[feature] == 'Y', 1, 0)
+            df.drop(feature, axis=1, inplace=True)
+            yn_features.append(feature)
+            noncategorical_features.append(new_feature)
+    # Remove Y/N features from list of categorical features
+    categorical_features = [f for f in categorical_features if f not in yn_features]
+    return df, categorical_features, noncategorical_features
 
 def calculate_ground_truth(df, chronic_threshold, days, end_date):
     '''
@@ -194,21 +223,19 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         '''
         client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
         gt_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
-        last_stay_end = pd.to_datetime(0)
-        last_stay_start = pd.to_datetime(0)
+        last_end = pd.to_datetime(0)
+        last_start = pd.to_datetime(0)
 
         # Iterate over all of client's records. Note itertuples() is faster than iterrows().
         for row in client_df.itertuples():
             stay_start = getattr(row, 'ServiceStartDate')
             stay_end = min(getattr(row, 'ServiceEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
-            if (stay_start > last_stay_start) and (stay_end > last_stay_end):
+            if stay_start != last_start:
                 if (stay_start.date() >= start_date.date()) or (stay_end.date() >= start_date.date()):
-                    # Account for cases where stay start earlier than start of range, or stays overlapping from previous stay
-                    stay_start = max(start_date, stay_start, last_stay_end)
-                    if (stay_end - stay_start).total_seconds() >= min_stay_seconds:
-                        gt_stays += (stay_end.date() - stay_start.date()).days + (stay_start.date() != last_stay_end.date())
-                last_stay_end = stay_end
-                last_stay_start = stay_start
+                    gt_stay_start = max(start_date, stay_start) # Account for cases where stay start earlier than start of range
+                    gt_stays += (stay_end - gt_stay_start).days + (gt_stay_start.date() != last_end.date())
+                last_end = stay_end
+                last_start = stay_start
 
         # Determine if client meets ground truth threshold
         if gt_stays >= chronic_threshold:
@@ -216,7 +243,6 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         return client_df
 
     start_date = end_date - timedelta(days=days) # Get start of ground truth window
-    min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
     df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
     df_temp['GroundTruth'] = 0
     df_temp = df_temp.loc[(df_temp['ServiceType'] == 'Stay')]
@@ -242,7 +268,7 @@ def calculate_client_features(df, end_date, counted_services):
         '''
         client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
         total_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
-        last_stay_end = pd.to_datetime(0)   # Unix Epoch (1970-01-01 00:00:00)
+        last_stay_end = pd.to_datetime(0)
         last_stay_start = pd.to_datetime(0)
         last_service_end = pd.to_datetime(0)
         last_service = ''
@@ -252,10 +278,8 @@ def calculate_client_features(df, end_date, counted_services):
             service_start = getattr(row, 'ServiceStartDate')
             service_end = min(getattr(row, 'ServiceEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
             if (getattr(row, 'ServiceType') == 'Stay'):
-                if (service_start > last_stay_start) and (service_end > last_stay_end):
-                    service_start = max(service_start, last_stay_end)   # Don't count any stays overlapping from previous stay
-                    if (service_end - service_start).total_seconds() >= min_stay_seconds:
-                        total_stays += (service_end.date() - service_start.date()).days + (service_start.date() != last_stay_end.date())
+                if (service_start != last_stay_start):
+                    total_stays += (service_end.date() - service_start.date()).days + (service_start.date() != last_stay_end.date())
                     last_stay_end = service_end
                     last_stay_start = service_start
             elif (service_end != last_service_end) or (getattr(row, 'ServiceType') != last_service):
@@ -273,7 +297,6 @@ def calculate_client_features(df, end_date, counted_services):
     df['TotalStays'] = 0    # Create columns for stays and income total
     df['IncomeTotal'] = 0
     df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
-    min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
     numerical_service_features = []
     for service in counted_services:
         df['Num_' + service] = 0
@@ -323,7 +346,7 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     return df_unique_clients
 
 
-def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True, load_ct=False, data_path=None):
+def preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False, data_path=None):
     '''
     Load results of the HIFIS SQL query and process the data into features for model training or prediction.
     :param n_weeks: Prediction horizon [weeks]
@@ -334,6 +357,10 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     :param load_ct: Boolean describing whether to load pre-fitted data transformers
     :param data_path: Path to load raw data from
     :return: dict containing preprocessed data before and after encoding single-value categorical features
+    '''
+    '''
+
+    :param n_weeks: Prediction horizon
     '''
     run_start = datetime.today()
     tqdm.pandas()
@@ -368,6 +395,10 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     categorical_features.append('HasFamily')
     noncategorical_features.remove('FamilyID')
 
+    # Convert yes/no features to boolean features
+    print("Convert yes/no categorical features to boolean")
+    #df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
+
     # Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
     df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
 
@@ -378,7 +409,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     # Calculate ground truth and save it. Or load pre-saved ground truth.
     gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
     if include_gt:
-        if calculate_gt:
+        if not calculate_gt:
             print("Calculating ground truth.")
             ds_gt = calculate_ground_truth(df, config['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION, gt_end_date)
             ds_gt.to_csv(config['PATHS']['GROUND_TRUTH'], sep=',', header=True)  # Save ground truth
@@ -399,6 +430,10 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Index dataframe by the service start column
     df = df.set_index('ServiceStartDate')
+
+    # Create an "Other" value for each categorical variable, which will serve as the value for unique entries
+    #print("Cleansing categorical features of unique values.")
+    #df = cleanse_categorical_features(df, categorical_features)
 
     print("Separating multi and single-valued categorical features.")
     if classify_cat_feats:
@@ -470,6 +505,6 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     return df_clients
 
 if __name__ == '__main__':
-    preprocessed_data = preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True, load_ct=False)
+    preprocessed_data = preprocess(n_weeks=None, include_gt=True, calculate_gt=False, classify_cat_feats=True, load_ct=False)
 
 
