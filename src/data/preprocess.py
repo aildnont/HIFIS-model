@@ -31,6 +31,7 @@ def classify_cat_features(df, cat_features):
         '''
         Helper function for categorical feature classification, distributed across clients.
         :param client_df: Dataframe with 1 client's records
+        :return List of single-valued categorical features, list of multi-valued categorical features
         '''
         for feature in cat_features:
             # If this feature takes more than 1 value per client, move it to the list of multi-valued features
@@ -230,6 +231,7 @@ def calculate_client_features(df, end_date, counted_services):
     Iterate through dataset by client to calculate some features (total stays, monthly income)
     :param df: a Pandas dataframe
     :param end_date: The last date of the time period to consider
+    :param counted_services: Service features we wish to count and create a feature for
     :return: the dataframe with the new features and ground truth appended at the end
     '''
 
@@ -289,7 +291,9 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     Build a dictionary of columns and arguments to feed into the aggregation function, and aggregate the dataframe
     :param df: a Pandas dataframe
     :param noncategorical_features: list of noncategorical features
-    :param ohe_features: list of one-hot encoded features
+    :param vec_mv_categorical_features: list of one-hot encoded multi-valued categorical features
+    :param vec_sv_categorical_features: list of one-hot encoded single-valued categorical features
+    :param numerical_service_features: list of counted service features
     :return: A grouped dataframe with one row for each client
     '''
     grouping_dictionary = {}
@@ -328,7 +332,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     Load results of the HIFIS SQL query and process the data into features for model training or prediction.
     :param n_weeks: Prediction horizon [weeks]
     :param include_gt: Boolean describing whether to include ground truth in preprocessed data. Set False if using data to predict.
-    :param calculate_gt: Boolean describing whether to load precomputed ground truth from disk. Set False to compute ground truth.
+    :param calculate_gt: Boolean describing whether to compute ground truth or load from disk. Set True to compute ground truth.
     :param classify_cat_feats: Boolean describing whether to classify categorical features as single- or multi-valued.
                                If False, load from disk.
     :param load_ct: Boolean describing whether to load pre-fitted data transformers
