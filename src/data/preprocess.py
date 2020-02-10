@@ -19,18 +19,6 @@ def load_df(path):
     df = pd.read_csv(path, encoding="ISO-8859-1", low_memory=False)
     return df
 
-def cleanse_categorical_features(df, categorical_features):
-    '''
-    For all categorical features, replace entries containing unique values with "Other"
-    :param df: a Pandas dataframe
-    :param categorical_features: list of categorical features in the dataframe
-    :return: the updated dataframe
-    '''
-    for feature in categorical_features:
-        counts = df[feature].value_counts() # Get a Pandas series of all the values for
-        single_values = counts[counts == 1] # Get values for this categorical feature unique to 1 row
-        df[feature].loc[(df[feature].isin(list(single_values.index)))] = "Other" # Replace unique instances of categorical values with "Other"
-    return df
 
 def classify_cat_features(df, cat_features):
     '''
@@ -187,23 +175,6 @@ def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats, cat_feats):
         df['CurrentAge'] = (train_end_date - df['DOB']).astype('<m8[Y]')
     return df
 
-def convert_yn_to_boolean(df, categorical_features, noncategorical_features):
-    '''
-    Convert yes/no features to boolean features. Avoids vectorization.
-    :param df: a Pandas dataframe
-    :return: updated dataframe with the yes/no features converted to boolean values
-    '''
-    yn_features = []    # List of Yes/No feature names
-    for feature in categorical_features:
-        if "YN" in feature:
-            new_feature = feature[0:feature.index('YN')]
-            df[new_feature] = np.where(df[feature] == 'Y', 1, 0)
-            df.drop(feature, axis=1, inplace=True)
-            yn_features.append(feature)
-            noncategorical_features.append(new_feature)
-    # Remove Y/N features from list of categorical features
-    categorical_features = [f for f in categorical_features if f not in yn_features]
-    return df, categorical_features, noncategorical_features
 
 def calculate_ground_truth(df, chronic_threshold, days, end_date):
     '''
@@ -397,10 +368,6 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     categorical_features.append('HasFamily')
     noncategorical_features.remove('FamilyID')
 
-    # Convert yes/no features to boolean features
-    print("Convert yes/no categorical features to boolean")
-    #df, categorical_features, noncategorical_features = convert_yn_to_boolean(df, categorical_features, noncategorical_features)
-
     # Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
     df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
 
@@ -432,10 +399,6 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Index dataframe by the service start column
     df = df.set_index('ServiceStartDate')
-
-    # Create an "Other" value for each categorical variable, which will serve as the value for unique entries
-    #print("Cleansing categorical features of unique values.")
-    #df = cleanse_categorical_features(df, categorical_features)
 
     print("Separating multi and single-valued categorical features.")
     if classify_cat_feats:

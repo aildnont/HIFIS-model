@@ -1,8 +1,8 @@
 # Relevant file/directory paths
 PATHS:
-  RAW_DATA: 'data/raw/HIFIS_Clients.csv'
-  PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
-  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
+  RAW_DATA: 'data/raw/HIFIS_Clients_test.csv'
+  PROCESSED_DATA: 'data/processed/HIFIS_Processed_test.csv'
+  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE_test.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
