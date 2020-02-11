@@ -28,11 +28,21 @@ DATA:
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
                            'ServiceProvider']
-  FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
-                          'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
-                          'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB']
+  IDENTIFYING_FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','MonthlyAmount','DOB']
+  TIMED_FEATURES_TO_DROP_LAST: ['ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
+                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
+                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
+                           'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
   TIMED_SERVICE_FEATURES: ['Stay']
+  TIMED_EVENT_FEATURES:
+    ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
+    IncomeStartDate: ['IncomeType', 'MonthlyAmount']
+    HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
+    ContributingFactorDateStart: ['ContributingFactor']
+    BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
+    LifeEventStartDate: ['LifeEvent']
+    SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
+    WatchConcernDateStart: ['WatchConcern']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
     'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','SPDAT_Date','TotalScore']
@@ -46,15 +56,6 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
-  OTHER_TIMED_FEATURES:
-      ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
-      IncomeStartDate: ['IncomeType', 'MonthlyAmount']
-      HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
-      ContributingFactorDateStart: ['ContributingFactor']
-      BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
-      LifeEventStartDate: ['LifeEvent']
-      SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-      WatchConcernDateStart: ['WatchConcern']
 
 
 # Neural network models

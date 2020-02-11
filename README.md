@@ -94,12 +94,30 @@ follows.
 - **CHRONIC_THRESHOLD**: Number of stays per year for a client to be
   considered chronically homeless
 - **FEATURES_TO_DROP_FIRST**: Features you would like to exclude
-  entirely from the model. For example, after running LIME, we realized
-  that features like EyeColour were polluting the data, so we decided to
-  take it out....
+  entirely from the model. For us, this list evolved with trial and
+  error. For example, after running LIME to produce prediction
+  explanations, we realized that features in the database that should
+  have no impact on the ground truth (e.g. EyeColour) were appearing in
+  some explanations; thus, they were added to this list.
+- **IDENTIFYING_FEATURES_TO_DROP_LAST**: A list of features that are
+  used to preprocess data but are eventually excluded from the
+  preprocessed data. You will not likely have to edit this.
+- **TIMED_FEATURES_TO_DROP_LAST**: A list of features containing dates
+  that are used in preprocessing but are eventually excluded from the
+  preprocessed data. Add any features describing a start or end date to
+  this list (e.g. _'LifeEventStartDate'_, _'LifeEventEndDate'_
+- **TIMED_EVENT_FEATURES**: A dictionary where each key is a timestamp
+  feature (e.g. _'LifeEventStartDate'_) and every value is a list of
+  features that are associated with the timestamp. For example, the
+  _'LifeEvent'_ feature is associated with the _'LifeEventStartDate'_
+  feature. For paired start and end features, include 1 entry in this
+  dictionary for associated features. For example, you need to include
+  only one of _'LifeEventStartDate'_ and _'LifeEventEndDate'_ as a key,
+  along with _['LifeEvent']_ as the associated value.
 #### NN
 - **MODEL1**: Contains definitions of configurable hyperparameters
-  associated with the model architecture
+  associated with the model architecture. The values currently in this
+  section were informed by a hyperparameter search.
 #### TRAIN
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
   to the training, validation and test sets respectively
