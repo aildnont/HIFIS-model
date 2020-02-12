@@ -192,8 +192,12 @@ def visualize_avg_explanations(results_df, file_path=None):
 
     # Print the average weight in the center of its corresponding bar
     for bar, weight in zip(ax.patches, weights):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
-                color='white', ha='center', va='center', fontweight='semibold')
+        if weight >= 0:
+            ax.text(bar.get_x() - 0.03, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                    color='green', ha='center', va='center', fontweight='semibold')
+        else:
+            ax.text(bar.get_x() + 0.03, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                    color='red', ha='center', va='center', fontweight='semibold')
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
     ax.set_yticks(positions)
