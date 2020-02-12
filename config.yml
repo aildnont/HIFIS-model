@@ -6,7 +6,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
-  IMAGES: 'documents/images/'
+  IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
@@ -78,6 +78,7 @@ TRAIN:
   BATCH_SIZE: 128
   POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
+  EXPERIMENT_TYPE: 'single_train' # One of {'single_train', 'multi_train', 'hparam_search'}
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]

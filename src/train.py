@@ -310,5 +310,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     return test_metrics
 
 if __name__ == '__main__':
-    results = train_experiment(experiment='single_train', save_weights=True, write_logs=True)
+    input_stream = open(os.getcwd() + "/config.yml", 'r')
+    cfg = yaml.full_load(input_stream)
+    results = train_experiment(experiment=cfg['TRAIN']['EXPERIMENT_TYPE'], save_weights=True, write_logs=True)
 

@@ -13,11 +13,11 @@ Import-Module SQLPS -DisableNameChecking
 
 $VerbosePreference = "SilentlyContinue"
 
-## Database Instance Name
+## Database Instance Name. Place it in the following line.
 $instanceName =  [Instance Name goes here] 
 
 # SQL Scripts
-$clientScript = "src\data\ClientExport.sql" # Path to SQL Script
+$clientScript = "src\data\client_export.sql" # Path to SQL Script
 
 
 # Output Files

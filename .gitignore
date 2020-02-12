@@ -2,7 +2,7 @@ data/processed/*
 data/raw/*
 data/transformers/*
 data/interpretability/*
-documents/images/*
+documents/generated_images/*
 results/experiments/*
 results/logs/*
 results/models/*
@@ -13,7 +13,7 @@ results/predictions/*
 !data/raw/.gitkeep
 !data/transformers/.gitkeep
 !documents/.gitkeep
-!documents/images/.gitkeep
+!documents/generated_images/.gitkeep
 !results/.gitkeep
 !results/logs/.gitkeep
 !results/models/.gitkeep
