@@ -251,7 +251,7 @@ for instructions on how to run a Prediction Horizon Search Experiment.
 ![alt text](documents/readme_images/horizon_experiment_example.png
 "Prediction Horizon Search Experiment")
 
-### LIME Experiment
+### LIME Explanations
 Since the predictions made by this model are to be used by a government
 institution to benefit vulnerable members of society, it is imperative
 that the model's predictions may be explained somehow. Since this model
@@ -314,5 +314,76 @@ set.
 ![alt text](documents/readme_images/LIME_example.PNG "A sample LIME
 explanation")
 
+### Random Hyperparameter Search
+Hyperparameter tuning is an important part of the standard machine
+learning workflow. We chose to conduct a series of random hyperparameter
+searches. The results of one search informed the next, leading us to
+eventually settle on the hyperparameters currently set in the _TRAIN_
+and _NN_ sections of [config.yml](config.yml). We applied TensorBoard
+visualization to aid the random hyperparameter search. With the help of
+the [HParam
+Dashboard](https://www.tensorflow.org/tensorboard/hyperparameter_tuning_with_hparams),
+one can see the effect of different combinations of hyperparameters on
+the model's performance metrics.
+
+In our random hyperparameter search, we study the effects of _x_ random
+combinations of hyperparameters by training the model _y_ times for each
+of the _x_ combinations and recording the results. See the steps below
+on how to conduct a random hyperparameter search with our implementation
+for the following 3 hyperparameters: _dropout_, _learning rate_, and
+_layers_.
+1. In the in the _HP_ subsection of the _TRAIN_ section of
+   [config.yml](config.yml), set the number of random combinations of
+   hyperparameters you wish to study and the number of times you would
+   like to train the model for each combination (see
+   [Project Config](#train) for help).
+   ```
+   COMBINATIONS: 60
+   REPEATS: 2
+   ```
+2. Set the ranges of hyperparameters you wish to study in the _HP_
+   subsection of the _TRAIN_ section of [config.yml](config.yml).
+   Consider whether your hyperparameter ranges are continuous or
+   discrete and whether any need to be investigated on the logarithmic
+   scale.
+   ```
+   DROPOUT: [0.2, 0.5]          # Continuous interval
+   LR: [-4.0, -2.5]             # Continuous interval on logarithmic scale (10^x)   
+   LAYERS: [2, 3, 4]            # Discrete interval
+   ```
+3.  Within the _random_hparam_search()_ function defined in
+    [train.py](src/train.py), add your hyperparameters as HParam objects
+    to the list of hyperparameters being considered.
+    ```
+    HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
+    HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
+    HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
+    ```
+4. In the appropriate location (varies by hyperparameter), ensure that
+   you set the hyperparameters based on the random combination. In our
+   example, all of these hyperparameters are set in the model definition
+   (i.e. within _model1()_ in [model.py](src/models/models.py)). You may
+   have to search the code to determine where to set your particular
+   choice of hyperparameters.
+   ```
+   dropout = hparams['DROPOUT']
+   lr = 10 ** hparams['LR']             # Transform to logarithmic scale
+   layers = hparams['LAYERS']
+   ```
+5.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
+    _TRAIN_ section to _'hparam_search'_.
+6. Execute [train.py](src/train.py). The experiment's logs will be
+   located in _results/logs/_, and the directory name will be the
+   current time in the following format: _yyyymmdd-hhmmss_. These logs
+   contain information on the value of validation set metrics at
+   different combinations of hyperparameters. The logs can be visualized
+   by running
+   [TensorBoard](https://www.tensorflow.org/tensorboard/get_started)
+   locally. See below for an example of a view offered by the HParams
+   dashboard of TensorBoard. Each point represents 1 training run. The
+   graph compares values of hyperparameters to validation set metrics.
+
+![alt text](documents/readme_images/hparam_example.png "A sample HParams
+dashboard view")
 
 
