@@ -6,7 +6,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
-  IMAGES: 'documents/images/'
+  IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
@@ -22,17 +22,27 @@ PATHS:
 
 # Constants pertaining to data structure
 DATA:
-  N_WEEKS: 12
+  N_WEEKS: 52
   GROUND_TRUTH_DATE: '2020-02-05'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
                            'ServiceProvider']
-  FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
-                          'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date', 'MonthlyAmount',
-                          'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                          'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd','DOB']
+  IDENTIFYING_FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','MonthlyAmount','DOB']
+  TIMED_FEATURES_TO_DROP_LAST: ['ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
+                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
+                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
+                           'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
   TIMED_SERVICE_FEATURES: ['Stay']
+  TIMED_EVENT_FEATURES:
+    ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
+    IncomeStartDate: ['IncomeType', 'MonthlyAmount']
+    HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
+    ContributingFactorDateStart: ['ContributingFactor']
+    BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
+    LifeEventStartDate: ['LifeEvent']
+    SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
+    WatchConcernDateStart: ['WatchConcern']
   COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
     'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','SPDAT_Date','TotalScore']
@@ -46,15 +56,6 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
-  OTHER_TIMED_FEATURES:
-      ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
-      IncomeStartDate: ['IncomeType', 'MonthlyAmount']
-      HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
-      ContributingFactorDateStart: ['ContributingFactor']
-      BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
-      LifeEventStartDate: ['LifeEvent']
-      SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-      WatchConcernDateStart: ['WatchConcern']
 
 
 # Neural network models
@@ -76,7 +77,8 @@ TRAIN:
   EPOCHS: 300
   BATCH_SIZE: 128
   POS_WEIGHT: 0.6
-  IMB_STRATEGY: 'class_weight'
+  IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
+  EXPERIMENT_TYPE: 'single_train' # One of {'single_train', 'multi_train', 'hparam_search'}
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
@@ -98,19 +100,21 @@ TRAIN:
       POS_WEIGHT: [0.6, 0.6]  # Weight multiplier for positive class
       IMB_STRATEGY: ['class_weight']
 
-# LIME
+# LIME explanations
 LIME:
   KERNEL_WIDTH: 1.75
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
   NUM_SAMPLES: 50000
 
+# Predictive horizon search experiment
 HORIZON_SEARCH:
   N_MIN: 0
   N_MAX: 52
   N_INTERVAL: 4
   RUNS_PER_N: 10
 
+# Predictions on raw data
 PREDICTION:
   THRESHOLD: 0.5
   CLASS_NAMES: {0: 'not at risk', 1: 'at risk'}

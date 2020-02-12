@@ -345,7 +345,8 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     config = yaml.full_load(input_stream)       # Load config data
     categorical_features = config['DATA']['CATEGORICAL_FEATURES']
     noncategorical_features = config['DATA']['NONCATEGORICAL_FEATURES']
-    features_to_drop_last = config['DATA']['FEATURES_TO_DROP_LAST']
+    identifying_features_to_drop_last = config['DATA']['IDENTIFYING_FEATURES_TO_DROP_LAST']
+    timed_features_to_drop_last = config['DATA']['TIMED_FEATURES_TO_DROP_LAST']
     GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
     if n_weeks is None:
         N_WEEKS = config['DATA']['N_WEEKS']
@@ -393,7 +394,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
-    df = remove_n_weeks(df, N_WEEKS, gt_end_date, config['DATA']['OTHER_TIMED_FEATURES'], categorical_features)
+    df = remove_n_weeks(df, N_WEEKS, gt_end_date, config['DATA']['TIMED_EVENT_FEATURES'], categorical_features)
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total stays, monthly income.")
@@ -426,6 +427,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Drop unnecessary features
     print("Dropping unnecessary features.")
+    features_to_drop_last = identifying_features_to_drop_last + timed_features_to_drop_last
     for column in features_to_drop_last:
         if column in df_clients.columns:
             df_clients.drop(column, axis=1, inplace=True)

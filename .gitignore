@@ -1,19 +1,25 @@
-data/*
-documents/*
-results/*
+data/processed/*
+data/raw/*
+data/transformers/*
+data/interpretability/*
+documents/generated_images/*
+results/experiments/*
+results/logs/*
+results/models/*
+results/predictions/*
 !data/.gitkeep
 !data/processed/.gitkeep
 !data/interpretability/.gitkeep
 !data/raw/.gitkeep
+!data/raw/HIFIS_Clients_example.csv
 !data/transformers/.gitkeep
 !documents/.gitkeep
-!documents/images/.gitkeep
+!documents/generated_images/.gitkeep
 !results/.gitkeep
 !results/logs/.gitkeep
 !results/models/.gitkeep
 !results/experiments/.gitkeep
 !results/predictions/.gitkeep
-!*.gitkeep
 
 # Credentials to keep private
 config-private.yml
