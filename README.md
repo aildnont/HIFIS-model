@@ -1,4 +1,7 @@
 # HIFIS-v2 Model
+![alt text](documents/readme_images/london_logo.png "A sample LIME
+explanation") ![alt text](documents/readme_images/hifis_logo.png "A
+sample LIME explanation")
 
 The purpose of this project is to investigate the efficacy of a machine
 learning solution to assist in identifying individuals at risk of
@@ -22,7 +25,11 @@ in their own locales.
    database instance name. Execute
    [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1). A file
    named _"HIFIS_Clients.csv"_ should now be within the _data/raw/_
-   folder.
+   folder. See
+   [HIFIS_Clients_example.csv](data/raw/HIFIS_Clients_example.csv) for
+   an example of the column names in our _"HIFIS_Clients.csv"_ (note
+   that the data is fabricated; this file is included for illustrative
+   purposes).
 3. Check that your features in _HIFIS_Clients.csv_ match in
    [config.yml](config.yml). If necessary, update feature
    classifications in this file (for help see the [section on project
@@ -199,9 +206,9 @@ follows.
    _HIFIS_Clients.csv_.
 2. Ensure data has been preprocessed properly. That is, verify that
    _data/processed/_ contains both _HIFIS_Processed.csv_ and
-   _HIFIS_Processed_OHE.csv_. The the latter is the same as the former
-   with the exception being that its single-valued categorical features
-   have been one-hot encoded.
+   _HIFIS_Processed_OHE.csv_. The latter is identical to the former with
+   the exception being that its single-valued categorical features have
+   been one-hot encoded.
 3. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
    _'single_train'_.
 4. Execute [train.py](src/train.py). The trained model's weights will be
@@ -241,7 +248,7 @@ for instructions on how to run a Prediction Horizon Search Experiment.
 2. Run _src/horizon_search.py_. This may take several minutes to hours,
    depending on your hardware and settings from the previous step.
 3. A .csv representation of experiment results will be available within
-   _results/experiments/, called _horizon_searchyyyymmdd-hhmmss.csv_,
+   _results/experiments/_, called _horizon_searchyyyymmdd-hhmmss.csv_,
    where yyyymmdd-hhmmss is the current time. A graphical representation
    of the results will be available within
    _documents/generated_images/_, called
@@ -263,16 +270,15 @@ Model-Agnostic Explanations](https://arxiv.org/pdf/1602.04938.pdf) (i.e.
 LIME) to explain the predictions of the neural network classifier that
 we trained. We used the implementation available in the authors' [GitHub
 repository](https://github.com/marcotcr/lime). LIME perturbs the
-features in an example and trains a linear model to approximate the
-neural network at the local region in the feature space surrounding the
+features in an example and fits a linear model to approximate the neural
+network at the local region in the feature space surrounding the
 example. It then uses the linear model to determine which features were
 most contributory to the model's prediction for that example. By
 applying LIME to our trained model, we can conduct informed feature
 engineering based on any obviously inconsequential features we see (e.g.
 EyeColour) or insights from domain experts. We can also tell if the
-model is learning some sort of unwanted bias. See the steps below to
-apply LIME to explain the model's predictions on examples in the test
-set.
+model is learning any unwanted bias. See the steps below to apply LIME
+to explain the model's predictions on examples in the test set.
 1. Having previously run _[train.py](src/train.py)_, ensure that
    _data/processed/_ contains both _Train_Set.csv_ and _Test_Set.csv_.
 2. In the _main_ function of
@@ -289,27 +295,27 @@ set.
       _documents/generated_images/_, and will be called
       _LIME_Eplanations_yyyymmdd-hhmmss.csv_.
    2. You can call `explain_single_client(lime_dict, client_id)`, which
-      will run LIME on an the example in the test set whose ClientID is
+      will run LIME on the example in the test set whose ClientID is
       that which you passed to the function. A graphic will be generated
-      that will depict the top explainable features that the model used
-      to make its prediction. See below for an example of this graphic.
+      that depicts the top explainable features that the model used to
+      make its prediction. See below for an example of this graphic.
 3. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
    range of values) of a feature and its associated weight in the
-   prediction. In the example below, the fact that TotalStays was
-   greater than 4 but less than or equal to 23 contributed negatively
-   with a magnitude of about 0.22 to a positive prediction (meaning it
-   contributed at a magnitude of 0.22 toward a negative prediction). As
-   another example, the rule "ReasonForService_Streets=1" indicates that
-   at some point the client has a record that cites their reason for
-   service as "Streets" (_=1_ indicates that a boolean feature is
-   present, and _=0_ indicates that a boolean feature is not present)
-   and that this explanation contributed with a weight of about 0.02
-   toward a positive prediction. As one last example, consider that this
-   client's AboriginalIndicator value is "Yes - Tribe Not Known", which
-   contributed with a weight of about 0.04 towards a negative
-   prediction.
+   prediction. In the example portrayed by bar graph below, the fact
+   that TotalStays was greater than 4 but less than or equal to 23
+   contributed negatively with a magnitude of about 0.22 to a positive
+   prediction (meaning it contributed at a magnitude of 0.22 toward a
+   negative prediction). As another example, the rule
+   "ReasonForService_Streets=1" indicates that at some point the client
+   has a record that cites their reason for service as "Streets" (_=1_
+   indicates that a boolean feature is present, and _=0_ indicates that
+   a boolean feature is not present) and that this explanation
+   contributed with a weight of about 0.02 toward a positive prediction.
+   As one last example, consider that this client's AboriginalIndicator
+   value is "Yes - Tribe Not Known", which contributed with a weight of
+   about 0.04 towards a negative prediction.
 
 ![alt text](documents/readme_images/LIME_example.PNG "A sample LIME
 explanation")

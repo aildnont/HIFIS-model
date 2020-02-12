@@ -11,6 +11,7 @@ results/predictions/*
 !data/processed/.gitkeep
 !data/interpretability/.gitkeep
 !data/raw/.gitkeep
+!data/raw/HIFIS_Clients_example.csv
 !data/transformers/.gitkeep
 !documents/.gitkeep
 !documents/generated_images/.gitkeep
