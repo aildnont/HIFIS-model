@@ -22,7 +22,7 @@ PATHS:
 
 # Constants pertaining to data structure
 DATA:
-  N_WEEKS: 12
+  N_WEEKS: 52
   GROUND_TRUTH_DATE: '2020-02-05'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',

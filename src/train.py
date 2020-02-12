@@ -286,8 +286,8 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
-    roc_img = plot_roc("Test set", data['Y_test'], test_predictions, file_path=None)
-    cm_img = plot_confusion_matrix(data['Y_test'], test_predictions, file_path=None)
+    roc_img = plot_roc("Test set", data['Y_test'], test_predictions, dir_path=None)
+    cm_img = plot_confusion_matrix(data['Y_test'], test_predictions, dir_path=None)
 
     # Log test set results and plots in TensorBoard
     if write_logs:
