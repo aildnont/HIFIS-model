@@ -22,7 +22,13 @@ application of this model in their own locales.
 ## Getting Started
 1. Clone this repository (for help see this
    [tutorial](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository)).
-2. Open [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1) for
+2. Install the necessary dependencies (listed in
+   [requirements.txt](requirements.txt)). To do this, open a terminal in
+   the root directory of the project and run the following:
+   ```
+   $ pip install -r requirements.txt
+   ```
+3. Open [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1) for
    editing. Replace "_[Instance Name goes here]_" with your HIFIS
    database instance name. Execute
    [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1). A file
@@ -32,18 +38,18 @@ application of this model in their own locales.
    an example of the column names in our _"HIFIS_Clients.csv"_ (note
    that the data is fabricated; this file is included for illustrative
    purposes).
-3. Check that your features in _HIFIS_Clients.csv_ match in
+4. Check that your features in _HIFIS_Clients.csv_ match in
    [config.yml](config.yml). If necessary, update feature
    classifications in this file (for help see [Project Config](#project-config).
-4. Execute [_preprocess.py_](src/data/preprocess.py) to transform the
+5. Execute [_preprocess.py_](src/data/preprocess.py) to transform the
    data into the format required by the machine learning model.
    Preprocessed data will be saved within _data/preprocessed/_.
-5. Execute [_train.py_](src/train.py) to train the neural network model
+6. Execute [_train.py_](src/train.py) to train the neural network model
    on your preprocessed data. The trained model weights will be saved
    within _results/models/_, and the
    [TensorBoard](https://www.tensorflow.org/tensorboard) log files will
    be saved within _results/logs/_.
-6. Execute [_lime_explain.py_](src/interpretability/lime_explain.py) to
+7. Execute [_lime_explain.py_](src/interpretability/lime_explain.py) to
    generate interpretable explanations for the model's predictions on
    the test set. A spreadsheet of predictions and explanations will be
    saved within _results/experiments/_.
@@ -71,7 +77,7 @@ application of this model in their own locales.
    such as metrics throughout the training process on the training and
    validation sets, and performance on the test set. The logs can be
    visualized by running
-   [TensorBoard](https://www.tensorflow.org/tensorboard/get_started)
+   [TensorBoard](https://www.tensorflow.org/tensorboard)
    locally. See below for an example of a plot from a TensorBoard log
    file.
 
@@ -241,7 +247,7 @@ _layers_.
    contain information on the value of validation set metrics at
    different combinations of hyperparameters. The logs can be visualized
    by running
-   [TensorBoard](https://www.tensorflow.org/tensorboard/get_started)
+   [TensorBoard](https://www.tensorflow.org/tensorboard)
    locally. See below for an example of a view offered by the HParams
    dashboard of TensorBoard. Each point represents 1 training run. The
    graph compares values of hyperparameters to validation set metrics.
@@ -291,7 +297,8 @@ empty directories.
 ├── config_private.yml            <- Private information, e.g. database keys (not included in repo)
 ├── export_clients_to_csv.ps1     <- Powershell script that executes SQL query to get raw data from HIFIS database
 ├── LICENSE                       <- Project license
-└── README.md                     <- Project description
+├── README.md                     <- Project description
+└── requirements.txt              <- Lists all dependencies and their respective versions
 ```
 
 ## Project Config
@@ -413,5 +420,15 @@ below.
 - **THRESHOLD**: Classification threshold for prediction
 - **CLASS_NAMES**: Identifiers for the classes predicted by the neural
   network as included in the prediction spreadsheet.
+
+## Contact
+
+**Matt Ross**  
+Manager, Artificial Intelligence  
+Information Technology Services, City Manager’s Office  
+City of London  
+201 Queens Ave. Suite 300, London, ON. N6A 1J1  
+P: 519.661.CITY (2489) x 5451 | C: 226.448.9113
+
 
 
