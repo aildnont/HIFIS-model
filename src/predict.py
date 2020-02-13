@@ -10,11 +10,12 @@ from tensorflow.keras.models import load_model
 from src.data.preprocess import preprocess
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
 
-def predict_and_explain_set(data_path=None, save_results=True):
+def predict_and_explain_set(data_path=None, save_results=True, give_explanations=True):
     '''
     Preprocess a raw dataset. Then get model predictions and corresponding LIME explanations.
     :param data_path: Path at which to save results of this prediction
     :param save_results: Flag specifying whether to save the prediction results to disk
+    :param give_explanations: Flag specifying whether to provide LIME explanations with predictions
     :return: Dataframe of prediction results, including explanations.
     '''
 
@@ -52,8 +53,9 @@ def predict_and_explain_set(data_path=None, save_results=True):
     # Define column names of the DataFrame representing the prediction results
     col_names = ['ClientID', 'Predictive Horizon [weeks]', 'At risk of chronic homelessness',
                  'Probability of chronic homelessness [%]']
-    for i in range(NUM_FEATURES):
-        col_names.extend(['Explanation ' + str(i+1), 'Weight ' + str(i+1)])
+    if give_explanations:
+        for i in range(NUM_FEATURES):
+            col_names.extend(['Explanation ' + str(i+1), 'Weight ' + str(i+1)])
     rows = []
 
     # Predict and explain all items in dataset
@@ -68,10 +70,11 @@ def predict_and_explain_set(data_path=None, save_results=True):
         row = [client_ids[i], n_weeks, predicted_class, y[1] * 100]
 
         # Explain this prediction
-        explanation = predict_and_explain(X[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
-        exp_tuples = explanation.as_list()
-        for exp_tuple in exp_tuples:
-            row.extend(list(exp_tuple))
+        if give_explanations:
+            explanation = predict_and_explain(X[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
+            exp_tuples = explanation.as_list()
+            for exp_tuple in exp_tuples:
+                row.extend(list(exp_tuple))
         rows.append(row)
 
     # Convert results to a Pandas dataframe and save
@@ -109,4 +112,4 @@ def trending_prediction(data_path=None):
 
 
 if __name__ == '__main__':
-    results = predict_and_explain_set(save_results=True)
+    results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True)
