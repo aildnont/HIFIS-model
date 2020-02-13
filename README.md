@@ -77,12 +77,21 @@ application of this model in their own locales.
    such as metrics throughout the training process on the training and
    validation sets, and performance on the test set. The logs can be
    visualized by running
-   [TensorBoard](https://www.tensorflow.org/tensorboard)
-   locally. See below for an example of a plot from a TensorBoard log
-   file.
-
-![alt text](documents/readme_images/tensorboard_example.PNG "Loss vs
-Epoch")
+   [TensorBoard](https://www.tensorflow.org/tensorboard) locally. See
+   below for an example of a plot from a TensorBoard log file depicting
+   loss on the training and validation sets vs. epoch. Plots depicting
+   the change in performance metrics throughout the training process
+   (such as the example below) are available in the _SCALARS_ tab of
+   TensorBoard.  
+   ![alt text](documents/readme_images/tensorboard_loss.png "Loss vs
+   Epoch")  
+   You can also visualize the trained model's performance on the test
+   set. See below for an example of the ROC Curve and Confusion
+   Matrix based on test set predictions. In our implementation, these
+   plots are available in the _IMAGES_ tab of TensorBoard.  
+   ![alt text](documents/readme_images/roc_example.png "ROC Curve")
+   ![alt text](documents/readme_images/cm_example.png "Confusion
+   Matrix")
 
 ### Prediction Horizon Search Experiment
 The prediction horizon (_N_) is defined as the amount of time from now
