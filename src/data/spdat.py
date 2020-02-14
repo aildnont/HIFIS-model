@@ -42,6 +42,8 @@ def get_spdat_data(spdat_path, gt_end_date):
         dfdd.columns = dfdd.columns.str.replace('%', '')
         return pd.DataFrame.from_dict(client_answers)
 
+    tqdm.pandas()
+
     # Read JSON file containing SPDAT information. Remove line breaks.
     with open(spdat_path, 'rb') as f:
         json_str = f.read().decode('utf-16').replace('\r', '').replace('\n', '')
@@ -53,7 +55,16 @@ def get_spdat_data(spdat_path, gt_end_date):
     df['SPDAT_Date'] = pd.to_datetime(df['SPDAT_Date'], errors='coerce')
     df = df[df['SPDAT_Date'] <= gt_end_date]
 
-    tqdm.pandas()
+    # Replace questions with ellipses with their corresponding descriptions
+    df.loc[df['QuestionE'].str.contains('...'), 'QuestionE'] = df['DescriptionE']
+
+    last_question_root = ''
+    for row in df.itertuples():
+        component = str(getattr(row, 'Component'))
+        if component.isnumeric():
+            last_question_root = str(getattr(row, 'QuestionE'))
+        else:
+            df.set_value(row.Index, 'QuestionE', last_question_root + getattr(row, 'QuestionE'))
     questions = df['QuestionE'].unique()    # Get list of unique questions across all SPDAT versions
 
     # Build a DataFrame in which each row is a client's answer to SPDAT questions
@@ -64,3 +75,6 @@ def get_spdat_data(spdat_path, gt_end_date):
 
     sv_cat_feats, noncat_feats = get_spdat_feat_types(df_clients)
     return df_clients, sv_cat_feats, noncat_feats
+
+if __name__=='__main__':
+    df, sv_cat_feats, noncat_feats = get_spdat_data('data/raw/SPDATS.json', '2020-11-13')
