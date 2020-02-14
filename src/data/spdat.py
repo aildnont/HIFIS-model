@@ -19,10 +19,11 @@ def get_spdat_feat_types(df):
     return sv_cat_feats, noncat_feats
 
 
-def get_spdat_data(spdat_path):
+def get_spdat_data(spdat_path, gt_end_date):
     '''
     Read SPDAT data from raw SPDAT file and output a dataframe containing clients' answers to the questions.
     :param spdat_path: The file path of the raw SPDAT data
+    :param gt_end_date: the date used for ground truth calculation
     :return: A DataFrame in which each row is a client's answers to SPDAT questions
     '''
 
@@ -47,6 +48,10 @@ def get_spdat_data(spdat_path):
     spdats = json.loads(json_str)['VISPDATS']   # Convert to object and get the list of SPDATs
     df = pd.DataFrame(spdats)                   # Convert JSON object to pandas DataFrame
     df.fillna(0, inplace=True)
+
+    # Remove records that were created after the ground truth end date
+    df['SPDAT_Date'] = pd.to_datetime(df['SPDAT_Date'], errors='coerce')
+    df = df[df['SPDAT_Date'] <= gt_end_date]
 
     tqdm.pandas()
     questions = df['QuestionE'].unique()    # Get list of unique questions across all SPDAT versions
