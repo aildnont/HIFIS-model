@@ -58,6 +58,7 @@ def get_spdat_data(spdat_path, gt_end_date):
     # Replace questions with ellipses with their corresponding descriptions
     df.loc[df['QuestionE'].str.contains('...'), 'QuestionE'] = df['DescriptionE']
 
+    # For questions that have part (a), (b), (c), etc., append their question roots.
     last_question_root = ''
     for row in df.itertuples():
         component = str(getattr(row, 'Component'))
@@ -75,6 +76,3 @@ def get_spdat_data(spdat_path, gt_end_date):
 
     sv_cat_feats, noncat_feats = get_spdat_feat_types(df_clients)
     return df_clients, sv_cat_feats, noncat_feats
-
-if __name__=='__main__':
-    df, sv_cat_feats, noncat_feats = get_spdat_data('data/raw/SPDATS.json', '2020-11-13')
