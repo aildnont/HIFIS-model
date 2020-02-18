@@ -35,7 +35,6 @@ DATA:
                            'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
                            'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
                            'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
-  TIMED_SERVICE_FEATURES: ['Stay']
   TIMED_EVENT_FEATURES:
     ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
     IncomeStartDate: ['IncomeType', 'MonthlyAmount']
@@ -45,7 +44,8 @@ DATA:
     LifeEventStartDate: ['LifeEvent']
     SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
     WatchConcernDateStart: ['WatchConcern']
-  COUNTED_SERVICE_FEATURES: ['Housing Loss Prevention', 'Housing Subsidy', 'Reservations', 'Turnaways', 'Food Bank']
+  TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']
+  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
     'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','SPDAT_Date','TotalScore']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
