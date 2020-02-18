@@ -71,6 +71,7 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
 
     # Define column names of the DataFrame representing the results
     col_names = ['ClientID', 'GroundTruth', 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
+    row_len = len(col_names) + 2 * num_features
     for i in range(num_features):
         col_names.extend(['Exp_' + str(i), 'Weight_' + str(i)])
 
@@ -103,7 +104,10 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
             exp_tuples = explanation.as_list()
             for exp_tuple in exp_tuples:
                 row.extend(list(exp_tuple))
-            rows.append(row)
+            if len(row) == row_len:
+                rows.append(row)
+            else:
+                print("Unusual amount of explanations for test example ", i, ". Length of row is ", len(row))
 
             # Ensure a negative prediction is explained for every NEG_EXP_PERIOD positive predictions
             if pred == 1:

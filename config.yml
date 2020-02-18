@@ -1,6 +1,7 @@
 # Relevant file/directory paths
 PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
+  RAW_SPDAT_DATA: 'data/raw/SPDATS.json'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
@@ -25,6 +26,7 @@ DATA:
   N_WEEKS: 12
   GROUND_TRUTH_DATE: '2020-02-05'
   CHRONIC_THRESHOLD: 180
+  INCLUDE_SPDATS: true
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
                            'ServiceProvider']

@@ -8,6 +8,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.externals.joblib import dump, load
 from category_encoders import OrdinalEncoder
+from src.data.spdat import get_spdat_data
 
 def load_df(path):
     '''
@@ -152,15 +153,14 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], errors='coerce')
     return df
 
-def remove_n_weeks(df, n_weeks, gt_end_date, dated_feats, cat_feats):
+def remove_n_weeks(df, n_weeks, train_end_date, dated_feats, cat_feats):
     '''
     Remove records from the dataframe that have timestamps in the n weeks leading up to the ground truth date
     :param df: Pandas dataframe
     :param n_weeks: number of recent weeks to remove records
-    :param gt_end_date: the date used for ground truth calculation
+    :param train_end_date: the most recent date that should appear in the dataset
     :return: updated dataframe with the relevant rows removed
     '''
-    train_end_date = gt_end_date - timedelta(days=(n_weeks * 7))    # Maximum for training set records
     print("Train end date: ", train_end_date)
     df = df[df['ServiceStartDate'] <= train_end_date]               # Delete rows where service occurred after this date
     df['ServiceEndDate'] = df['ServiceEndDate'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
@@ -299,14 +299,18 @@ def aggregate_df(df, noncategorical_features, vec_mv_categorical_features, vec_s
     grouping_dictionary = {}
     temp_dict = {}
     non_categorical_features = noncategorical_features
-    non_categorical_features.remove('ServiceStartDate')
-    non_categorical_features.remove('ClientID')
+    if 'ServiceStartDate' in non_categorical_features:
+        non_categorical_features.remove('ServiceStartDate')
+    if 'ClientID' in non_categorical_features:
+        non_categorical_features.remove('ClientID')
 
     # Create a dictionary of column names and function names to pass into the groupby function
     for i in range(len(non_categorical_features)):
-        grouping_dictionary[non_categorical_features[i]] = 'first'  # Group noncategorical features by first occurrence
+        if non_categorical_features[i] in df.columns:
+            grouping_dictionary[non_categorical_features[i]] = 'first'  # Group noncategorical features by first occurrence
     for i in range(len(vec_sv_categorical_features)):
-        temp_dict[vec_sv_categorical_features[i]] = 'first'  # Group single-valued categorical features by max value
+        if vec_sv_categorical_features[i] in df.columns:
+            temp_dict[vec_sv_categorical_features[i]] = 'first'  # Group single-valued categorical features by max value
     grouping_dictionary = {**grouping_dictionary, **temp_dict}
     temp_dict = {}
     for i in range(len(vec_mv_categorical_features)):
@@ -382,6 +386,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Calculate ground truth and save it. Or load pre-saved ground truth.
     gt_end_date = pd.to_datetime(config['DATA']['GROUND_TRUTH_DATE'])
+    train_end_date = gt_end_date - timedelta(days=(N_WEEKS * 7))    # Maximum for training set records
     if include_gt:
         if calculate_gt:
             print("Calculating ground truth.")
@@ -394,11 +399,11 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
-    df = remove_n_weeks(df, N_WEEKS, gt_end_date, config['DATA']['TIMED_EVENT_FEATURES'], categorical_features)
+    df = remove_n_weeks(df, N_WEEKS, train_end_date, config['DATA']['TIMED_EVENT_FEATURES'], categorical_features)
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total stays, monthly income.")
-    df, numerical_service_features = calculate_client_features(df, gt_end_date, config['DATA']['COUNTED_SERVICE_FEATURES'])
+    df, numerical_service_features = calculate_client_features(df, train_end_date, config['DATA']['COUNTED_SERVICE_FEATURES'])
     noncategorical_features.extend(numerical_service_features)
     noncategorical_features.extend(['IncomeTotal', 'TotalStays'])
 
@@ -413,6 +418,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
         cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
         sv_cat_features = cfg_gen['SV_CAT_FEATURES']
         mv_cat_features = cfg_gen['MV_CAT_FEATURES']
+        noncategorical_features = cfg_gen['NON_CAT_FEATURES']
 
     # Replace all instances of NaN in the dataframe with 0 or "Unknown"
     df[mv_cat_features] = df[mv_cat_features].fillna("None")
@@ -424,6 +430,16 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     # Amalgamate rows to have one entry per client
     print("Aggregating the dataframe.")
     df_clients = aggregate_df(df, noncategorical_features, vec_mv_cat_features, sv_cat_features, numerical_service_features)
+
+    # Include SPDAT data
+    if config['DATA']['INCLUDE_SPDATS']:
+        print("Adding SPDAT questions as features.")
+        spdat_df, sv_cat_spdat_feats, noncat_spdat_feats = get_spdat_data(config['PATHS']['RAW_SPDAT_DATA'],
+                                                                          train_end_date)
+        df_clients = df_clients.join(spdat_df)  # Set ground truth for all clients to their saved values
+        if classify_cat_feats:
+            noncategorical_features += noncat_spdat_feats
+            sv_cat_features += sv_cat_spdat_feats
 
     # Drop unnecessary features
     print("Dropping unnecessary features.")
@@ -437,6 +453,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     for feature in noncat_feats_gone:
         noncategorical_features.remove(feature)
 
+    # Fill nan values
     df_clients[sv_cat_features] = df_clients[sv_cat_features].fillna("Unknown")
     df_clients[noncategorical_features] = df_clients[noncategorical_features].fillna(0)
 
