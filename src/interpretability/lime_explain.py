@@ -179,7 +179,7 @@ def setup_lime():
 
     lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION)
+                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile')
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights

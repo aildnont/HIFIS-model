@@ -464,7 +464,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
 
     # Fill nan values
     df_clients[sv_cat_feats] = df_clients[sv_cat_feats].fillna("Unknown")
-    df_clients[noncategorical_feats] = df_clients[noncategorical_feats].fillna(0)
+    df_clients[noncategorical_feats] = df_clients[noncategorical_feats].fillna(-1)
 
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")

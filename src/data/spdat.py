@@ -35,9 +35,11 @@ def get_spdat_data(spdat_path, gt_end_date):
         '''
         client_answers = dict.fromkeys(questions, [np.nan])   # The columns will be SPDAT questions
         for row in client_df.itertuples():
-            answer = str(getattr(row, 'ScoreValue'))
-            answer = float(answer) if answer.isnumeric() else answer
-            client_answers[getattr(row, 'QuestionE')] = [answer]    # Set values to client's answers
+            question = getattr(row, 'QuestionE')
+            if question in questions:
+                answer = str(getattr(row, 'ScoreValue'))
+                answer = float(answer) if answer.isnumeric() else answer
+                client_answers[question] = [answer]    # Set values to client's answers
         return pd.DataFrame.from_dict(client_answers)
 
     tqdm.pandas()
@@ -57,14 +59,18 @@ def get_spdat_data(spdat_path, gt_end_date):
     df.loc[df['QuestionE'].str.contains('...'), 'QuestionE'] = df['DescriptionE']
 
     # For questions that have part (a), (b), (c), etc., append their question roots.
+    question_roots = []
     last_question_root = ''
     for row in df.itertuples():
         component = str(getattr(row, 'Component'))
         if component.isnumeric():
             last_question_root = str(getattr(row, 'QuestionE'))
+            if last_question_root not in question_roots:
+                question_roots.append(last_question_root)
         else:
             df.set_value(row.Index, 'QuestionE', last_question_root + getattr(row, 'QuestionE'))
     questions = df['QuestionE'].unique()    # Get list of unique questions across all SPDAT versions
+    questions = [q for q in questions if q not in question_roots]
 
     # Build a DataFrame in which each row is a client's answer to SPDAT questions
     df_clients = df.groupby('ClientID').progress_apply(single_client_record)

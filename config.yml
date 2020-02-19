@@ -104,10 +104,10 @@ TRAIN:
 
 # LIME explanations
 LIME:
-  KERNEL_WIDTH: 1.65
+  KERNEL_WIDTH: 1.5
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
-  NUM_SAMPLES: 70000
+  NUM_SAMPLES: 150000
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:
