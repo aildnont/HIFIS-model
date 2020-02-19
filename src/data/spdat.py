@@ -38,8 +38,6 @@ def get_spdat_data(spdat_path, gt_end_date):
             answer = str(getattr(row, 'ScoreValue'))
             answer = float(answer) if answer.isnumeric() else answer
             client_answers[getattr(row, 'QuestionE')] = [answer]    # Set values to client's answers
-        dfdd = pd.DataFrame.from_dict(client_answers)
-        dfdd.columns = dfdd.columns.str.replace('%', '')
         return pd.DataFrame.from_dict(client_answers)
 
     tqdm.pandas()

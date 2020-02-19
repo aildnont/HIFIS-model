@@ -414,6 +414,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     print("Calculating total service features, monthly income total.")
     df, noncategorical_feats = calculate_client_features(df, train_end_date, noncategorical_feats,
                                                          counted_service_feats, timed_service_feats)
+    categorical_feats.remove('ServiceType')
 
     # Index dataframe by the service start column
     df = df.set_index('ServiceStartDate')

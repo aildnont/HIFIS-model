@@ -169,7 +169,15 @@ def setup_lime():
 
     # Define the LIME explainer
     train_labels = Y_train['GroundTruth'].to_numpy()
-    lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
+    feature_names = train_df.columns.tolist()
+
+    # Change feature names to span multiple lines, if too long
+    for i in range(len(feature_names)):
+        if len(feature_names[i]) > 100:
+            new_name = feature_names[i][0:100] + '-\n' + feature_names[i][100:len(feature_names[i])]
+            feature_names[i] = new_name
+
+    lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
                                     kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION)
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
@@ -186,9 +194,11 @@ def explain_single_client(lime_dict, client_id):
     :param client_id: Client to predict and explain
     '''
     i = lime_dict['Y_TEST'].index.get_loc(client_id)
+    start_time = datetime.datetime.now()
     explanation = predict_and_explain(lime_dict['X_TEST'][i], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
+    print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
     visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'])
     return
 
