@@ -254,7 +254,6 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
 
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
     cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    n_weeks = cfg['DATA']['N_WEEKS']
 
     # Define metrics.
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds

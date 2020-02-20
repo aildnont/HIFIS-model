@@ -493,7 +493,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     # For producing interpretable results with categorical data:
     data_info['MV_CAT_FEATURES'] = mv_cat_feats
     data_info['NON_CAT_FEATURES'] = noncategorical_feats
-    data_info['N_WEEKS'] = n_weeks
+    data_info['N_WEEKS'] = N_WEEKS
     with open(config['PATHS']['DATA_INFO'], 'w') as file:
         cat_feat_doc = yaml.dump(data_info, file)
 
