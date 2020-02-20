@@ -61,13 +61,17 @@ def get_spdat_data(spdat_path, gt_end_date):
     # For questions that have part (a), (b), (c), etc., append their question roots.
     question_roots = []
     last_question_root = ''
+    last_component_numeric = False
     for row in df.itertuples():
         component = str(getattr(row, 'Component'))
         if component.isnumeric():
             last_question_root = str(getattr(row, 'QuestionE'))
-            if last_question_root not in question_roots:
-                question_roots.append(last_question_root)
+            last_component_numeric = True
         else:
+            if last_component_numeric:
+                if last_question_root not in question_roots:
+                    question_roots.append(last_question_root)
+            last_component_numeric = False
             df.set_value(row.Index, 'QuestionE', last_question_root + getattr(row, 'QuestionE'))
     questions = df['QuestionE'].unique()    # Get list of unique questions across all SPDAT versions
     questions = [q for q in questions if q not in question_roots]

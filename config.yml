@@ -23,8 +23,8 @@ PATHS:
 
 # Constants pertaining to data structure
 DATA:
-  N_WEEKS: 12
-  GROUND_TRUTH_DATE: '2020-02-14'
+  N_WEEKS: 26
+  GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   INCLUDE_SPDATS: true
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
@@ -104,10 +104,10 @@ TRAIN:
 
 # LIME explanations
 LIME:
-  KERNEL_WIDTH: 1.5
+  KERNEL_WIDTH: 2.5
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
-  NUM_SAMPLES: 150000
+  NUM_SAMPLES: 100000
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:

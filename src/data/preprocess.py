@@ -457,10 +457,13 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
         if column in df_clients.columns:
             df_clients.drop(column, axis=1, inplace=True)
 
-    # Get list of remaining noncategorical features
+    # Get lists of remaining features
     noncat_feats_gone = [f for f in noncategorical_feats if f not in df_clients.columns]
     for feature in noncat_feats_gone:
         noncategorical_feats.remove(feature)
+    sv_feats_gone = [f for f in sv_cat_feats if f not in df_clients.columns]
+    for feature in sv_feats_gone:
+        sv_cat_feats.remove(feature)
 
     # Fill nan values
     df_clients[sv_cat_feats] = df_clients[sv_cat_feats].fillna("Unknown")

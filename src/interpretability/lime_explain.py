@@ -5,6 +5,7 @@ import datetime
 import dill
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
+from lime.submodular_pick import SubmodularPick
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
@@ -165,6 +166,7 @@ def setup_lime():
 
     # Convert datasets to numpy arrays
     X_train = np.array(train_df)
+    lime_dict['X_TRAIN'] = X_train
     lime_dict['X_TEST'] = np.array(test_df)
 
     # Define the LIME explainer
@@ -179,13 +181,30 @@ def setup_lime():
 
     lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile')
+                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='decile')
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
     lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
     return lime_dict
 
+def submodular_pick(lime_dict):
+
+    def predict(x):
+        '''
+        Helper function for LIME explainer. Runs model prediction on perturbations of the example.
+        :param x: List of perturbed examples from an example
+        :return: A numpy array constituting a list of class probabilities for each predicted perturbation
+        '''
+        probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'])
+        return probs
+
+    start_time = datetime.datetime.now()
+    submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict, sample_size=200,
+                                   num_features=lime_dict['NUM_FEATURES'], num_exps_desired=10)
+    print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
+    [exp.as_pyplot_figure() for exp in submod_picker.sp_explanations]
+    return
 
 def explain_single_client(lime_dict, client_id):
     '''
@@ -211,7 +230,7 @@ def run_lime_experiment_and_visualize(lime_dict):
     cfg = yaml.full_load(input_stream)
     results_df = lime_experiment(lime_dict['X_TEST'], lime_dict['Y_TEST'], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                               cfg['PREDICTION']['THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
-                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=True)
+                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=False)
     visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
     return
 
