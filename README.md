@@ -307,13 +307,17 @@ predictions and explanations for particular clients over time, you can
 choose to append timestamped predictions to a file containing previous
 timestamped predictions. The steps below detail how to run prediction
 for all clients, given raw data from HIFIS and a trained model.
-1. Ensure that you have _HIFIS_Clients.csv_ located within in the raw
+1. Ensure that you have already run
+   _[lime_explain.py](src/interpretability/lime_explain.py)_ after
+   training your model, as it will have generated and saved a
+   LIME Explainer object at _data/interpretability/lime_explainer.pkl_.
+2. Ensure that you have _HIFIS_Clients.csv_ located within in the raw
    data folder (_data/raw/_). See [Getting Started](#getting-started)
    for help obtaining _HIFIS_Clients.csv_.
-2. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
+3. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
    the path of the model weights file (_.h5_ file) that you wish to use
    for prediction.
-3. In the _main_ function of _[predict.py](src/predict.py)_, you can opt
+4. In the _main_ function of _[predict.py](src/predict.py)_, you can opt
    to either save predictions to a new file or append predictions and
    their corresponding timestamps to a file containing past predictions.
    Ensure the function you wish to execute is uncommented.
