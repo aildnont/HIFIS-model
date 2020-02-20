@@ -39,7 +39,7 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
 
     # Restore the model and LIME explainer from their respective serializations
     explainer = dill.load(open(cfg['PATHS']['LIME_EXPLAINER'], 'rb'))
-    model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    model = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
 
     # Get the predictive horizon that this model was trained on. It's embedded within the model name.
     n_weeks = int(model._name.split('_')[1].split('-')[0])
