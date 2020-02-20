@@ -7,6 +7,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
+  MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -18,13 +19,13 @@ PATHS:
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
-  BULK_PREDICTIONS: './results/predictions/predictions.csv'
+  BULK_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
 
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 12
-  GROUND_TRUTH_DATE: '2020-02-05'
+  GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   INCLUDE_SPDATS: true
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',

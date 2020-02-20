@@ -3,7 +3,6 @@ import yaml
 import os
 import random
 import tensorflow as tf
-from six.moves import xrange
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
@@ -207,11 +206,11 @@ def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir)
     num_combos = cfg['TRAIN']['HP']['COMBINATIONS']     # Number of random combinations of hparams to attempt
     num_sessions = num_combos * repeats_per_combo       # Total number of runs in this experiment
     trial_id = 0
-    for group_idx in xrange(num_combos):
+    for group_idx in range(num_combos):
         rand = random.Random()
-        hparams = {h.name: h.domain.sample_uniform(rand) for h in HPARAMS}  # To pass to model definition
         HPARAMS = {h: h.domain.sample_uniform(rand) for h in HPARAMS}
-        for repeat_idx in xrange(repeats_per_combo):
+        hparams = {h.name: HPARAMS[h] for h in HPARAMS}  # To pass to model definition
+        for repeat_idx in range(repeats_per_combo):
             trial_id += 1
             print("Running training session %d/%d" % (trial_id, num_sessions))
             print("Hparam values: ", {h.name: HPARAMS[h] for h in HPARAMS})
@@ -255,7 +254,6 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
 
     plot_path = cfg['PATHS']['IMAGES']  # Path for images of matplotlib figures
     cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    n_weeks = cfg['DATA']['N_WEEKS']
 
     # Define metrics.
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
@@ -267,7 +265,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.00001, verbose=1)
     callbacks = [early_stopping]
     if write_logs:
-        log_dir = cfg['PATHS']['LOGS'] + cur_date
+        log_dir = cfg['PATHS']['LOGS'] + "training\\" + cur_date
         tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
         callbacks.append(tensorboard)
 
@@ -280,6 +278,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     if experiment == 'multi_train':
         model, test_metrics = multi_train(cfg, data, model, callbacks)
     elif experiment == 'hparam_search':
+        log_dir = cfg['PATHS']['LOGS'] + "hparam_search\\" + cur_date
         model, test_metrics = random_hparam_search(cfg, data, metrics, n_weeks, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
     else:
         model, test_metrics = train_model(cfg, data, model, callbacks)

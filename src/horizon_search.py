@@ -26,9 +26,9 @@ def horizon_search():
         print('** n = ', n, ' of ', N_MAX)
         # Preprocess data. Avoid recomputing ground truths and classifying features after first iteration.
         if n == N_MIN:
-            preprocess(n_weeks=n, load_gt=False, classify_cat_feats=True)
+            preprocess(n_weeks=n, calculate_gt=True, classify_cat_feats=True, load_ct=False)
         else:
-            preprocess(n_weeks=n, load_gt=True, classify_cat_feats=False)
+            preprocess(n_weeks=n, calculate_gt=False, classify_cat_feats=False, load_ct=True)
 
         # Train the model several times at this prediction horizon
         results_df = pd.DataFrame()

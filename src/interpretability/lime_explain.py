@@ -175,7 +175,7 @@ def setup_lime():
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
-    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
     return lime_dict
 
 
@@ -207,5 +207,5 @@ def run_lime_experiment_and_visualize(lime_dict):
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
-    explain_single_client(lime_dict, 87020)
-    #run_lime_experiment_and_visualize(lime_dict)
+    #explain_single_client(lime_dict, 87020)
+    run_lime_experiment_and_visualize(lime_dict)
