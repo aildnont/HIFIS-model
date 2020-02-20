@@ -1,9 +1,9 @@
 # Relevant file/directory paths
 PATHS:
-  RAW_DATA: 'data/raw/HIFIS_Clients.csv'
+  RAW_DATA: 'data/raw/HIFIS_Clients_test.csv'
   RAW_SPDAT_DATA: 'data/raw/SPDATS.json'
-  PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
-  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
+  PROCESSED_DATA: 'data/processed/HIFIS_Processed_test.csv'
+  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE_test.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
@@ -19,7 +19,7 @@ PATHS:
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
-  BULK_PREDICTIONS: './results/predictions/predictions.csv'
+  BULK_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
 
 # Constants pertaining to data structure

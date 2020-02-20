@@ -182,7 +182,10 @@ additional feature engineering. See the steps below to apply LIME to
 explain the model's predictions on examples in the test set.
 1. Having previously run _[train.py](src/train.py)_, ensure that
    _data/processed/_ contains both _Train_Set.csv_ and _Test_Set.csv_.
-2. In the _main_ function of
+2. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
+   the path of the model weights file (_.h5_ file) that you wish to use
+   for prediction.
+3. In the _main_ function of
    _[lime_explain.py](src/interpretability/lime_explain.py)_, you can
    select to either perform a LIME experiment or run LIME on 1 test set
    example. Uncomment the function you wish to execute.
@@ -202,7 +205,7 @@ explain the model's predictions on examples in the test set.
       make its prediction. The graphic will be displayed in a new window
       for the user, but it will not be automatically saved. See below
       for an example of this graphic.
-3. Interpret the output of the LIME explainer. LIME partitions features
+4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
    range of values) of a feature and its associated weight in the
@@ -293,6 +296,42 @@ _layers_.
 
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
+
+### Bulk predictions from raw data
+Once a trained model is produced, the user may wish to obtain
+predictions and explanations for all clients currently in the HIFIS
+database. As clients' life situations change over time, their records in
+the HIFIS database change as well. Thus, it is useful to rerun
+predictions for clients every so often. If you wish to track changes in
+predictions and explanations for particular clients over time, you can
+choose to append timestamped predictions to a file containing previous
+timestamped predictions. The steps below detail how to run prediction
+for all clients, given raw data from HIFIS and a trained model.
+1. Ensure that you have _HIFIS_Clients.csv_ located within in the raw
+   data folder (_data/raw/_). See [Getting Started](#getting-started)
+   for help obtaining _HIFIS_Clients.csv_.
+2. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
+   the path of the model weights file (_.h5_ file) that you wish to use
+   for prediction.
+3. In the _main_ function of _[predict.py](src/predict.py)_, you can opt
+   to either save predictions to a new file or append predictions and
+   their corresponding timestamps to a file containing past predictions.
+   Ensure the function you wish to execute is uncommented.
+   1. You can call `results = predict_and_explain_set(data_path=None,
+      save_results=True, give_explanations=True)`, which will preprocess
+      raw client data, run prediction for all clients, and run LIME to
+      explain these predictions. Results will be saved in a .csv file,
+      which will be located in _results/predictions/_, and will be
+      called _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is
+      the current time.
+   2. You can call `trending_prediction(data_path=None)`, which will
+      produce predictions and explanations in the same method as
+      described in (i), but will include timestamps for when the
+      predictions were made. The results will be appended to a file
+      called _trending_predictions.csv_, located within
+      _results/prediction/_. This file contains predictions made at
+      previous times, enabling the user to compare the change in
+      predictions and explanations for particular clients over time.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
