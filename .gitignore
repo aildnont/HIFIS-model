@@ -4,7 +4,8 @@ data/transformers/*
 data/interpretability/*
 documents/generated_images/*
 results/experiments/*
-results/logs/*
+results/logs/training/*
+results/logs/hparam_search/*
 results/models/*
 results/predictions/*
 !data/.gitkeep
@@ -17,6 +18,8 @@ results/predictions/*
 !documents/generated_images/.gitkeep
 !results/.gitkeep
 !results/logs/.gitkeep
+!results/logs/training/.gitkeep
+!results/logs/hparam_search/.gitkeep
 !results/models/.gitkeep
 !results/experiments/.gitkeep
 !results/predictions/.gitkeep
