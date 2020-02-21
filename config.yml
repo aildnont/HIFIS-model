@@ -81,12 +81,12 @@ TRAIN:
   BATCH_SIZE: 128
   POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
-  EXPERIMENT_TYPE: 'single_train' # One of {'single_train', 'multi_train', 'hparam_search'}
+  EXPERIMENT_TYPE: 'hparam_search' # One of {'single_train', 'multi_train', 'hparam_search'}
   METRIC_MONITOR: 'recall'
   NUM_RUNS: 10
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   HP:
-    METRICS: ['accuracy', 'loss', 'recall', 'precision']
+    METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
     COMBINATIONS: 60
     REPEATS: 2
     RANGES:
