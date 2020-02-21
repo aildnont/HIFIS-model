@@ -5,10 +5,12 @@ import datetime
 import dill
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
+from lime.submodular_pick import SubmodularPick
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
-from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
+from src.visualization.visualize import visualize_explanation, visualize_avg_explanations, visualize_submodular_pick
 from src.custom.metrics import F1Score
+import matplotlib.pyplot as plt
 
 def predict_instance(x, model, ohe_ct_sv, scaler_ct):
     '''
@@ -165,19 +167,59 @@ def setup_lime():
 
     # Convert datasets to numpy arrays
     X_train = np.array(train_df)
+    lime_dict['X_TRAIN'] = X_train
     lime_dict['X_TEST'] = np.array(test_df)
 
     # Define the LIME explainer
     train_labels = Y_train['GroundTruth'].to_numpy()
-    lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=train_df.columns, class_names=['0', '1'],
+    feature_names = train_df.columns.tolist()
+
+    # Change feature names to span multiple lines, if too long
+    for i in range(len(feature_names)):
+        if len(feature_names[i]) > 100:
+            new_name = feature_names[i][0:100] + '-\n' + feature_names[i][100:len(feature_names[i])]
+            feature_names[i] = new_name
+
+    lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION)
+                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='decile')
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
     lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
     return lime_dict
 
+def submodular_pick(lime_dict):
+    '''
+    Perform submodular pick on the training set to approximate global explanations for the model.
+    :param lime_dict: dict containing important information and objects for explanation experiments
+    '''
+
+    def predict(x):
+        '''
+        Helper function for LIME explainer. Runs model prediction on perturbations of the example.
+        :param x: List of perturbed examples from an example
+        :return: A numpy array constituting a list of class probabilities for each predicted perturbation
+        '''
+        probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'])
+        return probs
+
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    start_time = datetime.datetime.now()
+
+    # Perform a submodular pick of explanations of uniformly sampled examples from the training set
+    submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict,
+                                   sample_size=cfg['LIME']['SP']['SAMPLE_SIZE'], num_features=lime_dict['NUM_FEATURES'],
+                                   num_exps_desired=cfg['LIME']['SP']['NUM_EXPLANATIONS'], top_labels=None,
+                                   num_samples=lime_dict['NUM_SAMPLES'])
+    print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
+
+    # Assemble all explanations in a DataFrame
+    W = pd.DataFrame([dict(exp.as_list()) for exp in submod_picker.sp_explanations]).fillna(0)
+
+    # Visualize the results
+    visualize_submodular_pick(W, exp_limit=cfg['LIME']['SP']['EXP_LIMIT'], file_path=cfg['PATHS']['IMAGES'])
+    return
 
 def explain_single_client(lime_dict, client_id):
     '''
@@ -186,9 +228,11 @@ def explain_single_client(lime_dict, client_id):
     :param client_id: Client to predict and explain
     '''
     i = lime_dict['Y_TEST'].index.get_loc(client_id)
+    start_time = datetime.datetime.now()
     explanation = predict_and_explain(lime_dict['X_TEST'][i], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
+    print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
     visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'])
     return
 
@@ -201,7 +245,7 @@ def run_lime_experiment_and_visualize(lime_dict):
     cfg = yaml.full_load(input_stream)
     results_df = lime_experiment(lime_dict['X_TEST'], lime_dict['Y_TEST'], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                               cfg['PREDICTION']['THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
-                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=True)
+                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=False)
     visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
     return
 
@@ -209,3 +253,4 @@ if __name__ == '__main__':
     lime_dict = setup_lime()
     #explain_single_client(lime_dict, 87020)
     run_lime_experiment_and_visualize(lime_dict)
+    #submodular_pick(lime_dict)

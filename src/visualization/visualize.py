@@ -166,25 +166,14 @@ def visualize_explanation(explanation, client_id, client_gt):
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()
 
-def visualize_avg_explanations(results_df, file_path=None):
+def explanations_to_hbar_plot(exps, weights, title):
     '''
-    Builds a graph for visualizing the average weights of LIME explanations over all provided explanations
-    :param results_df: Output dataframe of running a LIME experiment to explain multiple predictions
-    :param file_path: The path at which to save the resulting image
+    Plot a series of explanations and weights, sorted by weights, on a horizontal bar graph
+    :param exps: List of explanations
+    :param weights: List of corresponding weights
+    :param title: Title of horizonal bar graph
     '''
 
-    # Concatenate all feature explanations and their corresponding weights for each example
-    exp_cols = [col for col in results_df.columns if ('Exp' in col)]
-    weight_cols = [col for col in results_df.columns if ('Weight' in col)]
-    exps = np.concatenate([results_df[[exp_cols[i], weight_cols[i]]].values for i in range(len(exp_cols))], axis=0)
-    exps_df = pd.DataFrame(exps, columns=['Exp', 'Weight']).astype({'Weight' : 'float64'})
-
-    # Compute the average weight for each distinct feature explanation (e.g. TotalScore > 0)
-    avg_exps = exps_df.groupby('Exp', as_index=False).agg({'Weight' : np.mean}).sort_values(by='Weight').values
-    exps = [x[0] for x in avg_exps]
-    weights = [x[1] for x in avg_exps]
-
-    # Plot the results
     ax = plt.subplot()
     colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and neagive weights
     positions = np.arange(len(exps))    # Positions for bars on y axis
@@ -213,10 +202,62 @@ def visualize_avg_explanations(results_df, file_path=None):
     # Set plot axis labels and title.
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
-    ax.set_title("Average Weights for LIME Explanations on Test Set", pad=15, size=20)   # Set title
+    ax.set_title(title, pad=15, size=20)   # Set title
     plt.tight_layout()      # Ensure rule labels are not cut off the image
+    return
+
+
+def visualize_avg_explanations(results_df, file_path=None):
+    '''
+    Builds a graph for visualizing the average weights of LIME explanations over all provided explanations
+    :param results_df: Output dataframe of running a LIME experiment to explain multiple predictions
+    :param file_path: The path to the directory at which to save the resulting image
+    '''
+
+    # Concatenate all feature explanations and their corresponding weights for each example
+    exp_cols = [col for col in results_df.columns if ('Exp' in col)]
+    weight_cols = [col for col in results_df.columns if ('Weight' in col)]
+    exps = np.concatenate([results_df[[exp_cols[i], weight_cols[i]]].values for i in range(len(exp_cols))], axis=0)
+    exps_df = pd.DataFrame(exps, columns=['Exp', 'Weight']).astype({'Weight' : 'float64'})
+
+    # Compute the average weight for each distinct feature explanation (e.g. TotalScore > 0)
+    avg_exps = exps_df.groupby('Exp', as_index=False).agg({'Weight' : np.mean}).sort_values(by='Weight').values
+    exps = [x[0] for x in avg_exps]
+    weights = [x[1] for x in avg_exps]
+
+    # Plot as horizontal bar graph
+    explanations_to_hbar_plot(exps, weights, "Average Weights for LIME Explanations on Test Set")
 
     # Save the image
     if file_path is not None:
         plt.savefig(file_path + 'LIME_Explanations_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
+
+def visualize_submodular_pick(results_df, exp_limit=20, file_path=None):
+    '''
+    Builds a graph for visualizing the average weights of a set of LIME explanations resulting from a submodular pick
+    :param results_df: A dataframe containing LIME explanations from a submodular pick
+    :param file_path: The path to the directory at which to save the resulting image
+    '''
+
+    # Calculate mean of explanations encountered across the picked examples
+    W_avg_series = results_df.mean().T
+    W_avg = pd.DataFrame({'weight': W_avg_series})
+
+    # Sort by absolute value of weights and take the exp_limit weights with the highest magnitude
+    W_avg["abs"] = np.abs(W_avg)
+    W_avg = W_avg.head(exp_limit).sort_values("abs", ascending=True).drop("abs", axis=1)
+    W_avg = W_avg['weight']
+
+    # Sort by weight
+    W_avg = W_avg.sort_values(ascending=True)
+    exps = W_avg.index.tolist()
+    weights = W_avg.tolist()
+
+    # Plot as horizontal bar graph
+    explanations_to_hbar_plot(exps, weights, "Average Weights for Explanations from Submodular Pick")
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + 'LIME_Submodular_Pick_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
