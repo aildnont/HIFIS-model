@@ -8,8 +8,9 @@ from lime.lime_tabular import LimeTabularExplainer
 from lime.submodular_pick import SubmodularPick
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
-from src.visualization.visualize import visualize_explanation, visualize_avg_explanations
+from src.visualization.visualize import visualize_explanation, visualize_avg_explanations, visualize_submodular_pick
 from src.custom.metrics import F1Score
+import matplotlib.pyplot as plt
 
 def predict_instance(x, model, ohe_ct_sv, scaler_ct):
     '''
@@ -199,11 +200,21 @@ def submodular_pick(lime_dict):
         probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'])
         return probs
 
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     start_time = datetime.datetime.now()
-    submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict, sample_size=200,
-                                   num_features=lime_dict['NUM_FEATURES'], num_exps_desired=10)
-    print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
-    [exp.as_pyplot_figure() for exp in submod_picker.sp_explanations]
+
+    # Perform a submodular pick of explanations of uniformly sampled examples from the training set
+    submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict,
+                                   sample_size=cfg['LIME']['SP']['SAMPLE_SIZE'], num_features=lime_dict['NUM_FEATURES'],
+                                   num_exps_desired=cfg['LIME']['SP']['NUM_EXPLANATIONS'], top_labels=None,
+                                   num_samples=lime_dict['NUM_SAMPLES'])
+    print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
+
+    # Assemble all explanations in a DataFrame
+    W = pd.DataFrame([dict(exp.as_list()) for exp in submod_picker.sp_explanations]).fillna(0)
+
+    # Visualize the results
+    visualize_submodular_pick(W, exp_limit=cfg['LIME']['SP']['EXP_LIMIT'], file_path=cfg['PATHS']['IMAGES'])
     return
 
 def explain_single_client(lime_dict, client_id):
@@ -236,5 +247,6 @@ def run_lime_experiment_and_visualize(lime_dict):
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
-    explain_single_client(lime_dict, 87020)
+    #explain_single_client(lime_dict, 87020)
     #run_lime_experiment_and_visualize(lime_dict)
+    submodular_pick(lime_dict)

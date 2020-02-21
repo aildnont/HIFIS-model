@@ -107,7 +107,11 @@ LIME:
   KERNEL_WIDTH: 2.5
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
-  NUM_SAMPLES: 100000
+  NUM_SAMPLES: 85000
+  SP:
+    SAMPLE_SIZE: 50
+    NUM_EXPLANATIONS: 10
+    EXP_LIMIT: 20
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:
@@ -116,7 +120,7 @@ HORIZON_SEARCH:
   N_INTERVAL: 4
   RUNS_PER_N: 10
 
-# Predictions on raw data
+# Bulk predictions on raw data
 PREDICTION:
   THRESHOLD: 0.5
   CLASS_NAMES: {0: 'not at risk', 1: 'at risk'}
