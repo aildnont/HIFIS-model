@@ -186,10 +186,14 @@ def setup_lime():
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
-    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
     return lime_dict
 
 def submodular_pick(lime_dict):
+    '''
+    Perform submodular pick on the training set to approximate global explanations for the model.
+    :param lime_dict: dict containing important information and objects for explanation experiments
+    '''
 
     def predict(x):
         '''
@@ -248,5 +252,5 @@ def run_lime_experiment_and_visualize(lime_dict):
 if __name__ == '__main__':
     lime_dict = setup_lime()
     #explain_single_client(lime_dict, 87020)
-    #run_lime_experiment_and_visualize(lime_dict)
-    submodular_pick(lime_dict)
+    run_lime_experiment_and_visualize(lime_dict)
+    #submodular_pick(lime_dict)

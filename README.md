@@ -40,16 +40,22 @@ application of this model in their own locales.
    purposes).
 4. Check that your features in _HIFIS_Clients.csv_ match in
    [config.yml](config.yml). If necessary, update feature
-   classifications in this file (for help see [Project Config](#project-config).
+   classifications in this file (for help see
+   [Project Config](#project-config)).
 5. Execute [_preprocess.py_](src/data/preprocess.py) to transform the
    data into the format required by the machine learning model.
    Preprocessed data will be saved within _data/preprocessed/_.
 6. Execute [_train.py_](src/train.py) to train the neural network model
    on your preprocessed data. The trained model weights will be saved
-   within _results/models/_, and the
+   within _results/models/_, and its filename will resemble the
+   following structure: modelyyyymmdd-hhmmss.h5, where yyyymmdd-hhmmss
+   is the current time. The
    [TensorBoard](https://www.tensorflow.org/tensorboard) log files will
-   be saved within _results/logs/_.
-7. Execute [_lime_explain.py_](src/interpretability/lime_explain.py) to
+   be saved within _results/logs/training/_.
+7. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
+   the path of the model weights file that was generated in step 6 (for help see
+   [Project Config](#project-config)).
+   Execute [_lime_explain.py_](src/interpretability/lime_explain.py) to
    generate interpretable explanations for the model's predictions on
    the test set. A spreadsheet of predictions and explanations will be
    saved within _results/experiments/_.
@@ -72,11 +78,11 @@ application of this model in their own locales.
    located in _results/models/_, and its filename will resemble the
    following structure: modelyyyymmdd-hhmmss.h5, where yyyymmdd-hhmmss
    is the current time. The model's logs will be located in
-   _results/logs/_, and its directory name will be the current time in
-   the same format. These logs contain information about the experiment,
-   such as metrics throughout the training process on the training and
-   validation sets, and performance on the test set. The logs can be
-   visualized by running
+   _results/logs/training/_, and its directory name will be the current
+   time in the same format. These logs contain information about the
+   experiment, such as metrics throughout the training process on the
+   training and validation sets, and performance on the test set. The
+   logs can be visualized by running
    [TensorBoard](https://www.tensorflow.org/tensorboard) locally. See
    below for an example of a plot from a TensorBoard log file depicting
    loss on the training and validation sets vs. epoch. Plots depicting
@@ -86,12 +92,37 @@ application of this model in their own locales.
    ![alt text](documents/readme_images/tensorboard_loss.png "Loss vs
    Epoch")  
    You can also visualize the trained model's performance on the test
-   set. See below for an example of the ROC Curve and Confusion
-   Matrix based on test set predictions. In our implementation, these
-   plots are available in the _IMAGES_ tab of TensorBoard.  
+   set. See below for an example of the ROC Curve and Confusion Matrix
+   based on test set predictions. In our implementation, these plots are
+   available in the _IMAGES_ tab of TensorBoard.  
    ![alt text](documents/readme_images/roc_example.png "ROC Curve")
    ![alt text](documents/readme_images/cm_example.png "Confusion
    Matrix")
+
+### Train multiple models and save the best one
+Not every model trained will perform at the same level on the test set.
+This procedure enables you to train multiple models and save the one
+that scored the best result on the test set for a particular metric that
+you care about optimizing.
+1. Follow steps 1 and 2 in
+   [Train a model and visualize results](#train-a-model-and-visualize-results).
+2. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
+   _'multi_train'_.
+3. Decide which metric you would like to optimize. In
+   [config.yml](config.yml), set _METRIC_MONITOR_ within _TRAIN_ to your
+   chosen metric. For example, if you decide to select the model with
+   the best recall on the test set, set this field to _'recall'_.
+4. Decide how many models you wish to train. In
+   [config.yml](config.yml), set _NUM_RUNS_ within _TRAIN_ to your
+   chosen number of training sessions. For example, if you wish to train
+   10 models, set this field to _10_.
+5. Execute [train.py](src/train.py). The weights of the model that had
+   the best performance on the test set for the metric you specified
+   will be located in _results/models/training/_, and its filename will
+   resemble the following structure: modelyyyymmdd-hhmmss.h5, where
+   yyyymmdd-hhmmss is the current time. The model's logs will be located in
+   _results/logs/training/_, and its directory name will be the current
+   time in the same format.
 
 ### Prediction Horizon Search Experiment
 The prediction horizon (_N_) is defined as the amount of time from now
@@ -151,7 +182,10 @@ additional feature engineering. See the steps below to apply LIME to
 explain the model's predictions on examples in the test set.
 1. Having previously run _[train.py](src/train.py)_, ensure that
    _data/processed/_ contains both _Train_Set.csv_ and _Test_Set.csv_.
-2. In the _main_ function of
+2. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
+   the path of the model weights file (_.h5_ file) that you wish to use
+   for prediction.
+3. In the _main_ function of
    _[lime_explain.py](src/interpretability/lime_explain.py)_, you can
    select to either perform a LIME experiment or run LIME on 1 test set
    example. Uncomment the function you wish to execute.
@@ -171,7 +205,7 @@ explain the model's predictions on examples in the test set.
       make its prediction. The graphic will be displayed in a new window
       for the user, but it will not be automatically saved. See below
       for an example of this graphic.
-3. Interpret the output of the LIME explainer. LIME partitions features
+4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
    range of values) of a feature and its associated weight in the
@@ -251,18 +285,57 @@ _layers_.
 5.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
     _TRAIN_ section to _'hparam_search'_.
 6. Execute [train.py](src/train.py). The experiment's logs will be
-   located in _results/logs/_, and the directory name will be the
-   current time in the following format: _yyyymmdd-hhmmss_. These logs
-   contain information on the value of validation set metrics at
+   located in _results/logs/hparam_search/_, and the directory name will
+   be the current time in the following format: _yyyymmdd-hhmmss_. These
+   logs contain information on the value of validation set metrics at
    different combinations of hyperparameters. The logs can be visualized
-   by running
-   [TensorBoard](https://www.tensorflow.org/tensorboard)
+   by running [TensorBoard](https://www.tensorflow.org/tensorboard)
    locally. See below for an example of a view offered by the HParams
    dashboard of TensorBoard. Each point represents 1 training run. The
    graph compares values of hyperparameters to validation set metrics.
 
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
+
+### Bulk predictions from raw data
+Once a trained model is produced, the user may wish to obtain
+predictions and explanations for all clients currently in the HIFIS
+database. As clients' life situations change over time, their records in
+the HIFIS database change as well. Thus, it is useful to rerun
+predictions for clients every so often. If you wish to track changes in
+predictions and explanations for particular clients over time, you can
+choose to append timestamped predictions to a file containing previous
+timestamped predictions. The steps below detail how to run prediction
+for all clients, given raw data from HIFIS and a trained model.
+1. Ensure that you have already run
+   _[lime_explain.py](src/interpretability/lime_explain.py)_ after
+   training your model, as it will have generated and saved a
+   LIME Explainer object at _data/interpretability/lime_explainer.pkl_.
+2. Ensure that you have _HIFIS_Clients.csv_ located within in the raw
+   data folder (_data/raw/_). See [Getting Started](#getting-started)
+   for help obtaining _HIFIS_Clients.csv_.
+3. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
+   the path of the model weights file (_.h5_ file) that you wish to use
+   for prediction.
+4. In the _main_ function of _[predict.py](src/predict.py)_, you can opt
+   to either save predictions to a new file or append predictions and
+   their corresponding timestamps to a file containing past predictions.
+   Ensure the function you wish to execute is uncommented.
+   1. You can call `results = predict_and_explain_set(data_path=None,
+      save_results=True, give_explanations=True)`, which will preprocess
+      raw client data, run prediction for all clients, and run LIME to
+      explain these predictions. Results will be saved in a .csv file,
+      which will be located in _results/predictions/_, and will be
+      called _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is
+      the current time.
+   2. You can call `trending_prediction(data_path=None)`, which will
+      produce predictions and explanations in the same method as
+      described in (i), but will include timestamps for when the
+      predictions were made. The results will be appended to a file
+      called _trending_predictions.csv_, located within
+      _results/prediction/_. This file contains predictions made at
+      previous times, enabling the user to compare the change in
+      predictions and explanations for particular clients over time.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard

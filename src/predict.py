@@ -39,7 +39,7 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
 
     # Restore the model and LIME explainer from their respective serializations
     explainer = dill.load(open(cfg['PATHS']['LIME_EXPLAINER'], 'rb'))
-    model = load_model(cfg['PATHS']['MODEL_WEIGHTS'])
+    model = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
 
     # Get the predictive horizon that this model was trained on. It's embedded within the model name.
     n_weeks = int(model._name.split('_')[1].split('-')[0])
@@ -80,7 +80,8 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
     # Convert results to a Pandas dataframe and save
     results_df = pd.DataFrame(rows, columns=col_names)
     if save_results:
-        results_df.to_csv(results_df.to_csv(cfg['PATHS']['BULK_PREDICTIONS']), index_label=False, index=False)
+        results_path = cfg['PATHS']['BULK_PREDICTIONS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv'
+        results_df.to_csv(results_df.to_csv(results_path, index_label=False, index=False))
     return results_df
 
 
@@ -113,3 +114,4 @@ def trending_prediction(data_path=None):
 
 if __name__ == '__main__':
     results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True)
+    # trending_prediction(data_path=None)
