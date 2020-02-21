@@ -176,7 +176,7 @@ example. It then uses the linear model to determine which features were
 most contributory to the model's prediction for that example. By
 applying LIME to our trained model, we can conduct informed feature
 engineering based on any obviously inconsequential features we see (e.g.
-EyeColour) or insights from domain experts. We can also tell if the
+_EyeColour_) or insights from domain experts. We can also tell if the
 model is learning any unintended bias and eliminate that bias through
 additional feature engineering. See the steps below to apply LIME to
 explain the model's predictions on examples in the test set.
@@ -209,19 +209,23 @@ explain the model's predictions on examples in the test set.
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
    range of values) of a feature and its associated weight in the
-   prediction. In the example portrayed by bar graph below, the fact
-   that TotalStays was greater than 4 but less than or equal to 23
+   prediction. In the example portrayed by the bar graph below, the fact
+   that _TotalStays_ was greater than 4 but less than or equal to 23
    contributed negatively with a magnitude of about 0.22 to a positive
    prediction (meaning it contributed at a magnitude of 0.22 toward a
    negative prediction). As another example, the rule
-   "ReasonForService_Streets=1" indicates that at some point the client
-   has a record that cites their reason for service as "Streets" (_=1_
+   _"ReasonForService_Streets=1"_ indicates that at some point the client
+   has a record that cites their reason for service as _"Streets"_ (_=1_
    indicates that a Boolean feature is present, and _=0_ indicates that
    a Boolean feature is not present) and that this explanation
    contributed with a weight of about 0.02 toward a positive prediction.
-   As one last example, consider that this client's AboriginalIndicator
-   value is "Yes - Tribe Not Known", which contributed with a weight of
+   As one last example, consider that this client's _AboriginalIndicator_
+   value is _"Yes - Tribe Not Known"_, which contributed with a weight of
    about 0.04 towards a negative prediction.
+   
+**NOTE**: Many clients have incomplete records. To represent missing values, default values are inserted into the dataset. You may see these values when examining LIME explanations.
+- Missing records for numerical features are given a value of _-1_
+- Missing records for categorical features are given a value of _"Unknown"_
 
 ![alt text](documents/readme_images/LIME_example.PNG "A sample LIME
 explanation")
