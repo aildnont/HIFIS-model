@@ -236,7 +236,7 @@ visualization to aid the random hyperparameter search. With the help of
 the [HParam
 Dashboard](https://www.tensorflow.org/tensorboard/hyperparameter_tuning_with_hparams),
 one can see the effect of different combinations of hyperparameters on
-the model's performance metrics.
+the model's test set performance metrics.
 
 In our random hyperparameter search, we study the effects of _x_ random
 combinations of hyperparameters by training the model _y_ times for each
@@ -255,13 +255,13 @@ _layers_.
    ```
 2. Set the ranges of hyperparameters you wish to study in the _HP_
    subsection of the _TRAIN_ section of [config.yml](config.yml).
-   Consider whether your hyperparameter ranges are continuous or
-   discrete and whether any need to be investigated on the logarithmic
-   scale.
+   Consider whether your hyperparameter ranges are continuous (i.e.
+   real) or discrete and whether any need to be investigated on the
+   logarithmic scale.
    ```
-   DROPOUT: [0.2, 0.5]          # Continuous interval
-   LR: [-4.0, -2.5]             # Continuous interval on logarithmic scale (10^x)   
-   LAYERS: [2, 3, 4]            # Discrete interval
+   DROPOUT: [0.2, 0.5]          # Real range
+   LR: [-4.0, -2.5]             # Real range on logarithmic scale (10^x)   
+   LAYERS: [2, 3, 4]            # Discrete range
    ```
 3.  Within the _random_hparam_search()_ function defined in
     [train.py](src/train.py), add your hyperparameters as HParam objects
@@ -287,12 +287,12 @@ _layers_.
 6. Execute [train.py](src/train.py). The experiment's logs will be
    located in _results/logs/hparam_search/_, and the directory name will
    be the current time in the following format: _yyyymmdd-hhmmss_. These
-   logs contain information on the value of validation set metrics at
+   logs contain information on test set metrics with models trained on
    different combinations of hyperparameters. The logs can be visualized
    by running [TensorBoard](https://www.tensorflow.org/tensorboard)
    locally. See below for an example of a view offered by the HParams
    dashboard of TensorBoard. Each point represents 1 training run. The
-   graph compares values of hyperparameters to validation set metrics.
+   graph compares values of hyperparameters to test set metrics.
 
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
