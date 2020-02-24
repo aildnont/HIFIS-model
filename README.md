@@ -439,6 +439,11 @@ below.
   dictionary for associated features. For example, you need to include
   only one of _'LifeEventStartDate'_ and _'LifeEventEndDate'_ as a key,
   along with _['LifeEvent']_ as the associated value.
+- **SPDAT**: Parameters associated with addition of client SPDAT data
+  - **INCLUDE_SPDATS**: Boolean variable indicating whether to include
+    SPDAT data during preprocessing
+  - **SPDAT_CLIENTS_ONLY**: Boolean variable indicating whether to
+    include only clients who have a SPDAT in the preprocessed dataset
 #### NN
 - **MODEL1**: Contains definitions of configurable hyperparameters
   associated with the model architecture. The values currently in this

@@ -441,11 +441,14 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     df_clients = aggregate_df(df, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
 
     # Include SPDAT data
-    if config['DATA']['INCLUDE_SPDATS']:
+    if config['DATA']['SPDAT']['INCLUDE_SPDATS']:
         print("Adding SPDAT questions as features.")
         spdat_df, sv_cat_spdat_feats, noncat_spdat_feats = get_spdat_data(config['PATHS']['RAW_SPDAT_DATA'],
                                                                           train_end_date)
-        df_clients = df_clients.join(spdat_df)  # Set ground truth for all clients to their saved values
+        if config['DATA']['SPDAT']['SPDAT_CLIENTS_ONLY']:
+            df_clients = df_clients.join(spdat_df, how='inner')      # Add SPDAT data, but only take clients with SPDATs
+        else:
+            df_clients = df_clients.join(spdat_df, how='left')      # Add SPDAT data for clients with SPDATs
         if classify_cat_feats:
             noncategorical_feats += noncat_spdat_feats
             sv_cat_feats += sv_cat_spdat_feats

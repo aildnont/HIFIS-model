@@ -7,7 +7,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
-  MODEL_TO_LOAD: 'results/models/model.h5'
+  MODEL_TO_LOAD: 'results/models/model_spdat0.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -24,10 +24,9 @@ PATHS:
 
 # Constants pertaining to data structure
 DATA:
-  N_WEEKS: 26
-  GROUND_TRUTH_DATE: 'today'
+  N_WEEKS: 12
+  GROUND_TRUTH_DATE: '2020-02-14'
   CHRONIC_THRESHOLD: 180
-  INCLUDE_SPDATS: true
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
                            'ServiceProvider']
@@ -59,6 +58,9 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
+  SPDAT:
+    INCLUDE_SPDATS: true
+    SPDAT_CLIENTS_ONLY: true
 
 
 # Neural network models
@@ -78,7 +80,7 @@ TRAIN:
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
   EPOCHS: 300
-  BATCH_SIZE: 256
+  BATCH_SIZE: 32
   POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   EXPERIMENT_TYPE: 'single_train' # One of {'single_train', 'multi_train', 'hparam_search'}
@@ -110,7 +112,7 @@ LIME:
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
   NUM_SAMPLES: 85000
-  MIN_DISPLAY_WEIGHT: 0.005
+  MIN_DISPLAY_WEIGHT: 0.008
   SP:
     SAMPLE_SIZE: 50
     NUM_EXPLANATIONS: 10
