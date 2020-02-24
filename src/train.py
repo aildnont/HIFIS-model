@@ -266,7 +266,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
                Recall(name='recall', thresholds=thresholds), AUC(name='auc')]
 
     # Set callbacks.
-    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=cfg['TRAIN']['PATIENCE'], mode='min', restore_best_weights=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.00001, verbose=1)
     callbacks = [early_stopping]
     if write_logs:
