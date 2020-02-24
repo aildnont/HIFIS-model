@@ -7,6 +7,8 @@ from scipy import stats
 import pandas as pd
 import datetime
 import io
+import os
+import yaml
 from math import floor
 
 # Set some matplotlib parameters
@@ -174,8 +176,18 @@ def explanations_to_hbar_plot(exps, weights, title):
     :param title: Title of horizonal bar graph
     '''
 
+    # Filter out weights that are too small
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    min_weight = cfg['LIME']['MIN_DISPLAY_WEIGHT']
+    idxs_too_small = []
+    for i in range(len(weights)):
+        if abs(weights[i]) < min_weight:
+            idxs_too_small.append(i)
+    weights = [weights[i] for i in range(len(weights)) if i not in idxs_too_small]
+    exps = [exps[i] for i in range(len(exps)) if i not in idxs_too_small]
+
     ax = plt.subplot()
-    colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and neagive weights
+    colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and negative weights
     positions = np.arange(len(exps))    # Positions for bars on y axis
     ax.barh(positions, weights, align='center', color=colours)  # Plot a horizontal bar graph of the average weights
 
@@ -233,7 +245,7 @@ def visualize_avg_explanations(results_df, file_path=None):
         plt.savefig(file_path + 'LIME_Explanations_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
-def visualize_submodular_pick(results_df, exp_limit=20, file_path=None):
+def visualize_submodular_pick(results_df, file_path=None):
     '''
     Builds a graph for visualizing the average weights of a set of LIME explanations resulting from a submodular pick
     :param results_df: A dataframe containing LIME explanations from a submodular pick
@@ -246,7 +258,7 @@ def visualize_submodular_pick(results_df, exp_limit=20, file_path=None):
 
     # Sort by absolute value of weights and take the exp_limit weights with the highest magnitude
     W_avg["abs"] = np.abs(W_avg)
-    W_avg = W_avg.head(exp_limit).sort_values("abs", ascending=True).drop("abs", axis=1)
+    W_avg = W_avg.sort_values("abs", ascending=True).drop("abs", axis=1)
     W_avg = W_avg['weight']
 
     # Sort by weight

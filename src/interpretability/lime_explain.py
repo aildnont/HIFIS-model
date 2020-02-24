@@ -211,14 +211,14 @@ def submodular_pick(lime_dict):
     submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict,
                                    sample_size=cfg['LIME']['SP']['SAMPLE_SIZE'], num_features=lime_dict['NUM_FEATURES'],
                                    num_exps_desired=cfg['LIME']['SP']['NUM_EXPLANATIONS'], top_labels=None,
-                                   num_samples=lime_dict['NUM_SAMPLES'])
+                                   num_samples=5000)
     print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
 
     # Assemble all explanations in a DataFrame
     W = pd.DataFrame([dict(exp.as_list()) for exp in submod_picker.sp_explanations]).fillna(0)
 
     # Visualize the results
-    visualize_submodular_pick(W, exp_limit=cfg['LIME']['SP']['EXP_LIMIT'], file_path=cfg['PATHS']['IMAGES'])
+    visualize_submodular_pick(W, file_path=cfg['PATHS']['IMAGES'])
     return
 
 def explain_single_client(lime_dict, client_id):
@@ -252,5 +252,5 @@ def run_lime_experiment_and_visualize(lime_dict):
 if __name__ == '__main__':
     lime_dict = setup_lime()
     #explain_single_client(lime_dict, 87020)
-    run_lime_experiment_and_visualize(lime_dict)
-    #submodular_pick(lime_dict)
+    #run_lime_experiment_and_visualize(lime_dict)
+    submodular_pick(lime_dict)
