@@ -193,9 +193,8 @@ def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir)
     HPARAMS.append(hp.HParam('POS_WEIGHT', hp.RealInterval(hp_ranges['POS_WEIGHT'][0], hp_ranges['POS_WEIGHT'][1])))
     HPARAMS.append(hp.HParam('IMB_STRATEGY', hp.Discrete(hp_ranges['IMB_STRATEGY'])))
 
-    # Define metrics that we wish to log to TensorBoard for each training run
-    HP_METRICS = [hp.Metric('epoch_' + metric, group='validation', display_name='Val ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
-    HP_METRICS.append(hp.Metric('epoch_loss', group='train', display_name='Train loss'))    # Help catch overfitting
+    # Define test set metrics that we wish to log to TensorBoard for each training run
+    HP_METRICS = [hp.Metric(metric, display_name='Test ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]
 
     # Configure TensorBoard to log the results
     with tf.summary.create_file_writer(log_dir).as_default():
@@ -215,8 +214,7 @@ def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir)
             print("Running training session %d/%d" % (trial_id, num_sessions))
             print("Hparam values: ", {h.name: HPARAMS[h] for h in HPARAMS})
             trial_logdir = os.path.join(log_dir, str(trial_id))     # Need specific logdir for each trial
-            callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0, write_graph=False),
-                                        hp.KerasCallback(trial_logdir, hparams, trial_id=str(trial_id))]
+            callbacks_hp = callbacks + [TensorBoard(log_dir=trial_logdir, profile_batch=0, write_graph=False)]
             model = model1(cfg['NN']['MODEL1'], shape, metrics, n_weeks, output_bias=cfg['OUTPUT_BIAS'], hparams=hparams)
 
             # Set some hyperparameters that cannot be set in model definition
@@ -228,7 +226,14 @@ def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir)
                 cfg['MINORITY_OVERSAMPLE'] = True
             if hparams['IMB_STRATEGY'] == 'smote':
                 cfg['SMOTE'] = True
-            model, test_metrics = train_model(cfg, data, model, callbacks_hp, verbose=2)
+
+            # Run a training session and log the performance metrics on the test set to HParams dashboard in TensorBoard
+            with tf.summary.create_file_writer(trial_logdir).as_default():
+                hp.hparams(HPARAMS, trial_id=str(trial_id))
+                model, test_metrics = train_model(cfg, data, model, callbacks_hp, verbose=2)    # Train model
+                for metric in HP_METRICS:
+                    if metric._tag in test_metrics:
+                        tf.summary.scalar(metric._tag, test_metrics[metric._tag], step=1)   # Log test metric
     return model, test_metrics
 
 def train_experiment(experiment='single_train', save_weights=True, write_logs=True):
@@ -261,7 +266,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
                Recall(name='recall', thresholds=thresholds), AUC(name='auc')]
 
     # Set callbacks.
-    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=15, mode='min', restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=cfg['TRAIN']['PATIENCE'], mode='min', restore_best_weights=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.00001, verbose=1)
     callbacks = [early_stopping]
     if write_logs:
