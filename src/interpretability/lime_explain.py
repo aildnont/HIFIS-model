@@ -204,10 +204,13 @@ def submodular_pick(lime_dict):
     print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
 
     # Assemble all explanations in a DataFrame
-    W = pd.DataFrame([dict(exp.as_list()) for exp in submod_picker.sp_explanations]).fillna(0)
+    W = pd.DataFrame([dict(exp.as_list()) for exp in submod_picker.sp_explanations])
 
-    # Calculate mean of explanations encountered across the picked examples
-    W_avg = W.mean().T
+    # Calculate mean of explanations encountered across the picked examples. Ignore nan values.
+    W_avg = W.mean(skipna=True).T
+
+    # Visualize the the average explanations
+    visualize_submodular_pick(W_avg, file_path=cfg['PATHS']['IMAGES'])
 
     # Save average explanations from submodular pick to .csv file
     W_avg_df = W_avg.to_frame()
@@ -216,11 +219,12 @@ def submodular_pick(lime_dict):
     W_avg_df["Abs Weight"] = np.abs(W_avg_df['Avg Weight'])
     W_avg_df.sort_values('Abs Weight', inplace=True, ascending=False)
     W_avg_df.drop('Abs Weight', inplace=True, axis=1)
-    W_avg_df.to_csv(cfg['PATHS']['LIME_SUBMODULAR_PICK'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
-                    index_label=False, index=False)
-
-    # Visualize the the average explanations
-    visualize_submodular_pick(W_avg, file_path=cfg['PATHS']['IMAGES'])
+    sp_file_path = cfg['PATHS']['LIME_SUBMODULAR_PICK']
+    W_avg_df.insert(0, 'Timestamp', pd.to_datetime(datetime.datetime.now()))  # Add a timestamp to these results
+    if os.path.exists(sp_file_path):
+        prev_W_avg_df = pd.read_csv(sp_file_path)
+        W_avg_df = pd.concat([prev_W_avg_df, W_avg_df], axis=0)    # Concatenate these results with previous results
+    W_avg_df.to_csv(sp_file_path, index_label=False, index=False)
     return
 
 def explain_single_client(lime_dict, client_id):

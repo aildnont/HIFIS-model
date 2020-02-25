@@ -211,8 +211,8 @@ def explanations_to_hbar_plot(exp_weights, title):
 
     # Shorten explanation rules that are too long to be graph labels
     for i in range(len(exps)):
-        if len(exps[i]) >= 67:
-            exps[i] = exps[i][0:30] + ' . . . ' + exps[i][-30:]
+        if len(exps[i]) >= 87:
+            exps[i] = exps[i][0:40] + ' . . . ' + exps[i][-40:]
 
     fig, axes = plt.subplots(constrained_layout=True)
     ax = plt.subplot()
@@ -221,19 +221,21 @@ def explanations_to_hbar_plot(exp_weights, title):
     ax.barh(positions, weights, align='center', color=colours)  # Plot a horizontal bar graph of the average weights
 
     # Print the average weight in the center of its corresponding bar
+    max_weight = abs(max(weights, key=abs))
     for bar, weight in zip(ax.patches, weights):
         if weight >= 0:
-            ax.text(bar.get_x() - 0.005, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
-                    color='green', ha='center', va='center', fontweight='semibold')
+            ax.text(bar.get_x() - max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                    color='green', ha='center', va='center', fontweight='semibold', transform=ax.transData)
         else:
-            ax.text(bar.get_x() + 0.005, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
-                    color='red', ha='center', va='center', fontweight='semibold')
+            ax.text(bar.get_x() + max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                    color='red', ha='center', va='center', fontweight='semibold', transform=ax.transData)
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
     ax.set_yticks(positions)
     ax.set_yticklabels(exps, fontsize=8, fontstretch='extra-condensed')
     ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
     ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
+    plt.xticks(rotation=45, ha='right', va='top')
 
     # Display a grid behind the bars.
     ax.grid(True, which='major')
@@ -243,7 +245,8 @@ def explanations_to_hbar_plot(exp_weights, title):
     # Set plot axis labels and title.
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
-    ax.set_title(title, pad=15, size=20)   # Set title
+    #ax.set_title(title, pad=15, size=20)   # Set title
+    fig.suptitle(title, size=20)
     fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.25)
     return
 

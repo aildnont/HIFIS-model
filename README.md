@@ -203,7 +203,14 @@ explain the model's predictions on examples in the test set.
       submodular pick algorithm (as described in the
       [LIME paper](https://arxiv.org/abs/1602.04938)) to pick and
       amalgamate a set explanations of training set examples that
-      attempt to explain the model's functionality as a whole.
+      attempt to explain the model's functionality as a whole. Global
+      surrogate explanations and weights will be saved to a .csv file
+      and depicted in a visualization. The .csv file will be located in
+      _results/experiments/_, and will be called
+      _lime_submodular_pick.csv_. Subsequent submodular picks will be
+      appended to this file with timestamps. The visualization will be
+      located in _documents/generated_images/_, and will be called
+      _LIME_Submodular_Pick_yyyymmdd-hhmmss.csv_.
    3. You can call `explain_single_client(lime_dict, client_id)`, which
       will run LIME on the example in the test set whose ClientID is
       that which you passed to the function. A graphic will be generated
@@ -419,15 +426,16 @@ below.
   predicting the probability of chronic homelessness (i.e. predictive
   horizon)
 - **GROUND_TRUTH_DATE**: Date at which to compute ground truth (i.e.
-  state of chronic homelessness) for clients
+  state of chronic homelessness) for clients. Set to either _'today'_ or
+  a date with the following format: _'yyyy-mm-dd'_.
 - **CHRONIC_THRESHOLD**: Number of stays per year for a client to be
   considered chronically homeless
 - **FEATURES_TO_DROP_FIRST**: Features you would like to exclude
   entirely from the model. For us, this list evolved through trial and
   error. For example, after running LIME to produce prediction
   explanations, we realized that features in the database that should
-  have no impact on the ground truth (e.g. EyeColour) were appearing in
-  some explanations; thus, they were added to this list so that these
+  have no impact on the ground truth (e.g. _EyeColour_) were appearing
+  in some explanations; thus, they were added to this list so that these
   problematic correlations and inferences would not be made by the
   model. Incidentally, this iterative feature engineering using LIME
   (explainable AI) to identify bad correlations is the foundation of
@@ -468,7 +476,7 @@ below.
 #### NN
 - **MODEL1**: Contains definitions of configurable hyperparameters
   associated with the model architecture. The values currently in this
-  section were the optimal values for our dataset informed by a
+  section were the optimal values for our dataset informed by a random
   hyperparameter search.
 #### TRAIN
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
