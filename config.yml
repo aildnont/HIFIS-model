@@ -12,6 +12,7 @@ PATHS:
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
+  LIME_SUBMODULAR_PICK: 'results/experiments/lime_submodular_pick'
   TRAIN_SET: 'data/processed/Train_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'

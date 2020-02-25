@@ -275,15 +275,12 @@ def visualize_avg_explanations(results_df, file_path=None):
         plt.savefig(file_path + 'LIME_Explanations_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
-def visualize_submodular_pick(results_df, file_path=None):
+def visualize_submodular_pick(W_avg, file_path=None):
     '''
     Builds a graph for visualizing the average weights of a set of LIME explanations resulting from a submodular pick
-    :param results_df: A dataframe containing LIME explanations from a submodular pick
+    :param W_avg: A dataframe containing average LIME explanations from a submodular pick
     :param file_path: The path to the directory at which to save the resulting image
     '''
-
-    # Calculate mean of explanations encountered across the picked examples
-    W_avg = results_df.mean().T
 
     # Sort by weight
     W_avg = W_avg.sort_values(ascending=True)
