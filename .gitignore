@@ -8,7 +8,6 @@ results/logs/training/*
 results/logs/hparam_search/*
 results/models/*
 results/predictions/*
-!data/.gitkeep
 !data/processed/.gitkeep
 !data/interpretability/.gitkeep
 !data/raw/.gitkeep
@@ -16,7 +15,6 @@ results/predictions/*
 !data/transformers/.gitkeep
 !documents/.gitkeep
 !documents/generated_images/.gitkeep
-!results/.gitkeep
 !results/logs/.gitkeep
 !results/logs/training/.gitkeep
 !results/logs/hparam_search/.gitkeep
