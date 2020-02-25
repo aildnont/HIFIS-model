@@ -2,6 +2,14 @@ import numpy as np
 import warnings
 from tqdm import tqdm
 
+'''
+***********************************************************************************************************************
+This file is the modified version of submodular_pick.py from the lime package.
+Modifications were made because out-of-memory errors were occurring when conducting submodular pick with a sample size
+of > 80. For now, the fix is resetting irrelevant yet large members of Explanation objects.
+***********************************************************************************************************************
+'''
+
 
 class SubmodularPick(object):
     """Class for submodular pick
