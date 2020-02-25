@@ -168,23 +168,30 @@ def visualize_explanation(explanation, client_id, client_gt):
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()
 
-def explanations_to_hbar_plot(exps, weights, title):
+def explanations_to_hbar_plot(exp_weights, title):
     '''
     Plot a series of explanations and weights, sorted by weights, on a horizontal bar graph
-    :param exps: List of explanations
-    :param weights: List of corresponding weights
+    :param exp_weights: list of of (explanation, weight) tuples
     :param title: Title of horizonal bar graph
     '''
 
-    # Filter out weights that are too small
-    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
-    min_weight = cfg['LIME']['MIN_DISPLAY_WEIGHT']
-    idxs_too_small = []
-    for i in range(len(weights)):
-        if abs(weights[i]) < min_weight:
-            idxs_too_small.append(i)
-    weights = [weights[i] for i in range(len(weights)) if i not in idxs_too_small]
-    exps = [exps[i] for i in range(len(exps)) if i not in idxs_too_small]
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))    # Load project config
+    min_weight = cfg['LIME']['MIN_DISPLAYED_WEIGHT']
+    max_explanations = cfg['LIME']['MAX_DISPLAYED_RULES']
+
+    # Get rid of items whose weights are too small
+    exp_weights = [e for e in exp_weights if abs(e[1]) > min_weight]
+
+    # Sort by absolute value of weights
+    exp_weights = sorted(exp_weights, key=lambda e: abs(e[1]), reverse=True)
+
+    # Trim the list of explanations if we have too many
+    if len(exp_weights) > max_explanations:
+        exp_weights = exp_weights[0:max_explanations]
+
+    # Get corresponding lists for explanations and weights
+    exps = [e for e, w in exp_weights]
+    weights = [w for e, w in exp_weights]
 
     ax = plt.subplot()
     colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and negative weights
@@ -236,9 +243,10 @@ def visualize_avg_explanations(results_df, file_path=None):
     avg_exps = exps_df.groupby('Exp', as_index=False).agg({'Weight' : np.mean}).sort_values(by='Weight').values
     exps = [x[0] for x in avg_exps]
     weights = [x[1] for x in avg_exps]
+    exp_data = dict(zip(exps, weights))
 
     # Plot as horizontal bar graph
-    explanations_to_hbar_plot(exps, weights, "Average Weights for LIME Explanations on Test Set")
+    explanations_to_hbar_plot(exp_data, "Average Weights for LIME Explanations on Test Set")
 
     # Save the image
     if file_path is not None:
@@ -253,21 +261,16 @@ def visualize_submodular_pick(results_df, file_path=None):
     '''
 
     # Calculate mean of explanations encountered across the picked examples
-    W_avg_series = results_df.mean().T
-    W_avg = pd.DataFrame({'weight': W_avg_series})
-
-    # Sort by absolute value of weights and take the exp_limit weights with the highest magnitude
-    W_avg["abs"] = np.abs(W_avg)
-    W_avg = W_avg.sort_values("abs", ascending=True).drop("abs", axis=1)
-    W_avg = W_avg['weight']
+    W_avg = results_df.mean().T
 
     # Sort by weight
     W_avg = W_avg.sort_values(ascending=True)
     exps = W_avg.index.tolist()
     weights = W_avg.tolist()
+    exp_data = list(zip(exps, weights))
 
     # Plot as horizontal bar graph
-    explanations_to_hbar_plot(exps, weights, "Average Weights for Explanations from Submodular Pick")
+    explanations_to_hbar_plot(exp_data, "Average Weights for Explanations from Submodular Pick")
 
     # Save the image
     if file_path is not None:

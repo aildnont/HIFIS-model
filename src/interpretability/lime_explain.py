@@ -5,12 +5,11 @@ import datetime
 import dill
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
-from lime.submodular_pick import SubmodularPick
+#from lime.submodular_pick import SubmodularPick
+from src.interpretability.submodular_pick import SubmodularPick
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations, visualize_submodular_pick
-from src.custom.metrics import F1Score
-import matplotlib.pyplot as plt
 
 def predict_instance(x, model, ohe_ct_sv, scaler_ct):
     '''
@@ -142,12 +141,8 @@ def setup_lime():
     # Load feature information
     input_stream = open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r')
     cfg_feats = yaml.full_load(input_stream)
-    mv_cat_features = cfg_feats['MV_CAT_FEATURES']
-    sv_cat_features = cfg_feats['SV_CAT_FEATURES']
     noncat_features = cfg_feats['NON_CAT_FEATURES']
-    sv_cat_feature_idxs = cfg_feats['SV_CAT_FEATURE_IDXS']
     sv_cat_values = cfg_feats['SV_CAT_VALUES']
-    vec_sv_cat_features = cfg_feats['VEC_SV_CAT_FEATURES']
 
     # Load train and test sets
     train_df = pd.read_csv(cfg['PATHS']['TRAIN_SET'])
@@ -195,7 +190,7 @@ def submodular_pick(lime_dict):
     :param lime_dict: dict containing important information and objects for explanation experiments
     '''
 
-    def predict(x):
+    def predict_example(x):
         '''
         Helper function for LIME explainer. Runs model prediction on perturbations of the example.
         :param x: List of perturbed examples from an example
@@ -208,10 +203,10 @@ def submodular_pick(lime_dict):
     start_time = datetime.datetime.now()
 
     # Perform a submodular pick of explanations of uniformly sampled examples from the training set
-    submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict,
+    submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict_example,
                                    sample_size=cfg['LIME']['SP']['SAMPLE_SIZE'], num_features=lime_dict['NUM_FEATURES'],
                                    num_exps_desired=cfg['LIME']['SP']['NUM_EXPLANATIONS'], top_labels=None,
-                                   num_samples=5000)
+                                   num_samples=cfg['LIME']['NUM_SAMPLES'])
     print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
 
     # Assemble all explanations in a DataFrame
