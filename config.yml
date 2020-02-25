@@ -61,6 +61,7 @@ DATA:
   SPDAT:
     INCLUDE_SPDATS: true
     SPDAT_CLIENTS_ONLY: true
+    SPDAT_DATA_ONLY: true
 
 
 # Neural network models
