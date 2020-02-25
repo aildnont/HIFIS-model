@@ -209,6 +209,12 @@ def explanations_to_hbar_plot(exp_weights, title):
     exps = [e for e, w in exp_weights]
     weights = [w for e, w in exp_weights]
 
+    # Shorten explanation rules that are too long to be graph labels
+    for i in range(len(exps)):
+        if len(exps[i]) >= 67:
+            exps[i] = exps[i][0:30] + ' . . . ' + exps[i][-30:]
+
+    fig, axes = plt.subplots(constrained_layout=True)
     ax = plt.subplot()
     colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and negative weights
     positions = np.arange(len(exps))    # Positions for bars on y axis
@@ -217,15 +223,15 @@ def explanations_to_hbar_plot(exp_weights, title):
     # Print the average weight in the center of its corresponding bar
     for bar, weight in zip(ax.patches, weights):
         if weight >= 0:
-            ax.text(bar.get_x() - 0.016, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() - 0.005, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='green', ha='center', va='center', fontweight='semibold')
         else:
-            ax.text(bar.get_x() + 0.016, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() + 0.005, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='red', ha='center', va='center', fontweight='semibold')
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
     ax.set_yticks(positions)
-    ax.set_yticklabels(exps)
+    ax.set_yticklabels(exps, fontsize=8, fontstretch='extra-condensed')
     ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
     ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
 
@@ -238,7 +244,7 @@ def explanations_to_hbar_plot(exp_weights, title):
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
     ax.set_title(title, pad=15, size=20)   # Set title
-    plt.tight_layout()      # Ensure rule labels are not cut off the image
+    fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.25)
     return
 
 

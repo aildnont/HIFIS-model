@@ -169,12 +169,6 @@ def setup_lime():
     train_labels = Y_train['GroundTruth'].to_numpy()
     feature_names = train_df.columns.tolist()
 
-    # Change feature names to span multiple lines, if too long
-    for i in range(len(feature_names)):
-        if len(feature_names[i]) > 100:
-            new_name = feature_names[i][0:100] + '-\n' + feature_names[i][100:len(feature_names[i])]
-            feature_names[i] = new_name
-
     lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
                                     kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='decile')
