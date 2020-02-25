@@ -81,7 +81,6 @@ class SubmodularPick(object):
                     data[i], predict_fn, num_features=num_features,
                     top_labels=top_labels,
                     **kwargs)
-            print("exp", exp.available_labels())
             exp.scaled_data = np.zeros((1))
             exp.domain_mapper.scaled_row = np.zeros((1))
             self.explanations.append(exp)

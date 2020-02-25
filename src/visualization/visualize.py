@@ -176,18 +176,34 @@ def explanations_to_hbar_plot(exp_weights, title):
     '''
 
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))    # Load project config
-    min_weight = cfg['LIME']['MIN_DISPLAYED_WEIGHT']
-    max_explanations = cfg['LIME']['MAX_DISPLAYED_RULES']
+    half_max_exps = cfg['LIME']['MAX_DISPLAYED_RULES'] // 2
 
-    # Get rid of items whose weights are too small
-    exp_weights = [e for e in exp_weights if abs(e[1]) > min_weight]
+    # Separate and sort positively and negatively weighted explanations
+    pos_exp_weights = [e_w for e_w in exp_weights if e_w[1] >= 0]
+    neg_exp_weights = [e_w for e_w in exp_weights if e_w[1] < 0]
+    pos_exp_weights = sorted(pos_exp_weights, key=lambda e: e[1], reverse=True)
+    neg_exp_weights = sorted(neg_exp_weights, key=lambda e: e[1], reverse=False)
 
-    # Sort by absolute value of weights
-    exp_weights = sorted(exp_weights, key=lambda e: abs(e[1]), reverse=True)
+    # Limit number of explanations shown based on config file and preserve ratio of positive weights to negative weights
+    ratio = len(pos_exp_weights) / len(neg_exp_weights)
+    if ratio >= 1:
+        if len(pos_exp_weights) > half_max_exps:
+            pos_exp_weights = pos_exp_weights[0:half_max_exps]
+        max_neg_exps = floor(len(pos_exp_weights) / ratio)
+        if len(neg_exp_weights) > max_neg_exps:
+            neg_exp_weights = neg_exp_weights[0:max_neg_exps]
+    else:
+        if len(neg_exp_weights) > half_max_exps:
+            neg_exp_weights = neg_exp_weights[0:half_max_exps]
+        max_pos_exps = floor(len(neg_exp_weights) * ratio)
+        if len(pos_exp_weights) > max_pos_exps:
+            pos_exp_weights = pos_exp_weights[0:max_pos_exps]
 
-    # Trim the list of explanations if we have too many
-    if len(exp_weights) > max_explanations:
-        exp_weights = exp_weights[0:max_explanations]
+    # Assemble final list of explanations and weights
+    exp_weights = pos_exp_weights + neg_exp_weights
+
+    # Sort by value of weights
+    exp_weights = sorted(exp_weights, key=lambda e: e[1])
 
     # Get corresponding lists for explanations and weights
     exps = [e for e, w in exp_weights]
@@ -201,10 +217,10 @@ def explanations_to_hbar_plot(exp_weights, title):
     # Print the average weight in the center of its corresponding bar
     for bar, weight in zip(ax.patches, weights):
         if weight >= 0:
-            ax.text(bar.get_x() - 0.03, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() - 0.016, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='green', ha='center', va='center', fontweight='semibold')
         else:
-            ax.text(bar.get_x() + 0.03, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() + 0.016, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='red', ha='center', va='center', fontweight='semibold')
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.

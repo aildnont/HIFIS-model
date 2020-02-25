@@ -521,8 +521,8 @@ below.
   include in a LIME explanation
 - **NUM_SAMPLES**: The number of samples
   used to fit a linear model when explaining a prediction using LIME
-- **MIN_DISPLAY_WEIGHT**: The minimum magnitude an explanation's weight
-  must have to be included in a global surrogate visualization
+- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be included
+  in a global surrogate visualization
 - **SP**: Parameters associated with submodular pick
   - **SAMPLE_SIZE**: The number of samples from the training set to
     generate candidate explanations for
