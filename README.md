@@ -422,7 +422,6 @@ below.
   state of chronic homelessness) for clients
 - **CHRONIC_THRESHOLD**: Number of stays per year for a client to be
   considered chronically homeless
-- **INCLUDE_SPDATS**: Whether to include SPDAT data in preprocessing
 - **FEATURES_TO_DROP_FIRST**: Features you would like to exclude
   entirely from the model. For us, this list evolved through trial and
   error. For example, after running LIME to produce prediction
@@ -461,6 +460,11 @@ below.
   calculated by summing the number of times that the service was
   accessed. Note that the services offered in your locale may be
   different, necessitating modification of this list.
+- **SPDAT**: Parameters associated with addition of client SPDAT data
+  - **INCLUDE_SPDATS**: Boolean variable indicating whether to include
+    SPDAT data during preprocessing
+  - **SPDAT_CLIENTS_ONLY**: Boolean variable indicating whether to
+    include only clients who have a SPDAT in the preprocessed dataset
 #### NN
 - **MODEL1**: Contains definitions of configurable hyperparameters
   associated with the model architecture. The values currently in this
