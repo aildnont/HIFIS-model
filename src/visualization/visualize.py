@@ -9,7 +9,7 @@ import datetime
 import io
 import os
 import yaml
-from math import floor
+from math import floor, ceil
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
@@ -168,7 +168,7 @@ def visualize_explanation(explanation, client_id, client_gt):
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()
 
-def explanations_to_hbar_plot(exp_weights, title):
+def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''
     Plot a series of explanations and weights, sorted by weights, on a horizontal bar graph
     :param exp_weights: list of of (explanation, weight) tuples
@@ -176,60 +176,86 @@ def explanations_to_hbar_plot(exp_weights, title):
     '''
 
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))    # Load project config
-    min_weight = cfg['LIME']['MIN_DISPLAYED_WEIGHT']
-    max_explanations = cfg['LIME']['MAX_DISPLAYED_RULES']
+    half_max_exps = cfg['LIME']['MAX_DISPLAYED_RULES'] // 2
 
-    # Get rid of items whose weights are too small
-    exp_weights = [e for e in exp_weights if abs(e[1]) > min_weight]
+    # Separate and sort positively and negatively weighted explanations
+    pos_exp_weights = [e_w for e_w in exp_weights if e_w[1] >= 0]
+    neg_exp_weights = [e_w for e_w in exp_weights if e_w[1] < 0]
+    pos_exp_weights = sorted(pos_exp_weights, key=lambda e: e[1], reverse=True)
+    neg_exp_weights = sorted(neg_exp_weights, key=lambda e: e[1], reverse=False)
 
-    # Sort by absolute value of weights
-    exp_weights = sorted(exp_weights, key=lambda e: abs(e[1]), reverse=True)
+    # Limit number of explanations shown based on config file and preserve ratio of positive weights to negative weights
+    ratio = len(pos_exp_weights) / len(neg_exp_weights)
+    if ratio >= 1:
+        if len(pos_exp_weights) > half_max_exps:
+            pos_exp_weights = pos_exp_weights[0:half_max_exps]
+        max_neg_exps = floor(len(pos_exp_weights) / ratio)
+        if len(neg_exp_weights) > max_neg_exps:
+            neg_exp_weights = neg_exp_weights[0:max_neg_exps]
+    else:
+        if len(neg_exp_weights) > half_max_exps:
+            neg_exp_weights = neg_exp_weights[0:half_max_exps]
+        max_pos_exps = floor(len(neg_exp_weights) * ratio)
+        if len(pos_exp_weights) > max_pos_exps:
+            pos_exp_weights = pos_exp_weights[0:max_pos_exps]
 
-    # Trim the list of explanations if we have too many
-    if len(exp_weights) > max_explanations:
-        exp_weights = exp_weights[0:max_explanations]
+    # Assemble final list of explanations and weights
+    exp_weights = pos_exp_weights + neg_exp_weights
+
+    # Sort by value of weights
+    exp_weights = sorted(exp_weights, key=lambda e: e[1])
 
     # Get corresponding lists for explanations and weights
     exps = [e for e, w in exp_weights]
     weights = [w for e, w in exp_weights]
 
+    # Shorten explanation rules that are too long to be graph labels
+    for i in range(len(exps)):
+        if len(exps[i]) >= 87:
+            exps[i] = exps[i][0:40] + ' . . . ' + exps[i][-40:]
+
+    fig, axes = plt.subplots(constrained_layout=True)
     ax = plt.subplot()
     colours = ['green' if x > 0 else 'red' for x in weights]    # Colours for positive and negative weights
     positions = np.arange(len(exps))    # Positions for bars on y axis
     ax.barh(positions, weights, align='center', color=colours)  # Plot a horizontal bar graph of the average weights
 
     # Print the average weight in the center of its corresponding bar
+    max_weight = abs(max(weights, key=abs))
     for bar, weight in zip(ax.patches, weights):
         if weight >= 0:
-            ax.text(bar.get_x() - 0.03, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
-                    color='green', ha='center', va='center', fontweight='semibold')
+            ax.text(bar.get_x() - max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                    color='green', ha='center', va='center', fontweight='semibold', transform=ax.transData)
         else:
-            ax.text(bar.get_x() + 0.03, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
-                    color='red', ha='center', va='center', fontweight='semibold')
+            ax.text(bar.get_x() + max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+                    color='red', ha='center', va='center', fontweight='semibold', transform=ax.transData)
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
     ax.set_yticks(positions)
-    ax.set_yticklabels(exps)
-    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
-    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
+    ax.set_yticklabels(exps, fontsize=8, fontstretch='extra-condensed')
+    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, ceil(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
+    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, ceil(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
+    plt.xticks(rotation=45, ha='right', va='top')
 
     # Display a grid behind the bars.
     ax.grid(True, which='major')
     ax.grid(True, which='minor', axis='x', linewidth=1, linestyle=':')
     ax.set_axisbelow(True)
 
-    # Set plot axis labels and title.
+    # Set plot axis labels, title, and subtitle.
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
-    ax.set_title(title, pad=15, size=20)   # Set title
-    plt.tight_layout()      # Ensure rule labels are not cut off the image
+    fig.suptitle(title, size=20)                                 # Title
+    fig.text(0.5, 0.92, subtitle, size=15, ha='center')          # Subtitle
+    fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.25)
     return
 
 
-def visualize_avg_explanations(results_df, file_path=None):
+def visualize_avg_explanations(results_df, sample_fraction, file_path=None):
     '''
     Builds a graph for visualizing the average weights of LIME explanations over all provided explanations
     :param results_df: Output dataframe of running a LIME experiment to explain multiple predictions
+    :param sample_fraction: Fraction of test set that explanations were produced for
     :param file_path: The path to the directory at which to save the resulting image
     '''
 
@@ -243,25 +269,25 @@ def visualize_avg_explanations(results_df, file_path=None):
     avg_exps = exps_df.groupby('Exp', as_index=False).agg({'Weight' : np.mean}).sort_values(by='Weight').values
     exps = [x[0] for x in avg_exps]
     weights = [x[1] for x in avg_exps]
-    exp_data = dict(zip(exps, weights))
+    exp_data = list(zip(exps, weights))
 
     # Plot as horizontal bar graph
-    explanations_to_hbar_plot(exp_data, "Average Weights for LIME Explanations on Test Set")
+    title = 'Average Weights for LIME Explanations on Test Set'
+    subtitle = '% of test set sampled = ' + '{:.2f}'.format(sample_fraction * 100)
+    explanations_to_hbar_plot(exp_data, title=title, subtitle=subtitle)
 
     # Save the image
     if file_path is not None:
         plt.savefig(file_path + 'LIME_Explanations_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
-def visualize_submodular_pick(results_df, file_path=None):
+def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
     '''
     Builds a graph for visualizing the average weights of a set of LIME explanations resulting from a submodular pick
-    :param results_df: A dataframe containing LIME explanations from a submodular pick
+    :param W_avg: A dataframe containing average LIME explanations from a submodular pick
+    :param sample_fraction: Fraction of training set examples explained for submodular pick
     :param file_path: The path to the directory at which to save the resulting image
     '''
-
-    # Calculate mean of explanations encountered across the picked examples
-    W_avg = results_df.mean().T
 
     # Sort by weight
     W_avg = W_avg.sort_values(ascending=True)
@@ -270,7 +296,9 @@ def visualize_submodular_pick(results_df, file_path=None):
     exp_data = list(zip(exps, weights))
 
     # Plot as horizontal bar graph
-    explanations_to_hbar_plot(exp_data, "Average Weights for Explanations from Submodular Pick")
+    title = 'Average Weights for Explanations from Submodular Pick'
+    subtitle = '% of training set sampled = ' + '{:.2f}'.format(sample_fraction * 100)
+    explanations_to_hbar_plot(exp_data, title=title, subtitle=subtitle)
 
     # Save the image
     if file_path is not None:

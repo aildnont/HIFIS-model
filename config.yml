@@ -7,11 +7,12 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
-  MODEL_TO_LOAD: 'results/models/model_spdat0.h5'
+  MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
+  LIME_SUBMODULAR_PICK: 'results/experiments/lime_submodular_pick.csv'
   TRAIN_SET: 'data/processed/Train_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
@@ -24,7 +25,7 @@ PATHS:
 
 # Constants pertaining to data structure
 DATA:
-  N_WEEKS: 12
+  N_WEEKS: 26
   GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
@@ -113,10 +114,9 @@ LIME:
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
   NUM_SAMPLES: 85000
-  MIN_DISPLAYED_WEIGHT: 0.001
-  MAX_DISPLAYED_RULES: 20
+  MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_SIZE: 250
+    SAMPLE_SIZE: 300
     NUM_EXPLANATIONS: 15
 
 # Predictive horizon search experiment

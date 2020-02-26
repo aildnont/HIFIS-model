@@ -104,7 +104,6 @@ def trending_prediction(data_path=None):
     # If previous prediction file exists, load it and append the predictions we just made.
     if os.path.exists(trending_pred_path):
         prev_results_df = pd.read_csv(trending_pred_path)
-        print(prev_results_df.head())
         results_df = pd.concat([prev_results_df, results_df], axis=0)
 
     # Save the updated trend analysis prediction spreadsheet
