@@ -61,7 +61,8 @@ DATA:
       END: 'ServiceEndDate'
   SPDAT:
     INCLUDE_SPDATS: true
-    SPDAT_CLIENTS_ONLY: true
+    SPDAT_CLIENTS_ONLY: false
+    SPDAT_DATA_ONLY: false
 
 
 # Neural network models

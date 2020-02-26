@@ -474,6 +474,8 @@ below.
     SPDAT data during preprocessing
   - **SPDAT_CLIENTS_ONLY**: Boolean variable indicating whether to
     include only clients who have a SPDAT in the preprocessed dataset
+  - **SPDAT_DATA_ONLY**: Boolean variable indicating whether to include
+    only answers to SPDAT questions in the preprocessed dataset
 #### NN
 - **MODEL1**: Contains definitions of configurable hyperparameters
   associated with the model architecture. The values currently in this
