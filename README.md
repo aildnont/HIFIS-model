@@ -383,7 +383,8 @@ empty directories.
 |   |   ├── client_export.sql     <- SQL query to get raw data from HIFIS database
 |   |   └── preprocess.py         <- Preprocessing script
 │   ├── interpretability          <- Model interpretability scripts
-|   |   └── lime_explain.py       <- Script for generating LIME explanations
+|   |   ├── lime_explain.py       <- Script for generating LIME explanations
+|   |   └── submodular_pick.py    <- Modified version of file taken from lime package
 │   ├── models                    <- TensorFlow model definitions
 |   |   └── models.py             <- Script containing model definition
 |   ├── visualization             <- Visualization scripts
@@ -532,8 +533,9 @@ below.
 - **MAX_DISPLAYED_RULES**: The maximum number of explanations to be included
   in a global surrogate visualization
 - **SP**: Parameters associated with submodular pick
-  - **SAMPLE_SIZE**: The number of samples from the training set to
-    generate candidate explanations for
+  - **SAMPLE_SIZE**: An integer that specifies the number of samples
+    from the training set to generate candidate explanations for.
+    Alternatively, set to _'all'_ to sample the entire training set.
   - **NUM_EXPLANATIONS**: The desired number of explanations that
     maximize explanation coverage
 #### HORIZON_SEARCH

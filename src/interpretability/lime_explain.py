@@ -178,6 +178,7 @@ def setup_lime():
     lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
     return lime_dict
 
+
 def submodular_pick(lime_dict):
     '''
     Perform submodular pick on the training set to approximate global explanations for the model.
@@ -196,9 +197,14 @@ def submodular_pick(lime_dict):
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     start_time = datetime.datetime.now()
 
+    # Set sample size, ensuring that it isn't larger than size of training set.
+    sample_size = cfg['LIME']['SP']['SAMPLE_SIZE']
+    if (sample_size == 'all') or (sample_size > lime_dict['X_TRAIN'].shape[0]):
+        sample_size = lime_dict['X_TRAIN'].shape[0]
+
     # Perform a submodular pick of explanations of uniformly sampled examples from the training set
     submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict_example,
-                                   sample_size=cfg['LIME']['SP']['SAMPLE_SIZE'], num_features=lime_dict['NUM_FEATURES'],
+                                   sample_size=sample_size, num_features=lime_dict['NUM_FEATURES'],
                                    num_exps_desired=cfg['LIME']['SP']['NUM_EXPLANATIONS'], top_labels=None,
                                    num_samples=cfg['LIME']['NUM_SAMPLES'])
     print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
@@ -210,7 +216,8 @@ def submodular_pick(lime_dict):
     W_avg = W.mean(skipna=True).T
 
     # Visualize the the average explanations
-    visualize_submodular_pick(W_avg, file_path=cfg['PATHS']['IMAGES'])
+    sample_fraction = cfg['LIME']['SP']['SAMPLE_SIZE'] / lime_dict['X_TRAIN'].shape[0]
+    visualize_submodular_pick(W_avg, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
 
     # Save average explanations from submodular pick to .csv file
     W_avg_df = W_avg.to_frame()
@@ -226,6 +233,7 @@ def submodular_pick(lime_dict):
         W_avg_df = pd.concat([prev_W_avg_df, W_avg_df], axis=0)    # Concatenate these results with previous results
     W_avg_df.to_csv(sp_file_path, index_label=False, index=False)
     return
+
 
 def explain_single_client(lime_dict, client_id):
     '''
@@ -252,11 +260,12 @@ def run_lime_experiment_and_visualize(lime_dict):
     results_df = lime_experiment(lime_dict['X_TEST'], lime_dict['Y_TEST'], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                               cfg['PREDICTION']['THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
                               lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=False)
-    visualize_avg_explanations(results_df, file_path=cfg['PATHS']['IMAGES'])
+    sample_fraction = results_df.shape[0] / lime_dict['X_TEST'].shape[0]
+    visualize_avg_explanations(results_df, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
     return
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
     #explain_single_client(lime_dict, 87020)
-    #run_lime_experiment_and_visualize(lime_dict)
-    submodular_pick(lime_dict)
+    run_lime_experiment_and_visualize(lime_dict)
+    #submodular_pick(lime_dict)

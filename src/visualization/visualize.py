@@ -9,7 +9,7 @@ import datetime
 import io
 import os
 import yaml
-from math import floor
+from math import floor, ceil
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
@@ -168,7 +168,7 @@ def visualize_explanation(explanation, client_id, client_gt):
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()
 
-def explanations_to_hbar_plot(exp_weights, title):
+def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''
     Plot a series of explanations and weights, sorted by weights, on a horizontal bar graph
     :param exp_weights: list of of (explanation, weight) tuples
@@ -233,8 +233,8 @@ def explanations_to_hbar_plot(exp_weights, title):
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
     ax.set_yticks(positions)
     ax.set_yticklabels(exps, fontsize=8, fontstretch='extra-condensed')
-    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
-    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, floor(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
+    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, ceil(max(weights)/0.05)*0.05 + 0.05, 0.05), minor=False)
+    ax.set_xticks(np.arange(floor(min(weights)/0.05)*0.05, ceil(max(weights)/0.05)*0.05 + 0.05, 0.01), minor=True)
     plt.xticks(rotation=45, ha='right', va='top')
 
     # Display a grid behind the bars.
@@ -242,19 +242,20 @@ def explanations_to_hbar_plot(exp_weights, title):
     ax.grid(True, which='minor', axis='x', linewidth=1, linestyle=':')
     ax.set_axisbelow(True)
 
-    # Set plot axis labels and title.
+    # Set plot axis labels, title, and subtitle.
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
-    #ax.set_title(title, pad=15, size=20)   # Set title
-    fig.suptitle(title, size=20)
+    fig.suptitle(title, size=20)                                 # Title
+    fig.text(0.5, 0.92, subtitle, size=15, ha='center')          # Subtitle
     fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.25)
     return
 
 
-def visualize_avg_explanations(results_df, file_path=None):
+def visualize_avg_explanations(results_df, sample_fraction, file_path=None):
     '''
     Builds a graph for visualizing the average weights of LIME explanations over all provided explanations
     :param results_df: Output dataframe of running a LIME experiment to explain multiple predictions
+    :param sample_fraction: Fraction of test set that explanations were produced for
     :param file_path: The path to the directory at which to save the resulting image
     '''
 
@@ -268,20 +269,23 @@ def visualize_avg_explanations(results_df, file_path=None):
     avg_exps = exps_df.groupby('Exp', as_index=False).agg({'Weight' : np.mean}).sort_values(by='Weight').values
     exps = [x[0] for x in avg_exps]
     weights = [x[1] for x in avg_exps]
-    exp_data = dict(zip(exps, weights))
+    exp_data = list(zip(exps, weights))
 
     # Plot as horizontal bar graph
-    explanations_to_hbar_plot(exp_data, "Average Weights for LIME Explanations on Test Set")
+    title = 'Average Weights for LIME Explanations on Test Set'
+    subtitle = '% of test set sampled = ' + '{:.2f}'.format(sample_fraction * 100)
+    explanations_to_hbar_plot(exp_data, title=title, subtitle=subtitle)
 
     # Save the image
     if file_path is not None:
         plt.savefig(file_path + 'LIME_Explanations_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
-def visualize_submodular_pick(W_avg, file_path=None):
+def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
     '''
     Builds a graph for visualizing the average weights of a set of LIME explanations resulting from a submodular pick
     :param W_avg: A dataframe containing average LIME explanations from a submodular pick
+    :param sample_fraction: Fraction of training set examples explained for submodular pick
     :param file_path: The path to the directory at which to save the resulting image
     '''
 
@@ -292,7 +296,9 @@ def visualize_submodular_pick(W_avg, file_path=None):
     exp_data = list(zip(exps, weights))
 
     # Plot as horizontal bar graph
-    explanations_to_hbar_plot(exp_data, "Average Weights for Explanations from Submodular Pick")
+    title = 'Average Weights for Explanations from Submodular Pick'
+    subtitle = '% of training set sampled = ' + '{:.2f}'.format(sample_fraction * 100)
+    explanations_to_hbar_plot(exp_data, title=title, subtitle=subtitle)
 
     # Save the image
     if file_path is not None:
