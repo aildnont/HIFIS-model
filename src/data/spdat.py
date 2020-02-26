@@ -84,5 +84,8 @@ def get_spdat_data(spdat_path, gt_end_date):
     df_clients = df_clients.droplevel(level=1, axis='index')            # Ensure index is ClientID
     print("# of clients with SPDAT = " + str(df_clients.shape[0]))
 
-    sv_cat_feats, noncat_feats = get_spdat_feat_types(df_clients)
+    sv_cat_feats, noncat_feats = get_spdat_feat_types(df_clients)       # Classify SPDAT questions as features
+
+    # Replace "0.0" with "Unknown" for categorical features
+    df_clients[sv_cat_feats] = df_clients[sv_cat_feats].replace(to_replace=0, value='Unknown')
     return df_clients, sv_cat_feats, noncat_feats

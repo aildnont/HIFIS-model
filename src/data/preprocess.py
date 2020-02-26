@@ -447,10 +447,10 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
                                                                           train_end_date)
         if config['DATA']['SPDAT']['SPDAT_CLIENTS_ONLY']:
             df_clients = df_clients.join(spdat_df, how='inner')      # Add SPDAT data, but only take clients with SPDATs
+            if config['DATA']['SPDAT']['SPDAT_DATA_ONLY']:
+                df_clients = df_clients[list(spdat_df.columns)]  # Only features will be SPDAT questions
         else:
             df_clients = df_clients.join(spdat_df, how='left')      # Add SPDAT data for clients with SPDATs
-        if config['DATA']['SPDAT']['SPDAT_CLIENTS_ONLY']:
-            df_clients = df_clients[list(spdat_df.columns)]   # Only features will be SPDAT questions
         if classify_cat_feats:
             noncategorical_feats += noncat_spdat_feats
             sv_cat_feats += sv_cat_spdat_feats
