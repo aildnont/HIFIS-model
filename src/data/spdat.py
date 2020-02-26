@@ -78,9 +78,14 @@ def get_spdat_data(spdat_path, gt_end_date):
 
     # Build a DataFrame in which each row is a client's answer to SPDAT questions
     df_clients = df.groupby('ClientID').progress_apply(single_client_record)
-    df_clients.columns = df_clients.columns.str.replace('%', '')      # Remove bad characters that prevent debug inspection
+    df_clients.columns = df_clients.columns.str.replace('%', '')
+    df_clients.columns = df_clients.columns.str.replace('\r', '')
+    df_clients.columns = df_clients.columns.str.replace('\n', '')
     df_clients = df_clients.droplevel(level=1, axis='index')            # Ensure index is ClientID
     print("# of clients with SPDAT = " + str(df_clients.shape[0]))
 
-    sv_cat_feats, noncat_feats = get_spdat_feat_types(df_clients)
+    sv_cat_feats, noncat_feats = get_spdat_feat_types(df_clients)       # Classify SPDAT questions as features
+
+    # Replace "0.0" with "Unknown" for categorical features
+    df_clients[sv_cat_feats] = df_clients[sv_cat_feats].replace(to_replace=0, value='Unknown')
     return df_clients, sv_cat_feats, noncat_feats

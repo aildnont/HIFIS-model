@@ -25,7 +25,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 12
-  GROUND_TRUTH_DATE: '2020-02-14'
+  GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
@@ -60,7 +60,8 @@ DATA:
       END: 'ServiceEndDate'
   SPDAT:
     INCLUDE_SPDATS: true
-    SPDAT_CLIENTS_ONLY: true
+    SPDAT_CLIENTS_ONLY: false
+    SPDAT_DATA_ONLY: false
 
 
 # Neural network models
