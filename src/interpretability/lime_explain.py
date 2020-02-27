@@ -215,10 +215,6 @@ def submodular_pick(lime_dict):
     # Calculate mean of explanations encountered across the picked examples. Ignore nan values.
     W_avg = W.mean(skipna=True).T
 
-    # Visualize the the average explanations
-    sample_fraction = cfg['LIME']['SP']['SAMPLE_SIZE'] / lime_dict['X_TRAIN'].shape[0]
-    visualize_submodular_pick(W_avg, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
-
     # Save average explanations from submodular pick to .csv file
     W_avg_df = W_avg.to_frame()
     W_avg_df.reset_index(level=0, inplace=True)
@@ -232,6 +228,10 @@ def submodular_pick(lime_dict):
         prev_W_avg_df = pd.read_csv(sp_file_path)
         W_avg_df = pd.concat([prev_W_avg_df, W_avg_df], axis=0)    # Concatenate these results with previous results
     W_avg_df.to_csv(sp_file_path, index_label=False, index=False)
+
+    # Visualize the the average explanations
+    sample_fraction = sample_size / lime_dict['X_TRAIN'].shape[0]
+    visualize_submodular_pick(W_avg, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
     return
 
 
