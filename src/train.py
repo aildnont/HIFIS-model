@@ -136,12 +136,13 @@ def train_model(cfg, data, model, callbacks, verbose=2):
     return model, test_metrics
 
 
-def multi_train(cfg, data, model, callbacks):
+def multi_train(cfg, data, metrics, n_weeks, callbacks):
     '''
     Trains a model a series of times and returns the model with the best test set metric (specified in cfg)
     :param cfg: Project config (from config.yml)
     :param data: Partitioned dataset
-    :param model: Keras model to be trained
+    :param metrics: List of performance metrics to monitor
+    :param n_weeks: Predictive horizon (in weeks)
     :param callbacks: List of callbacks to pass to model.fit()
     :return: The trained Keras model with best test set performance on the metric specified in cfg
     '''
@@ -150,6 +151,7 @@ def multi_train(cfg, data, model, callbacks):
     best_value = 1000.0 if metric_monitor == 'loss' else 0.0
     for i in range(cfg['TRAIN']['NUM_RUNS']):
         print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
+        model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, n_weeks, output_bias=cfg['OUTPUT_BIAS'])
 
         # Train the model and evaluate performance on test set
         new_model, test_metrics = train_model(cfg, data, model, callbacks)
@@ -281,7 +283,7 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
 
     # Conduct desired train experiment
     if experiment == 'multi_train':
-        model, test_metrics = multi_train(cfg, data, model, callbacks)
+        model, test_metrics = multi_train(cfg, data, metrics, n_weeks, callbacks)
     elif experiment == 'hparam_search':
         log_dir = cfg['PATHS']['LOGS'] + "hparam_search\\" + cur_date
         model, test_metrics = random_hparam_search(cfg, data, metrics, n_weeks, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)
