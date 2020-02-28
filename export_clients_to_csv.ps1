@@ -17,7 +17,7 @@ $VerbosePreference = "SilentlyContinue"
 $instanceName =  [Instance Name goes here] 
 
 # SQL Scripts
-$clientScript = "src\data\client_export.sql" # Path to SQL Script
+$clientScript = "src\data\queries\client_export.sql" # Path to SQL Script
 
 
 # Output Files

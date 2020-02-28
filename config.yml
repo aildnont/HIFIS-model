@@ -60,7 +60,7 @@ DATA:
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
   SPDAT:
-    INCLUDE_SPDATS: true
+    INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false
     SPDAT_DATA_ONLY: false
 
