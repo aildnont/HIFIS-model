@@ -28,10 +28,10 @@ application of this model in their own locales.
    ```
    $ pip install -r requirements.txt
    ```
-3. Open [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1) for
+3. Open [_retrieve_raw_data.ps1_](retrieve_raw_data.ps1) for
    editing. Replace "_[Instance Name goes here]_" with your HIFIS
    database instance name. Execute
-   [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1). A file
+   [_retrieve_raw_data.ps1_](retrieve_raw_data.ps1). A file
    named _"HIFIS_Clients.csv"_ should now be within the _data/raw/_
    folder. See
    [HIFIS_Clients_example.csv](data/raw/HIFIS_Clients_example.csv) for
@@ -400,10 +400,10 @@ files that enable Python to recognize certain directories as packages.
 ├── .gitignore                    <- Files to be be ignored by git.
 ├── config.yml                    <- Values of several constants used throughout project
 ├── config_private.yml            <- Private information, e.g. database keys (not included in repo)
-├── export_clients_to_csv.ps1     <- Powershell script that executes SQL query to get raw data from HIFIS database
 ├── LICENSE                       <- Project license
 ├── README.md                     <- Project description
-└── requirements.txt              <- Lists all dependencies and their respective versions
+├── requirements.txt              <- Lists all dependencies and their respective versions
+└── retrieve_raw_data.ps1         <- Powershell script that executes SQL queries to get raw data from HIFIS database
 ```
 
 ## Project Config
