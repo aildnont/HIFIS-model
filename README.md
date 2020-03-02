@@ -28,10 +28,10 @@ application of this model in their own locales.
    ```
    $ pip install -r requirements.txt
    ```
-3. Open [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1) for
+3. Open [_retrieve_raw_data.ps1_](retrieve_raw_data.ps1) for
    editing. Replace "_[Instance Name goes here]_" with your HIFIS
    database instance name. Execute
-   [_export_clients_to_csv.ps1_](export_clients_to_csv.ps1). A file
+   [_retrieve_raw_data.ps1_](retrieve_raw_data.ps1). A file
    named _"HIFIS_Clients.csv"_ should now be within the _data/raw/_
    folder. See
    [HIFIS_Clients_example.csv](data/raw/HIFIS_Clients_example.csv) for
@@ -358,7 +358,8 @@ for all clients, given raw data from HIFIS and a trained model.
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
 any _.gitkeep_ files, as their only purpose is to force Git to track
-empty directories.
+empty directories. Disregard any _.__init__.py_ files, as they are empty
+files that enable Python to recognize certain directories as packages.
 
 ```
 ├── data
@@ -380,8 +381,11 @@ empty directories.
 │   ├── custom                    <- Custom TensorFlow components
 |   |   └── metrics.py            <- Definition of custom TensorFlow metrics
 │   ├── data                      <- Data processing
-|   |   ├── client_export.sql     <- SQL query to get raw data from HIFIS database
-|   |   └── preprocess.py         <- Preprocessing script
+|   |   ├── queries
+|   |   |   ├── client_export.sql <- SQL query to get raw data from HIFIS database
+|   |   |   └── SPDAT_export.sql  <- SQL query to get SPDAT data from database
+|   |   ├── preprocess.py         <- Main preprocessing script
+|   |   └── spdat.py              <- SPDAT data preprocessing script
 │   ├── interpretability          <- Model interpretability scripts
 |   |   ├── lime_explain.py       <- Script for generating LIME explanations
 |   |   └── submodular_pick.py    <- Modified version of file taken from lime package
@@ -396,10 +400,10 @@ empty directories.
 ├── .gitignore                    <- Files to be be ignored by git.
 ├── config.yml                    <- Values of several constants used throughout project
 ├── config_private.yml            <- Private information, e.g. database keys (not included in repo)
-├── export_clients_to_csv.ps1     <- Powershell script that executes SQL query to get raw data from HIFIS database
 ├── LICENSE                       <- Project license
 ├── README.md                     <- Project description
-└── requirements.txt              <- Lists all dependencies and their respective versions
+├── requirements.txt              <- Lists all dependencies and their respective versions
+└── retrieve_raw_data.ps1         <- Powershell script that executes SQL queries to get raw data from HIFIS database
 ```
 
 ## Project Config
