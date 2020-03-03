@@ -136,7 +136,7 @@ def train_model(cfg, data, model, callbacks, verbose=2):
     return model, test_metrics
 
 
-def multi_train(cfg, data, metrics, n_weeks, callbacks):
+def multi_train(cfg, data, metrics, n_weeks, callbacks, base_log_dir):
     '''
     Trains a model a series of times and returns the model with the best test set metric (specified in cfg)
     :param cfg: Project config (from config.yml)
@@ -144,26 +144,44 @@ def multi_train(cfg, data, metrics, n_weeks, callbacks):
     :param metrics: List of performance metrics to monitor
     :param n_weeks: Predictive horizon (in weeks)
     :param callbacks: List of callbacks to pass to model.fit()
+    :param base_log_dir: Base directory to write logs
     :return: The trained Keras model with best test set performance on the metric specified in cfg
     '''
-    # Train model for a specified number of times and keep the one with the best target test metric
-    metric_monitor = cfg['TRAIN']['METRIC_MONITOR']
-    best_value = 1000.0 if metric_monitor == 'loss' else 0.0
+
+    # Load order of metric preference
+    metric_preference = cfg['TRAIN']['METRIC_PREFERENCE']
+    best_metrics = dict.fromkeys(metric_preference, 0.0)
+    if 'loss' in metric_preference:
+        best_metrics['loss'] = 10000.0
+
     for i in range(cfg['TRAIN']['NUM_RUNS']):
         print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
         model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, n_weeks, output_bias=cfg['OUTPUT_BIAS'])
 
-        # Train the model and evaluate performance on test set
-        new_model, test_metrics = train_model(cfg, data, model, callbacks)
+        cur_callbacks = callbacks.copy()
+        cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        if base_log_dir is not None:
+            log_dir = base_log_dir + cur_date
+            cur_callbacks.append(TensorBoard(log_dir=log_dir, histogram_freq=1))
 
-        # If this model outperforms the previous ones based on the specified metric, save this one.
-        if (((metric_monitor == 'loss') and (test_metrics[metric_monitor] < best_value))
-                or ((metric_monitor != 'loss') and (test_metrics[metric_monitor] > best_value))):
-            best_value = test_metrics[metric_monitor]
-            best_model = new_model
-            best_metrics = test_metrics
+        # Train the model and evaluate performance on test set
+        new_model, test_metrics = train_model(cfg, data, model, cur_callbacks)
+
+        # If this model outperforms the previous ones based on the specified metric preferences, save this one.
+        for i in range(len(metric_preference)):
+            if (((metric_preference[i] == 'loss') and (test_metrics[metric_preference[i]] < best_metrics[metric_preference[i]]))
+                    or ((metric_preference[i] != 'loss') and (test_metrics[metric_preference[i]] > best_metrics[metric_preference[i]]))):
+                best_model = new_model
+                best_metrics = test_metrics
+                best_model_date = cur_date
+                break
+            elif (test_metrics[metric_preference[i]] == best_metrics[metric_preference[i]]):
+                continue
+            else:
+                break
+
     print("Best model test metrics: ", best_metrics)
-    return best_model, best_metrics
+    return best_model, best_metrics, best_model_date
 
 def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir):
     '''
@@ -283,7 +301,8 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
 
     # Conduct desired train experiment
     if experiment == 'multi_train':
-        model, test_metrics = multi_train(cfg, data, metrics, n_weeks, callbacks)
+        base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
+        model, test_metrics, cur_date = multi_train(cfg, data, metrics, n_weeks, [callbacks[0]], base_log_dir)
     elif experiment == 'hparam_search':
         log_dir = cfg['PATHS']['LOGS'] + "hparam_search\\" + cur_date
         model, test_metrics = random_hparam_search(cfg, data, metrics, n_weeks, (data['X_train'].shape[-1],), [callbacks[0]], log_dir)

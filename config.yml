@@ -86,7 +86,7 @@ TRAIN:
   POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   EXPERIMENT_TYPE: 'single_train' # One of {'single_train', 'multi_train', 'hparam_search'}
-  METRIC_MONITOR: 'recall'
+  METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
   NUM_RUNS: 10
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
