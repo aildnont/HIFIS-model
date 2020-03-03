@@ -259,7 +259,7 @@ def run_lime_experiment_and_visualize(lime_dict):
     cfg = yaml.full_load(input_stream)
     results_df = lime_experiment(lime_dict['X_TEST'], lime_dict['Y_TEST'], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                               cfg['PREDICTION']['THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
-                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=False)
+                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=True)
     sample_fraction = results_df.shape[0] / lime_dict['X_TEST'].shape[0]
     visualize_avg_explanations(results_df, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
     return
