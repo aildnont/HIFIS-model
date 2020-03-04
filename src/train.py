@@ -240,12 +240,7 @@ def random_hparam_search(cfg, data, metrics, n_weeks, shape, callbacks, log_dir)
             # Set some hyperparameters that cannot be set in model definition
             cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']
             cfg['TRAIN']['POS_WEIGHT'] = hparams['POS_WEIGHT']
-            if hparams['IMB_STRATEGY'] == 'class_weight':
-                cfg['CLASS_WEIGHT'] = True
-            if hparams['IMB_STRATEGY'] == 'min_oversample':
-                cfg['MINORITY_OVERSAMPLE'] = True
-            if hparams['IMB_STRATEGY'] == 'smote':
-                cfg['SMOTE'] = True
+            cfg['TRAIN']['IMB_STRATEGY'] = hparams['IMB_STRATEGY']
 
             # Run a training session and log the performance metrics on the test set to HParams dashboard in TensorBoard
             with tf.summary.create_file_writer(trial_logdir).as_default():

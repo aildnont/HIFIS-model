@@ -63,18 +63,27 @@ application of this model in their own locales.
 ## Use Cases
 
 ### Train a model and visualize results
-1. Once you have _HIFIS_Clients.csv_ sitting in the raw data folder
-   (_data/raw/), execute [_preprocess.py_](src/data/preprocess.py). See
-   [Getting Started](#getting-started) for help obtaining
+1. Ensure that you have _HIFIS_Clients.csv_ sitting in the raw data
+   folder (_data/raw/_). See [Getting Started](#getting-started) for
+   help obtaining _HIFIS_Clients.csv_. In [config.yml](config.yml),
+   ensure that the _RAW_DATA_ field in _PATHS_ is set to the path of
    _HIFIS_Clients.csv_.
-2. Ensure data has been preprocessed properly. That is, verify that
+2. **(OPTIONAL)** If you would like to incorporate HIFIS clients'
+   answers to SPDAT questions as features in the dataset, set
+   _INCLUDE_SPDATS_ to _true_ in [config.yml](config.yml). Ensure that
+   you have _SPDATS.json_ sitting in the raw data folder (_data/raw/_).
+   For more options on how to include SPDAT data into your dataset, see
+   the description for SPDAT config attributes at
+   [Project Config](#data).
+3. Execute [_preprocess.py_](src/data/preprocess.py).
+4. Ensure data has been preprocessed properly. That is, verify that
    _data/processed/_ contains both _HIFIS_Processed.csv_ and
    _HIFIS_Processed_OHE.csv_. The latter is identical to the former with
    the exception being that its single-valued categorical features have
    been one-hot encoded.
-3. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
+5. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
    _'single_train'_.
-4. Execute [train.py](src/train.py). The trained model's weights will be
+6. Execute [train.py](src/train.py). The trained model's weights will be
    located in _results/models/_, and its filename will resemble the
    following structure: modelyyyymmdd-hhmmss.h5, where yyyymmdd-hhmmss
    is the current time. The model's logs will be located in

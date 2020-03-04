@@ -224,10 +224,10 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     max_weight = abs(max(weights, key=abs))
     for bar, weight in zip(ax.patches, weights):
         if weight >= 0:
-            ax.text(bar.get_x() - max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() - max_weight * 0.09, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='green', ha='center', va='center', fontweight='semibold', transform=ax.transData)
         else:
-            ax.text(bar.get_x() + max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() + max_weight * 0.09, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='red', ha='center', va='center', fontweight='semibold', transform=ax.transData)
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.

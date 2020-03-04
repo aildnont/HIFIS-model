@@ -106,7 +106,7 @@ TRAIN:
       L2_LAMBDA: [-2.0, -2.0]         # Real range on log scale (10^x)
       BATCH_SIZE: [256, 256]          # Discrete range
       POS_WEIGHT: [0.6, 0.6]          # Weight multiplier for positive class. Real range
-      IMB_STRATEGY: ['class_weight']  # Discrete range
+      IMB_STRATEGY: ['class_weight', 'smote', 'random_oversample']  # Discrete range
 
 # LIME explanations
 LIME:
