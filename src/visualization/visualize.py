@@ -246,7 +246,7 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
     fig.suptitle(title, size=20)                                 # Title
-    fig.text(0.5, 0.92, subtitle, size=15, ha='center')          # Subtitle
+    fig.text(0.5, 0.9, subtitle, size=15, ha='center')          # Subtitle
     fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.25)
     return
 

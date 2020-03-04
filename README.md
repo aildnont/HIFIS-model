@@ -109,9 +109,12 @@ you care about optimizing.
 2. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
    _'multi_train'_.
 3. Decide which metric you would like to optimize. In
-   [config.yml](config.yml), set _METRIC_MONITOR_ within _TRAIN_ to your
-   chosen metric. For example, if you decide to select the model with
-   the best recall on the test set, set this field to _'recall'_.
+   [config.yml](config.yml), set _METRIC_PREFERENCE_ within _TRAIN_ to a
+   list of metrics in order of which are most important to you to
+   optimize. For example, if you decide to select the model with the
+   best recall on the test set, set the first element of the list to
+   _'recall'_. Ties will be broken by comparing the next metric in the
+   list.
 4. Decide how many models you wish to train. In
    [config.yml](config.yml), set _NUM_RUNS_ within _TRAIN_ to your
    chosen number of training sessions. For example, if you wish to train
@@ -486,6 +489,9 @@ below.
   section were the optimal values for our dataset informed by a random
   hyperparameter search.
 #### TRAIN
+- **EXPERIMENT_TYPE**: The type of training experiment you would like to
+  perform if executing [_train.py_](src/train.py). Choices are
+  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
   to the training, validation and test sets respectively
 - **EPOCHS**: Number of epochs to train the model for
@@ -498,12 +504,14 @@ below.
   dataset, the ratio of positive to negative ground truth was very low,
   prompting the use of these strategies. Set either to _'class_weight'_,
   _'random_oversample'_, _'smote'_, or _'adasyn'_.
-- **EXPERIMENT_TYPE**: The type of training experiment you would like to
-  perform if executing [_train.py_](src/train.py). Choices are
-  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
-- **METRIC_MONITOR**: The metric to monitor when training multiple
-  models serially (i.e. the _'multi_train'_ experiment in
-  [_train.py_](src/train.py))
+- **METRIC_PREFERENCE**: An ordered list of metrics dictating how to
+  select the best model from a series of models trained in the
+  _'multi_train'_ experiment (implemented in
+  [_train.py_](src/train.py)). The first metric in the list is
+  considered to be the most important. Ties are broken by comparing
+  metric values downstream in the list. Possible metrics to specify
+  include '_accuracy'_, '_loss'_, _'recall'_, _'precision'_, and
+  '_auc'_.
 - **NUM_RUNS**: The number of times to train a model in the
   _'multi_train'_ experiment
 - **THRESHOLDS**: A single float or list of floats in range [0, 1]
