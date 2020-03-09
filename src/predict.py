@@ -80,7 +80,7 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
     # Convert results to a Pandas dataframe and save
     results_df = pd.DataFrame(rows, columns=col_names)
     if save_results:
-        results_path = cfg['PATHS']['BULK_PREDICTIONS'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv'
+        results_path = cfg['PATHS']['BULK_PREDICTIONS'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv'
         results_df.to_csv(results_df.to_csv(results_path, index_label=False, index=False))
     return results_df
 
