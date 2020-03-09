@@ -153,6 +153,20 @@ def plot_horizon_search(results_df, file_path):
         plt.savefig(file_path + 'horizon_experiment_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
+def shorten_explanations(exps, max_exp_len=87):
+    '''
+    Given a list of explanation labels, shorten them by replacing the middle portion of longer ones with an ellipsis
+    :param exps: List of explanation labels
+    :param max_exp_len: Maximum desired length of an explanation label
+    :return: List of shortened explanation labels
+    '''
+    half_exp_len = (max_exp_len - 7) // 2   # Calculate half of desired max length. Note: an ellipsis is 7 chars long
+
+    # If an explanation label is too long, take out the middle characters and replace with an ellipsis
+    for i in range(len(exps)):
+        if len(exps[i]) >= max_exp_len:
+            exps[i] = exps[i][0:half_exp_len] + ' . . . ' + exps[i][-half_exp_len:]
+    return exps
 
 def visualize_explanation(explanation, client_id, client_gt):
     '''
@@ -166,6 +180,11 @@ def visualize_explanation(explanation, client_id, client_gt):
     fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
     fig.text(0.02, 0.96, "Client ID: " + str(client_id))
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
+
+    # Shorten explanation rules that are too long to be graph labels
+    ax = plt.gca()
+    exps = shorten_explanations([t._text for t in ax.get_yticklabels()], max_exp_len=87)
+    ax.set_yticklabels(exps)
     plt.tight_layout()
 
 def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
@@ -210,9 +229,7 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     weights = [w for e, w in exp_weights]
 
     # Shorten explanation rules that are too long to be graph labels
-    for i in range(len(exps)):
-        if len(exps[i]) >= 87:
-            exps[i] = exps[i][0:40] + ' . . . ' + exps[i][-40:]
+    exps = shorten_explanations(exps, max_exp_len=87)
 
     fig, axes = plt.subplots(constrained_layout=True)
     ax = plt.subplot()
