@@ -97,14 +97,14 @@ TRAIN:
     RANGES:
       NODES0: [80, 100]               # Discrete range
       NODES1: [60, 80]                # Discrete range
-      LAYERS: [2, 2]                  # Discrete range
+      LAYERS: [2]                     # Discrete range
       DROPOUT: [0.2, 0.4]             # Real range
       LR: [-3.0, -3.0]                # Real range on logarithmic scale (10^x)
       OPTIMIZER: ['adam']             # Discrete range
       BETA_1: [-1.0, -1.0]            # 1st moment for Adam. Real range on log scale (1 - 10^x)
       BETA_2: [-3.0, -3.0]            # 2nd moment for Adam. Real range on log scale (1 - 10^x)
       L2_LAMBDA: [-2.0, -2.0]         # Real range on log scale (10^x)
-      BATCH_SIZE: [256, 256]          # Discrete range
+      BATCH_SIZE: [256]               # Discrete range
       POS_WEIGHT: [0.6, 0.6]          # Weight multiplier for positive class. Real range
       IMB_STRATEGY: ['class_weight', 'smote', 'random_oversample']  # Discrete range
 

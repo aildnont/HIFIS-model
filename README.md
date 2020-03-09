@@ -90,13 +90,21 @@ application of this model in their own locales.
    _results/logs/training/_, and its directory name will be the current
    time in the same format. These logs contain information about the
    experiment, such as metrics throughout the training process on the
-   training and validation sets, and performance on the test set. The
-   logs can be visualized by running
-   [TensorBoard](https://www.tensorflow.org/tensorboard) locally. See
-   below for an example of a plot from a TensorBoard log file depicting
-   loss on the training and validation sets vs. epoch. Plots depicting
-   the change in performance metrics throughout the training process
-   (such as the example below) are available in the _SCALARS_ tab of
+   training and validation sets, and performance on the test set.
+7. Visualize the training logs by running
+   [TensorBoard](https://www.tensorflow.org/tensorboard) locally, using
+   the following terminal command:
+   ```
+   tensorboard --logdir results\logs\training\yyyymmdd-hhmmss\ 
+   ```
+   TensorBoard will be acessible in a browser at
+   _http://localhost:6006/_. Click the _SCALARS_ tab on the navigation
+   bar to access performance metrics for the training and validation
+   sets. Click the _TEXT_ tab to access performance metrics for the test
+   set. See below for an example of a plot from a TensorBoard log file
+   depicting loss on the training and validation sets versus epoch.
+   Other plots depicting the change in performance metrics throughout
+   the training process are also available in the _SCALARS_ tab of
    TensorBoard.  
    ![alt text](documents/readme_images/tensorboard_loss.png "Loss vs
    Epoch")  
@@ -282,46 +290,72 @@ _layers_.
    COMBINATIONS: 60
    REPEATS: 2
    ```
-2. Set the ranges of hyperparameters you wish to study in the _HP_
+2. Set the ranges of the hyperparameters you wish to study in the _HP_
    subsection of the _TRAIN_ section of [config.yml](config.yml).
-   Consider whether your hyperparameter ranges are continuous (i.e.
-   real) or discrete and whether any need to be investigated on the
-   logarithmic scale.
+   Consider whether your hyperparameters' ranges are real (i.e.
+   continuous) or discrete and whether any need to be sampled on the
+   logarithmic scale. Note that several configurable hyperparameters are
+   already included in [config.yml](config.yml). Before adding new lines
+   to this file corresponding to hyperparameters, check to see if the
+   hyperparameters you are considering are already listed. See below for
+   examples of hyperparameter range definitions in
+   [config.yml](config.yml).
    ```
    DROPOUT: [0.2, 0.5]          # Real range
    LR: [-4.0, -2.5]             # Real range on logarithmic scale (10^x)   
    LAYERS: [2, 3, 4]            # Discrete range
    ```
-3.  Within the _random_hparam_search()_ function defined in
-    [train.py](src/train.py), add your hyperparameters as HParam objects
-    to the list of hyperparameters being considered.
-    ```
-    HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
-    HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
-    HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
-    ```
-4. In the appropriate location (varies by hyperparameter), ensure that
-   you set the hyperparameters based on the random combination. In our
-   example, all of these hyperparameters are set in the model definition
-   (i.e. within _model1()_ in [model.py](src/models/models.py)). You may
-   have to search the code to determine where to set your particular
-   choice of hyperparameters.
+   If there are some hyperparameters in [config.yml](config.yml) that
+   you wish to hold constant during your search, define them according
+   to the following convention. A hyperparameter with a discrete range
+   should be a list consisting of a single entry. A hyperparameter with
+   a real range should be a list of 2 equal entries (the minimum value
+   equals the maximum value). See below for examples.
    ```
-   dropout = hparams['DROPOUT']
-   lr = 10 ** hparams['LR']             # Transform to logarithmic scale
-   layers = hparams['LAYERS']
+   OPTIMIZER: ['adam']          # Discrete range
+   L2_LAMBDA: [-2.0, -2.0]      # Real range on logarithmic scale (10^x)
    ```
-5.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
+3.  **This step only applies if you added new hyperparameters to
+    [config.yml](config.yml) during step 2.**
+    1.  Within the _random_hparam_search()_ function defined in
+        [train.py](src/train.py), add your hyperparameters as _HParam_
+        objects to the list of hyperparameters being considered. See the
+        lines below for examples.
+        ```
+        HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
+        HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
+        HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
+        ```
+    2. In an appropriate location in the source code (varies by
+       hyperparameter), ensure that you set the hyperparameters based on
+       the random combination. In our running example, all of the
+       hyperparameters are set in the model definition (i.e. within
+       _model1()_ in [models.py](src/models/models.py)). You may have to
+       search the code to determine where to set your particular choice
+       of hyperparameters. See the lines below for examples.
+       ```
+       dropout = hparams['DROPOUT']
+       lr = 10 ** hparams['LR']             # Transform to logarithmic scale
+       layers = hparams['LAYERS']
+       ```
+4.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
     _TRAIN_ section to _'hparam_search'_.
-6. Execute [train.py](src/train.py). The experiment's logs will be
+5. Execute [train.py](src/train.py). The experiment's logs will be
    located in _results/logs/hparam_search/_, and the directory name will
    be the current time in the following format: _yyyymmdd-hhmmss_. These
    logs contain information on test set metrics with models trained on
    different combinations of hyperparameters. The logs can be visualized
    by running [TensorBoard](https://www.tensorflow.org/tensorboard)
-   locally. See below for an example of a view offered by the HParams
-   dashboard of TensorBoard. Each point represents 1 training run. The
-   graph compares values of hyperparameters to test set metrics.
+   locally, using the following terminal command:
+   ```
+   tensorboard --logdir results\logs\hparam_search\yyyymmdd-hhmmss\ 
+   ```
+   TensorBoard will be acessible in a browser at
+   _http://localhost:6006/_. Click the _HPARAMS_ tab on the navigation
+   bar to access your results. See below for an example of a view
+   offered by the HParams dashboard of TensorBoard. Each point
+   represents 1 training run. The graph compares values of
+   hyperparameters to test set metrics.
 
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
