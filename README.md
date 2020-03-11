@@ -435,6 +435,10 @@ below.
   a date with the following format: _'yyyy-mm-dd'_.
 - **CHRONIC_THRESHOLD**: Number of stays per year for a client to be
   considered chronically homeless
+- **CLIENT_EXCLUSIONS**: A list of Client IDs (integers) that specifies
+  clients who did not provide consent to be included in this project.
+  Records belonging to these clients will be automatically removed from
+  the raw dataset prior to preprocessing.
 - **FEATURES_TO_DROP_FIRST**: Features you would like to exclude
   entirely from the model. For us, this list evolved through trial and
   error. For example, after running LIME to produce prediction

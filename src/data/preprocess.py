@@ -352,8 +352,9 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     '''
     run_start = datetime.today()
     tqdm.pandas()
-    input_stream = open(os.getcwd() + "/config.yml", 'r')
-    config = yaml.full_load(input_stream)       # Load config data
+    config = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))       # Load config data
+
+    # Load lists of features in raw data
     categorical_feats = config['DATA']['CATEGORICAL_FEATURES']
     noncategorical_feats = config['DATA']['NONCATEGORICAL_FEATURES']
     timed_service_feats = config['DATA']['TIMED_SERVICE_FEATURES']
@@ -361,6 +362,8 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     identifying_feats_to_drop_last = config['DATA']['IDENTIFYING_FEATURES_TO_DROP_LAST']
     timed_feats_to_drop_last = config['DATA']['TIMED_FEATURES_TO_DROP_LAST']
     GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
+
+    # Set prediction horizon
     if n_weeks is None:
         N_WEEKS = config['DATA']['N_WEEKS']
     else:
@@ -371,6 +374,9 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     if data_path == None:
         data_path = config['PATHS']['RAW_DATA']
     df = load_df(data_path)
+
+    # Exclude clients who did not provide consent to use their information for this project
+    df.drop(df[df['ClientID'].isin(config['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
 
     # Delete unwanted columns
     print("Dropping some features.")
