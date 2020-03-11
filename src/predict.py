@@ -10,18 +10,18 @@ from tensorflow.keras.models import load_model
 from src.data.preprocess import preprocess
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
 
-def predict_and_explain_set(data_path=None, save_results=True, give_explanations=True):
+def predict_and_explain_set(data_path=None, save_results=True, give_explanations=True, include_feat_values=True):
     '''
     Preprocess a raw dataset. Then get model predictions and corresponding LIME explanations.
     :param data_path: Path at which to save results of this prediction
     :param save_results: Flag specifying whether to save the prediction results to disk
-    :param give_explanations: Flag specifying whether to provide LIME explanations with predictions
+    :param give_explanations: Flag specifying whether to provide LIME explanations with predictions spreadsheet
+    :param include_feat_values: Flag specifying whether to include client feature values with predictions spreadsheet
     :return: Dataframe of prediction results, including explanations.
     '''
 
     # Load project config data
-    input_stream = open(os.getcwd() + "/config.yml", 'r')
-    cfg = yaml.full_load(input_stream)
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
     # Load data transformers
     scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
@@ -32,7 +32,12 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
         data_path = cfg['PATHS']['RAW_DATA']
     df = preprocess(n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False, load_ct=True,
                       data_path=data_path)
-    client_ids = np.array(df.index)     # index is ClientID
+
+    # Load feature mapping information (from preprocessing)
+    data_info = yaml.full_load(open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r'))
+
+    # Get list of Client IDs
+    client_ids = np.array(df.index)
 
     # Convert dataset to numpy array
     X = np.array(df)
@@ -53,9 +58,15 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
     # Define column names of the DataFrame representing the prediction results
     col_names = ['ClientID', 'Predictive Horizon [weeks]', 'At risk of chronic homelessness',
                  'Probability of chronic homelessness [%]']
+
+    # Add columns for client explanation
     if give_explanations:
         for i in range(NUM_FEATURES):
             col_names.extend(['Explanation ' + str(i+1), 'Weight ' + str(i+1)])
+
+    # Add columns for client feature values
+    if include_feat_values:
+        col_names.extend(list(df.columns))
     rows = []
 
     # Predict and explain all items in dataset
@@ -75,6 +86,15 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
             exp_tuples = explanation.as_list()
             for exp_tuple in exp_tuples:
                 row.extend(list(exp_tuple))
+
+        # Add client's feature values
+        if include_feat_values:
+            client_vals = list(df.loc[client_ids[i], :])
+            for idx in data_info['SV_CAT_FEATURE_IDXS']:
+                ordinal_encoded_val = int(client_vals[idx])
+                client_vals[idx] = data_info['SV_CAT_VALUES'][idx][ordinal_encoded_val]
+            row.extend(client_vals)
+
         rows.append(row)
 
     # Convert results to a Pandas dataframe and save
@@ -98,7 +118,6 @@ def trending_prediction(data_path=None):
 
     # Get model predictions and explanations.
     results_df = predict_and_explain_set(data_path=data_path, save_results=False)
-    print(results_df.head())
     results_df.insert(0, 'Timestamp', pd.to_datetime(datetime.today()))     # Add a timestamp to these results
 
     # If previous prediction file exists, load it and append the predictions we just made.
@@ -112,5 +131,5 @@ def trending_prediction(data_path=None):
 
 
 if __name__ == '__main__':
-    results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True)
-    # trending_prediction(data_path=None)
+    #results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True, include_feat_values=True)
+    trending_prediction(data_path=None)

@@ -368,8 +368,10 @@ the HIFIS database change as well. Thus, it is useful to rerun
 predictions for clients every so often. If you wish to track changes in
 predictions and explanations for particular clients over time, you can
 choose to append timestamped predictions to a file containing previous
-timestamped predictions. The steps below detail how to run prediction
-for all clients, given raw data from HIFIS and a trained model.
+timestamped predictions. By default, all outputted prediction files
+contain clients' feature values from the preprocessed dataset. The steps
+below detail how to run prediction for all clients, given raw data from
+HIFIS and a trained model.
 1. Ensure that you have already run
    _[lime_explain.py](src/interpretability/lime_explain.py)_ after
    training your model, as it will have generated and saved a
@@ -386,12 +388,13 @@ for all clients, given raw data from HIFIS and a trained model.
    past predictions. Ensure the function you wish to execute is
    uncommented.
    1. You can call `results = predict_and_explain_set(data_path=None,
-      save_results=True, give_explanations=True)`, which will preprocess
-      raw client data, run prediction for all clients, and run LIME to
-      explain these predictions. Results will be saved in a .csv file,
-      which will be located in _results/predictions/_, and will be
-      called _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is
-      the current time.
+      save_results=True, give_explanations=True,
+      include_feat_values=True)`, which will preprocess raw client data,
+      run prediction for all clients, and run LIME to explain these
+      predictions. Results will be saved in a .csv file, which will be
+      located in _results/predictions/_, and will be called
+      _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is the
+      current time.
    2. You can call `trending_prediction(data_path=None)`, which will
       produce predictions and explanations in the same method as
       described in (i), but will include timestamps for when the
