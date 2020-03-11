@@ -28,6 +28,7 @@ DATA:
   N_WEEKS: 26
   GROUND_TRUTH_DATE: 'today'
   CHRONIC_THRESHOLD: 180
+  CLIENT_EXCLUSIONS: []
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
                            'ServiceProvider']
