@@ -63,48 +63,31 @@ application of this model in their own locales.
 ## Use Cases
 
 ### Train a model and visualize results
-1. Ensure that you have _HIFIS_Clients.csv_ sitting in the raw data
-   folder (_data/raw/_). See [Getting Started](#getting-started) for
-   help obtaining _HIFIS_Clients.csv_. In [config.yml](config.yml),
-   ensure that the _RAW_DATA_ field in _PATHS_ is set to the path of
+1. Once you have _HIFIS_Clients.csv_ sitting in the raw data folder
+   (_data/raw/), execute [_preprocess.py_](src/data/preprocess.py). See
+   [Getting Started](#getting-started) for help obtaining
    _HIFIS_Clients.csv_.
-2. **(OPTIONAL)** If you would like to incorporate HIFIS clients'
-   answers to SPDAT questions as features in the dataset, set
-   _INCLUDE_SPDATS_ to _true_ in [config.yml](config.yml). Ensure that
-   you have _SPDATS.json_ sitting in the raw data folder (_data/raw/_).
-   For more options on how to include SPDAT data into your dataset, see
-   the description for SPDAT config attributes at
-   [Project Config](#data).
-3. Execute [_preprocess.py_](src/data/preprocess.py).
-4. Ensure data has been preprocessed properly. That is, verify that
+2. Ensure data has been preprocessed properly. That is, verify that
    _data/processed/_ contains both _HIFIS_Processed.csv_ and
    _HIFIS_Processed_OHE.csv_. The latter is identical to the former with
    the exception being that its single-valued categorical features have
    been one-hot encoded.
-5. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
+3. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
    _'single_train'_.
-6. Execute [train.py](src/train.py). The trained model's weights will be
+4. Execute [train.py](src/train.py). The trained model's weights will be
    located in _results/models/_, and its filename will resemble the
    following structure: modelyyyymmdd-hhmmss.h5, where yyyymmdd-hhmmss
    is the current time. The model's logs will be located in
    _results/logs/training/_, and its directory name will be the current
    time in the same format. These logs contain information about the
    experiment, such as metrics throughout the training process on the
-   training and validation sets, and performance on the test set.
-7. Visualize the training logs by running
-   [TensorBoard](https://www.tensorflow.org/tensorboard) locally, using
-   the following terminal command:
-   ```
-   tensorboard --logdir results\logs\training\yyyymmdd-hhmmss\ 
-   ```
-   TensorBoard will be acessible in a browser at
-   _http://localhost:6006/_. Click the _SCALARS_ tab on the navigation
-   bar to access performance metrics for the training and validation
-   sets. Click the _TEXT_ tab to access performance metrics for the test
-   set. See below for an example of a plot from a TensorBoard log file
-   depicting loss on the training and validation sets versus epoch.
-   Other plots depicting the change in performance metrics throughout
-   the training process are also available in the _SCALARS_ tab of
+   training and validation sets, and performance on the test set. The
+   logs can be visualized by running
+   [TensorBoard](https://www.tensorflow.org/tensorboard) locally. See
+   below for an example of a plot from a TensorBoard log file depicting
+   loss on the training and validation sets vs. epoch. Plots depicting
+   the change in performance metrics throughout the training process
+   (such as the example below) are available in the _SCALARS_ tab of
    TensorBoard.  
    ![alt text](documents/readme_images/tensorboard_loss.png "Loss vs
    Epoch")  
@@ -126,12 +109,9 @@ you care about optimizing.
 2. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
    _'multi_train'_.
 3. Decide which metric you would like to optimize. In
-   [config.yml](config.yml), set _METRIC_PREFERENCE_ within _TRAIN_ to a
-   list of metrics in order of which are most important to you to
-   optimize. For example, if you decide to select the model with the
-   best recall on the test set, set the first element of the list to
-   _'recall'_. Ties will be broken by comparing the next metric in the
-   list.
+   [config.yml](config.yml), set _METRIC_MONITOR_ within _TRAIN_ to your
+   chosen metric. For example, if you decide to select the model with
+   the best recall on the test set, set this field to _'recall'_.
 4. Decide how many models you wish to train. In
    [config.yml](config.yml), set _NUM_RUNS_ within _TRAIN_ to your
    chosen number of training sessions. For example, if you wish to train
@@ -233,10 +213,11 @@ explain the model's predictions on examples in the test set.
       _LIME_Submodular_Pick_yyyymmdd-hhmmss.csv_.
    3. You can call `explain_single_client(lime_dict, client_id)`, which
       will run LIME on the example in the test set whose ClientID is
-      that which you passed to the function. A graphic will be generated
+      that which you passed to the function. An image will be generated
       that depicts the top explainable features that the model used to
-      make its prediction. The graphic will be displayed in a new window
-      for the user, but it will not be automatically saved. See below
+      make its prediction. The image will be automatically saved in
+      _documents/generated_images/_, and its filename will resemble the
+      following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See below
       for an example of this graphic.
 4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
@@ -255,7 +236,7 @@ explain the model's predictions on examples in the test set.
    As one last example, consider that this client's _AboriginalIndicator_
    value is _"Yes - Tribe Not Known"_, which contributed with a weight of
    about 0.04 towards a negative prediction.
-   
+
 **NOTE**: Many clients have incomplete records. To represent missing values, default values are inserted into the dataset. You may see these values when examining LIME explanations.
 - Missing records for numerical features are given a value of _-1_
 - Missing records for categorical features are given a value of _"Unknown"_
@@ -290,72 +271,46 @@ _layers_.
    COMBINATIONS: 60
    REPEATS: 2
    ```
-2. Set the ranges of the hyperparameters you wish to study in the _HP_
+2. Set the ranges of hyperparameters you wish to study in the _HP_
    subsection of the _TRAIN_ section of [config.yml](config.yml).
-   Consider whether your hyperparameters' ranges are real (i.e.
-   continuous) or discrete and whether any need to be sampled on the
-   logarithmic scale. Note that several configurable hyperparameters are
-   already included in [config.yml](config.yml). Before adding new lines
-   to this file corresponding to hyperparameters, check to see if the
-   hyperparameters you are considering are already listed. See below for
-   examples of hyperparameter range definitions in
-   [config.yml](config.yml).
+   Consider whether your hyperparameter ranges are continuous (i.e.
+   real) or discrete and whether any need to be investigated on the
+   logarithmic scale.
    ```
    DROPOUT: [0.2, 0.5]          # Real range
    LR: [-4.0, -2.5]             # Real range on logarithmic scale (10^x)   
    LAYERS: [2, 3, 4]            # Discrete range
    ```
-   If there are some hyperparameters in [config.yml](config.yml) that
-   you wish to hold constant during your search, define them according
-   to the following convention. A hyperparameter with a discrete range
-   should be a list consisting of a single entry. A hyperparameter with
-   a real range should be a list of 2 equal entries (the minimum value
-   equals the maximum value). See below for examples.
+3.  Within the _random_hparam_search()_ function defined in
+    [train.py](src/train.py), add your hyperparameters as HParam objects
+    to the list of hyperparameters being considered.
+    ```
+    HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
+    HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
+    HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
+    ```
+4. In the appropriate location (varies by hyperparameter), ensure that
+   you set the hyperparameters based on the random combination. In our
+   example, all of these hyperparameters are set in the model definition
+   (i.e. within _model1()_ in [model.py](src/models/models.py)). You may
+   have to search the code to determine where to set your particular
+   choice of hyperparameters.
    ```
-   OPTIMIZER: ['adam']          # Discrete range
-   L2_LAMBDA: [-2.0, -2.0]      # Real range on logarithmic scale (10^x)
+   dropout = hparams['DROPOUT']
+   lr = 10 ** hparams['LR']             # Transform to logarithmic scale
+   layers = hparams['LAYERS']
    ```
-3.  **This step only applies if you added new hyperparameters to
-    [config.yml](config.yml) during step 2.**
-    1.  Within the _random_hparam_search()_ function defined in
-        [train.py](src/train.py), add your hyperparameters as _HParam_
-        objects to the list of hyperparameters being considered. See the
-        lines below for examples.
-        ```
-        HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
-        HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
-        HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
-        ```
-    2. In an appropriate location in the source code (varies by
-       hyperparameter), ensure that you set the hyperparameters based on
-       the random combination. In our running example, all of the
-       hyperparameters are set in the model definition (i.e. within
-       _model1()_ in [models.py](src/models/models.py)). You may have to
-       search the code to determine where to set your particular choice
-       of hyperparameters. See the lines below for examples.
-       ```
-       dropout = hparams['DROPOUT']
-       lr = 10 ** hparams['LR']             # Transform to logarithmic scale
-       layers = hparams['LAYERS']
-       ```
-4.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
+5.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
     _TRAIN_ section to _'hparam_search'_.
-5. Execute [train.py](src/train.py). The experiment's logs will be
+6. Execute [train.py](src/train.py). The experiment's logs will be
    located in _results/logs/hparam_search/_, and the directory name will
    be the current time in the following format: _yyyymmdd-hhmmss_. These
    logs contain information on test set metrics with models trained on
    different combinations of hyperparameters. The logs can be visualized
    by running [TensorBoard](https://www.tensorflow.org/tensorboard)
-   locally, using the following terminal command:
-   ```
-   tensorboard --logdir results\logs\hparam_search\yyyymmdd-hhmmss\ 
-   ```
-   TensorBoard will be acessible in a browser at
-   _http://localhost:6006/_. Click the _HPARAMS_ tab on the navigation
-   bar to access your results. See below for an example of a view
-   offered by the HParams dashboard of TensorBoard. Each point
-   represents 1 training run. The graph compares values of
-   hyperparameters to test set metrics.
+   locally. See below for an example of a view offered by the HParams
+   dashboard of TensorBoard. Each point represents 1 training run. The
+   graph compares values of hyperparameters to test set metrics.
 
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
@@ -368,10 +323,8 @@ the HIFIS database change as well. Thus, it is useful to rerun
 predictions for clients every so often. If you wish to track changes in
 predictions and explanations for particular clients over time, you can
 choose to append timestamped predictions to a file containing previous
-timestamped predictions. By default, all outputted prediction files
-contain clients' feature values from the preprocessed dataset. The steps
-below detail how to run prediction for all clients, given raw data from
-HIFIS and a trained model.
+timestamped predictions. The steps below detail how to run prediction
+for all clients, given raw data from HIFIS and a trained model.
 1. Ensure that you have already run
    _[lime_explain.py](src/interpretability/lime_explain.py)_ after
    training your model, as it will have generated and saved a
@@ -388,13 +341,12 @@ HIFIS and a trained model.
    past predictions. Ensure the function you wish to execute is
    uncommented.
    1. You can call `results = predict_and_explain_set(data_path=None,
-      save_results=True, give_explanations=True,
-      include_feat_values=True)`, which will preprocess raw client data,
-      run prediction for all clients, and run LIME to explain these
-      predictions. Results will be saved in a .csv file, which will be
-      located in _results/predictions/_, and will be called
-      _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is the
-      current time.
+      save_results=True, give_explanations=True)`, which will preprocess
+      raw client data, run prediction for all clients, and run LIME to
+      explain these predictions. Results will be saved in a .csv file,
+      which will be located in _results/predictions/_, and will be
+      called _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is
+      the current time.
    2. You can call `trending_prediction(data_path=None)`, which will
       produce predictions and explanations in the same method as
       described in (i), but will include timestamps for when the
@@ -484,6 +436,10 @@ below.
   a date with the following format: _'yyyy-mm-dd'_.
 - **CHRONIC_THRESHOLD**: Number of stays per year for a client to be
   considered chronically homeless
+- **CLIENT_EXCLUSIONS**: A list of Client IDs (integers) that specifies
+  clients who did not provide consent to be included in this project.
+  Records belonging to these clients will be automatically removed from
+  the raw dataset prior to preprocessing.
 - **FEATURES_TO_DROP_FIRST**: Features you would like to exclude
   entirely from the model. For us, this list evolved through trial and
   error. For example, after running LIME to produce prediction
@@ -535,9 +491,6 @@ below.
   section were the optimal values for our dataset informed by a random
   hyperparameter search.
 #### TRAIN
-- **EXPERIMENT_TYPE**: The type of training experiment you would like to
-  perform if executing [_train.py_](src/train.py). Choices are
-  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
   to the training, validation and test sets respectively
 - **EPOCHS**: Number of epochs to train the model for
@@ -550,14 +503,12 @@ below.
   dataset, the ratio of positive to negative ground truth was very low,
   prompting the use of these strategies. Set either to _'class_weight'_,
   _'random_oversample'_, _'smote'_, or _'adasyn'_.
-- **METRIC_PREFERENCE**: An ordered list of metrics dictating how to
-  select the best model from a series of models trained in the
-  _'multi_train'_ experiment (implemented in
-  [_train.py_](src/train.py)). The first metric in the list is
-  considered to be the most important. Ties are broken by comparing
-  metric values downstream in the list. Possible metrics to specify
-  include '_accuracy'_, '_loss'_, _'recall'_, _'precision'_, and
-  '_auc'_.
+- **EXPERIMENT_TYPE**: The type of training experiment you would like to
+  perform if executing [_train.py_](src/train.py). Choices are
+  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
+- **METRIC_MONITOR**: The metric to monitor when training multiple
+  models serially (i.e. the _'multi_train'_ experiment in
+  [_train.py_](src/train.py))
 - **NUM_RUNS**: The number of times to train a model in the
   _'multi_train'_ experiment
 - **THRESHOLDS**: A single float or list of floats in range [0, 1]

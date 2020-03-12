@@ -153,39 +153,29 @@ def plot_horizon_search(results_df, file_path):
         plt.savefig(file_path + 'horizon_experiment_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
 
-def shorten_explanations(exps, max_exp_len=87):
-    '''
-    Given a list of explanation labels, shorten them by replacing the middle portion of longer ones with an ellipsis
-    :param exps: List of explanation labels
-    :param max_exp_len: Maximum desired length of an explanation label
-    :return: List of shortened explanation labels
-    '''
-    half_exp_len = (max_exp_len - 7) // 2   # Calculate half of desired max length. Note: an ellipsis is 7 chars long
 
-    # If an explanation label is too long, take out the middle characters and replace with an ellipsis
-    for i in range(len(exps)):
-        if len(exps[i]) >= max_exp_len:
-            exps[i] = exps[i][0:half_exp_len] + ' . . . ' + exps[i][-half_exp_len:]
-    return exps
-
-def visualize_explanation(explanation, client_id, client_gt):
+def visualize_explanation(explanation, client_id, client_gt, file_path=None):
     '''
     Visualize top LIME contributing features for an example.
     :param explanation: Local explanation of example
     :param client_id: ClientID of example
     :param ground_truth: GroundTruth of example
+    :param file_path: The path to the directory at which to save the resulting image
     '''
+
+    # Create horizontal bar graph for the explanation
     fig = explanation.as_pyplot_figure()
     probs = explanation.predict_proba
     fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
     fig.text(0.02, 0.96, "Client ID: " + str(client_id))
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
-
-    # Shorten explanation rules that are too long to be graph labels
-    ax = plt.gca()
-    exps = shorten_explanations([t._text for t in ax.get_yticklabels()], max_exp_len=87)
-    ax.set_yticklabels(exps)
     plt.tight_layout()
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + 'Client_' + str(client_id) + '_exp_' +
+                    datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
 
 def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''
@@ -229,7 +219,9 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     weights = [w for e, w in exp_weights]
 
     # Shorten explanation rules that are too long to be graph labels
-    exps = shorten_explanations(exps, max_exp_len=87)
+    for i in range(len(exps)):
+        if len(exps[i]) >= 87:
+            exps[i] = exps[i][0:40] + ' . . . ' + exps[i][-40:]
 
     fig, axes = plt.subplots(constrained_layout=True)
     ax = plt.subplot()
@@ -241,10 +233,10 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     max_weight = abs(max(weights, key=abs))
     for bar, weight in zip(ax.patches, weights):
         if weight >= 0:
-            ax.text(bar.get_x() - max_weight * 0.09, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() - max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='green', ha='center', va='center', fontweight='semibold', transform=ax.transData)
         else:
-            ax.text(bar.get_x() + max_weight * 0.09, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
+            ax.text(bar.get_x() + max_weight * 0.1, bar.get_y() + bar.get_height() / 2, '{:.3f}'.format(weight),
                     color='red', ha='center', va='center', fontweight='semibold', transform=ax.transData)
 
     # Set ticks for x and y axes. For x axis, set major and minor ticks at intervals of 0.05 and 0.01 respectively.
@@ -263,7 +255,7 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     ax.set_xlabel("Contribution to Probability of Chronic Homelessness", labelpad=10, size=15)
     ax.set_ylabel("Feature Explanations", labelpad=10, size=15)
     fig.suptitle(title, size=20)                                 # Title
-    fig.text(0.5, 0.9, subtitle, size=15, ha='center')          # Subtitle
+    fig.text(0.5, 0.92, subtitle, size=15, ha='center')          # Subtitle
     fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.25)
     return
 
@@ -314,7 +306,7 @@ def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
 
     # Plot as horizontal bar graph
     title = 'Average Weights for Explanations from Submodular Pick'
-    subtitle = '% of training set sampled = ' + '{:.2f}'.format(sample_fraction * 100)
+    subtitle = '% of training and validation examples sampled = ' + '{:.2f}'.format(sample_fraction * 100)
     explanations_to_hbar_plot(exp_data, title=title, subtitle=subtitle)
 
     # Save the image
