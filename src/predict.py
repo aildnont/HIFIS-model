@@ -86,6 +86,8 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
             exp_tuples = explanation.as_list()
             for exp_tuple in exp_tuples:
                 row.extend(list(exp_tuple))
+            if len(exp_tuples) < NUM_FEATURES:
+                row.extend([''] * (2 * (NUM_FEATURES - len(exp_tuples))))   # Fill with empty space if explanation too small
 
         # Add client's feature values
         if include_feat_values:
@@ -101,7 +103,7 @@ def predict_and_explain_set(data_path=None, save_results=True, give_explanations
     results_df = pd.DataFrame(rows, columns=col_names)
     if save_results:
         results_path = cfg['PATHS']['BULK_PREDICTIONS'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv'
-        results_df.to_csv(results_df.to_csv(results_path, index_label=False, index=False))
+        results_df.to_csv(results_path, columns=col_names, index_label=False, index=False)
     return results_df
 
 
@@ -119,6 +121,7 @@ def trending_prediction(data_path=None):
     # Get model predictions and explanations.
     results_df = predict_and_explain_set(data_path=data_path, save_results=False)
     results_df.insert(0, 'Timestamp', pd.to_datetime(datetime.today()))     # Add a timestamp to these results
+    col_names = list(results_df.columns)
 
     # If previous prediction file exists, load it and append the predictions we just made.
     if os.path.exists(trending_pred_path):
@@ -126,7 +129,7 @@ def trending_prediction(data_path=None):
         results_df = pd.concat([prev_results_df, results_df], axis=0)
 
     # Save the updated trend analysis prediction spreadsheet
-    results_df.to_csv(trending_pred_path, index_label=False, index=False)
+    results_df.to_csv(trending_pred_path, columns=col_names, index_label=False, index=False)
     return
 
 
