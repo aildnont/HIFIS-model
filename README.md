@@ -213,10 +213,11 @@ explain the model's predictions on examples in the test set.
       _LIME_Submodular_Pick_yyyymmdd-hhmmss.csv_.
    3. You can call `explain_single_client(lime_dict, client_id)`, which
       will run LIME on the example in the test set whose ClientID is
-      that which you passed to the function. A graphic will be generated
+      that which you passed to the function. An image will be generated
       that depicts the top explainable features that the model used to
-      make its prediction. The graphic will be displayed in a new window
-      for the user, but it will not be automatically saved. See below
+      make its prediction. The image will be automatically saved in
+      _documents/generated_images/_, and its filename will resemble the
+      following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See below
       for an example of this graphic.
 4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
@@ -235,7 +236,7 @@ explain the model's predictions on examples in the test set.
    As one last example, consider that this client's _AboriginalIndicator_
    value is _"Yes - Tribe Not Known"_, which contributed with a weight of
    about 0.04 towards a negative prediction.
-   
+
 **NOTE**: Many clients have incomplete records. To represent missing values, default values are inserted into the dataset. You may see these values when examining LIME explanations.
 - Missing records for numerical features are given a value of _-1_
 - Missing records for categorical features are given a value of _"Unknown"_

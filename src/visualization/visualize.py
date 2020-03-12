@@ -154,19 +154,28 @@ def plot_horizon_search(results_df, file_path):
     return
 
 
-def visualize_explanation(explanation, client_id, client_gt):
+def visualize_explanation(explanation, client_id, client_gt, file_path=None):
     '''
     Visualize top LIME contributing features for an example.
     :param explanation: Local explanation of example
     :param client_id: ClientID of example
     :param ground_truth: GroundTruth of example
+    :param file_path: The path to the directory at which to save the resulting image
     '''
+
+    # Create horizontal bar graph for the explanation
     fig = explanation.as_pyplot_figure()
     probs = explanation.predict_proba
     fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
     fig.text(0.02, 0.96, "Client ID: " + str(client_id))
     fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
     plt.tight_layout()
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + 'Client_' + str(client_id) + '_exp_' +
+                    datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
 
 def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''
@@ -297,7 +306,7 @@ def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
 
     # Plot as horizontal bar graph
     title = 'Average Weights for Explanations from Submodular Pick'
-    subtitle = '% of training set sampled = ' + '{:.2f}'.format(sample_fraction * 100)
+    subtitle = '% of training and validation examples sampled = ' + '{:.2f}'.format(sample_fraction * 100)
     explanations_to_hbar_plot(exp_data, title=title, subtitle=subtitle)
 
     # Save the image

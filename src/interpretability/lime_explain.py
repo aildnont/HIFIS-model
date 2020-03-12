@@ -128,15 +128,20 @@ def setup_lime():
     Load relevant information and create a LIME Explainer
     :return: dict containing important information and objects for explanation experiments
     '''
-    lime_dict = {}
+
     # Load relevant constants from project config file
-    input_stream = open(os.getcwd() + "/config.yml", 'r')
-    cfg = yaml.full_load(input_stream)
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    lime_dict = {}
     lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
     lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
+    lime_dict['SAMPLE_SIZE'] = cfg['LIME']['SP']['SAMPLE_SIZE']
+    lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
+    lime_dict['IMG_PATH'] = cfg['PATHS']['IMAGES']
+    lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
+    lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
+    lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
     KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
     FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
-    lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
 
     # Load feature information
     input_stream = open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r')
@@ -194,19 +199,18 @@ def submodular_pick(lime_dict):
         probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'])
         return probs
 
-    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     start_time = datetime.datetime.now()
 
     # Set sample size, ensuring that it isn't larger than size of training set.
-    sample_size = cfg['LIME']['SP']['SAMPLE_SIZE']
+    sample_size = lime_dict['SAMPLE_SIZE']
     if (sample_size == 'all') or (sample_size > lime_dict['X_TRAIN'].shape[0]):
         sample_size = lime_dict['X_TRAIN'].shape[0]
 
     # Perform a submodular pick of explanations of uniformly sampled examples from the training set
     submod_picker = SubmodularPick(lime_dict['EXPLAINER'], lime_dict['X_TRAIN'], predict_example,
                                    sample_size=sample_size, num_features=lime_dict['NUM_FEATURES'],
-                                   num_exps_desired=cfg['LIME']['SP']['NUM_EXPLANATIONS'], top_labels=None,
-                                   num_samples=cfg['LIME']['NUM_SAMPLES'])
+                                   num_exps_desired=lime_dict['NUM_EXPLANATIONS'], top_labels=None,
+                                   num_samples=lime_dict['NUM_SAMPLES'])
     print("Submodular pick time = " + str((datetime.datetime.now() - start_time).total_seconds() / 60) + " minutes")
 
     # Assemble all explanations in a DataFrame
@@ -222,7 +226,7 @@ def submodular_pick(lime_dict):
     W_avg_df["Abs Weight"] = np.abs(W_avg_df['Avg Weight'])
     W_avg_df.sort_values('Abs Weight', inplace=True, ascending=False)
     W_avg_df.drop('Abs Weight', inplace=True, axis=1)
-    sp_file_path = cfg['PATHS']['LIME_SUBMODULAR_PICK']
+    sp_file_path = lime_dict['SP_FILE_PATH']
     W_avg_df.insert(0, 'Timestamp', pd.to_datetime(datetime.datetime.now()))  # Add a timestamp to these results
     if os.path.exists(sp_file_path):
         prev_W_avg_df = pd.read_csv(sp_file_path)
@@ -231,7 +235,7 @@ def submodular_pick(lime_dict):
 
     # Visualize the the average explanations
     sample_fraction = sample_size / lime_dict['X_TRAIN'].shape[0]
-    visualize_submodular_pick(W_avg, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
+    visualize_submodular_pick(W_avg, sample_fraction, file_path=lime_dict['IMG_PATH'])
     return
 
 
@@ -247,7 +251,8 @@ def explain_single_client(lime_dict, client_id):
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
     print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
-    visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'])
+    visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'],
+                          file_path=lime_dict['IMG_PATH'])
     return
 
 def run_lime_experiment_and_visualize(lime_dict):
@@ -255,17 +260,15 @@ def run_lime_experiment_and_visualize(lime_dict):
     Run LIME experiment on test set and visualize average explanations
     :param lime_dict: dict containing important information and objects for explanation experiments
     '''
-    input_stream = open(os.getcwd() + "/config.yml", 'r')
-    cfg = yaml.full_load(input_stream)
     results_df = lime_experiment(lime_dict['X_TEST'], lime_dict['Y_TEST'], lime_dict['MODEL'], lime_dict['EXPLAINER'],
-                              cfg['PREDICTION']['THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
-                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=False)
+                              lime_dict['PRED_THRESHOLD'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'],
+                              lime_dict['NUM_FEATURES'], lime_dict['NUM_SAMPLES'], lime_dict['FILE_PATH'], all=True)
     sample_fraction = results_df.shape[0] / lime_dict['X_TEST'].shape[0]
-    visualize_avg_explanations(results_df, sample_fraction, file_path=cfg['PATHS']['IMAGES'])
+    visualize_avg_explanations(results_df, sample_fraction, file_path=lime_dict['IMG_PATH'])
     return
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
-    #explain_single_client(lime_dict, 87020)
-    run_lime_experiment_and_visualize(lime_dict)
-    #submodular_pick(lime_dict)
+    #explain_single_client(lime_dict, 00000)    # Replace with Client ID from a client in test set
+    #run_lime_experiment_and_visualize(lime_dict)
+    submodular_pick(lime_dict)

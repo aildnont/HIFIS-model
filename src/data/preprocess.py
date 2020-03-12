@@ -508,7 +508,11 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     # For producing interpretable results with categorical data:
     data_info['MV_CAT_FEATURES'] = mv_cat_feats
     data_info['NON_CAT_FEATURES'] = noncategorical_feats
-    data_info['N_WEEKS'] = N_WEEKS
+    if include_gt:
+        data_info['N_WEEKS'] = N_WEEKS      # Save the predictive horizon if we aren't preprocessing for prediction
+    else:
+        old_data_info = yaml.full_load(open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r'))
+        data_info['N_WEEKS'] = old_data_info['N_WEEKS']     # Get predictive horizon from previous preprocessing records
     with open(config['PATHS']['DATA_INFO'], 'w') as file:
         cat_feat_doc = yaml.dump(data_info, file)
 
