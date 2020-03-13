@@ -315,7 +315,7 @@ _layers_.
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
 
-### Bulk predictions from raw data
+### Batch predictions from raw data
 Once a trained model is produced, the user may wish to obtain
 predictions and explanations for all clients currently in the HIFIS
 database. As clients' life situations change over time, their records in

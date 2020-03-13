@@ -20,8 +20,9 @@ PATHS:
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
-  BULK_PREDICTIONS: './results/predictions/predictions'
+  BATCH_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
+  K-PROTOTYPES: 'results/experiments/exp_clusters_'
 
 # Constants pertaining to data structure
 DATA:
@@ -127,7 +128,13 @@ HORIZON_SEARCH:
   N_INTERVAL: 4
   RUNS_PER_N: 10
 
-# Bulk predictions on raw data
+# Batch predictions on raw data
 PREDICTION:
   THRESHOLD: 0.5
   CLASS_NAMES: {0: 'not at risk', 1: 'at risk'}
+
+# Data clustering
+K-PROTOTYPES:
+  K: 10
+  N_RUNS: 10
+  N_JOBS: 1
