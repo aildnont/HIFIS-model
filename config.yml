@@ -7,7 +7,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
-  MODEL_TO_LOAD: 'results/models/model.h5'
+  MODEL_TO_LOAD: 'results/models/model20200312-115408.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -114,7 +114,7 @@ LIME:
   KERNEL_WIDTH: 2.5
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
-  NUM_SAMPLES: 85000
+  NUM_SAMPLES: 2000
   MAX_DISPLAYED_RULES: 30
   SP:
     SAMPLE_SIZE: 300

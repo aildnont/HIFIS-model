@@ -5,7 +5,6 @@ import datetime
 import dill
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
-#from lime.submodular_pick import SubmodularPick
 from src.interpretability.submodular_pick import SubmodularPick
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
