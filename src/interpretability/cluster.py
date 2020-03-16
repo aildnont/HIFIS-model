@@ -37,14 +37,20 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
 
     # Load feature info
     try:
-        cfg_feats = yaml.full_load(open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r'))
+        data_info = yaml.full_load(open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r'))
     except FileNotFoundError:
         print("No file found at " + cfg['PATHS']['DATA_INFO'] + ". Run preprocessing script before running this script.")
         return
         
     # Get list of categorical feature indices
-    noncat_feat_idxs = [df.columns.get_loc(c) for c in cfg_feats['NON_CAT_FEATURES'] if c in df]
+    noncat_feat_idxs = [df.columns.get_loc(c) for c in data_info['NON_CAT_FEATURES'] if c in df]
     cat_feat_idxs = [i for i in range(len(df.columns)) if i not in noncat_feat_idxs]
+
+    # Normalize noncategorical features
+    X_noncat = X[:, noncat_feat_idxs]
+    std_scaler = StandardScaler().fit(X_noncat)
+    X_noncat = std_scaler.transform(X_noncat)
+    X[:, noncat_feat_idxs] = X_noncat
 
     # Run k-prototypes algorithm on all clients and obtain cluster assignment (range [1, K]) for each client
     k_prototypes = KPrototypes(n_clusters=cfg['K-PROTOTYPES']['K'], verbose=2, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
@@ -56,8 +62,20 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
 
     # Get centroids of clusters
     cluster_centroids = np.concatenate((k_prototypes.cluster_centroids_[0], k_prototypes.cluster_centroids_[1]), axis=1)
-    feat_names = list(df.columns)
-    centroids_df = pd.DataFrame(cluster_centroids, columns=feat_names)
+
+    # Scale noncategorical features of the centroids back to original range
+    centroid_noncat_feats = cluster_centroids[:, noncat_feat_idxs]
+    centroid_noncat_feats = std_scaler.inverse_transform(centroid_noncat_feats)
+    cluster_centroids[:, noncat_feat_idxs] = centroid_noncat_feats
+
+    # Create a DataFrame of cluster centroids
+    cluster_centroids = np.rint(cluster_centroids)      # Round centroids to nearest int
+    centroids_df = pd.DataFrame(cluster_centroids, columns=list(df.columns))
+    for i in range(len(data_info['SV_CAT_FEATURE_IDXS'])):
+        idx = data_info['SV_CAT_FEATURE_IDXS'][i]
+        ordinal_encoded_vals = cluster_centroids[:, idx].astype(int)
+        original_vals = [data_info['SV_CAT_VALUES'][idx][v] for v in ordinal_encoded_vals]
+        centroids_df[data_info['SV_CAT_FEATURES'][i]] = original_vals
     cluster_num_series = pd.Series(np.arange(1, cluster_centroids.shape[0] + 1))
     centroids_df.insert(0, 'Cluster', cluster_num_series)
 
@@ -106,6 +124,7 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
         clusters_df.to_csv(cfg['PATHS']['K-PROTOTYPES_CLUSTERS'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
                            index_label=False, index=False)
     return
+
 
 if __name__ == '__main__':
     cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=True)
