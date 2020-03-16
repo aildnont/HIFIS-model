@@ -113,7 +113,7 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
 
         # Visualize clusters' LIME explanations
         visualize_multiple_explanations(explanations, 'Explanations for k-prototypes clusters',
-                                        cfg['PATHS']['IMAGES'] + 'cluster_explanations')
+                                        cfg['PATHS']['IMAGES'] + 'centroid_explanations_')
 
     # Save centroid features and explanations to spreadsheet
     if save_centroids:
