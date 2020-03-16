@@ -22,7 +22,8 @@ PATHS:
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
   BATCH_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
-  K-PROTOTYPES: 'results/experiments/exp_clusters_'
+  K-PROTOTYPES_CENTROIDS: 'results/experiments/cluster_centroids_'
+  K-PROTOTYPES_CLUSTERS: 'results/experiments/client_clusters_'
 
 # Constants pertaining to data structure
 DATA:
