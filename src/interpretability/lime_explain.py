@@ -250,7 +250,7 @@ def explain_single_client(lime_dict, client_id):
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
     print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
-    visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'],
+    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'],
                           file_path=lime_dict['IMG_PATH'])
     return
 
@@ -268,6 +268,6 @@ def run_lime_experiment_and_visualize(lime_dict):
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
-    #explain_single_client(lime_dict, 00000)    # Replace with Client ID from a client in test set
+    explain_single_client(lime_dict, 00000)    # Replace with Client ID from a client in test set
     #run_lime_experiment_and_visualize(lime_dict)
-    submodular_pick(lime_dict)
+    #submodular_pick(lime_dict)

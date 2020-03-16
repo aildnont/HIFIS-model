@@ -2,6 +2,7 @@ from sklearn.metrics import confusion_matrix, roc_curve
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.backends.backend_agg import FigureCanvas
 import numpy as np
 from scipy import stats
 import pandas as pd
@@ -9,7 +10,7 @@ import datetime
 import io
 import os
 import yaml
-from math import floor, ceil
+from math import floor, ceil, sqrt
 
 # Set some matplotlib parameters
 mpl.rcParams['figure.figsize'] = (12, 10)
@@ -176,6 +177,42 @@ def visualize_explanation(explanation, client_id, client_gt, file_path=None):
         plt.savefig(file_path + 'Client_' + str(client_id) + '_exp_' +
                     datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
+
+def visualize_multiple_explanations(explanations, title, file_path=None):
+    '''
+    Create a single figure containing bar charts of a list of explanations.
+    :param explanations: List of Explanation objects
+    :param title: Plot title
+    :param file_path: The path (including file name) where to save the resulting image
+    '''
+
+    # Create a figure for each explanation and get its image buffer
+    n_exps = len(explanations)
+    fig_imgs = []
+    for i in range(n_exps):
+        exp_fig_canvas = FigureCanvas(explanations[i].as_pyplot_figure())
+        exp_fig_canvas.draw()   # Force a draw to get access to pixel buffer
+        fig_imgs.append(np.array(exp_fig_canvas.renderer.buffer_rgba()))
+
+    # Plot all explanation graphs on the same figure
+    plt.clf()
+    n_cols = ceil(sqrt(n_exps))
+    n_rows = floor(sqrt(n_exps))
+    fig, axes = plt.subplots(ncols=n_cols, nrows=n_rows)
+    fig.set_size_inches(60, 35)
+    for i in range(n_rows * n_cols):
+        if i < n_exps:
+            axes.ravel()[i].imshow(fig_imgs[i])     # Display explanation image on axes
+        axes.ravel()[i].set_axis_off()              # Don't show x-axis and y-axis
+    fig.tight_layout(pad=0.01, h_pad=0.01, w_pad=0.01)
+    plt.subplots_adjust(left=0, right=1, top=0.95, bottom=0)
+    fig.suptitle(title, size=60)
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
+
 
 def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''

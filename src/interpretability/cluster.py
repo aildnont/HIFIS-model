@@ -9,6 +9,7 @@ from kmodes.kprototypes import KPrototypes
 from tensorflow.keras.models import load_model
 from sklearn.externals.joblib import load
 from src.interpretability.lime_explain import predict_and_explain
+from src.visualization.visualize import visualize_multiple_explanations
 
 def cluster_clients():
 
@@ -36,7 +37,7 @@ def cluster_clients():
 
     # Run k-prototypes algorithm on all clients
     k_prototypes = KPrototypes(n_clusters=cfg['K-PROTOTYPES']['K'], verbose=2, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
-                               n_jobs=cfg['K-PROTOTYPES']['N_JOBS'])
+                               n_jobs=cfg['K-PROTOTYPES']['N_JOBS'], init='Cao')
     clusters = k_prototypes.fit_predict(np.array(df), categorical=cat_feat_idxs)
     print("K-prototypes cost =", k_prototypes.cost_)
     print("K-prototypes number of iterations =", k_prototypes.n_iter_)
@@ -53,11 +54,13 @@ def cluster_clients():
     explainer = dill.load(open(cfg['PATHS']['LIME_EXPLAINER'], 'rb'))
     model = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
     exp_rows = []
+    explanations = []
     print('Creating explanations for cluster centroids.')
     for i in tqdm(range(cluster_centroids.shape[0])):
         row = []
-        explanation = predict_and_explain(cluster_centroids[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
-        exp_tuples = explanation.as_list()
+        exp = predict_and_explain(cluster_centroids[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
+        explanations.append(exp)
+        exp_tuples = exp.as_list()
         for exp_tuple in exp_tuples:
             row.extend(list(exp_tuple))
         if len(exp_tuples) < NUM_FEATURES:
@@ -68,10 +71,15 @@ def cluster_clients():
         exp_col_names.extend(['Explanation ' + str(i + 1), 'Weight ' + str(i + 1)])
     exp_df = pd.DataFrame(exp_rows, columns=exp_col_names)
 
+    # Save cluster features and explanations to spreadsheet
     clusters_df = pd.DataFrame(cluster_centroids, columns=feat_names)
     clusters_df = pd.concat([clusters_df, exp_df], axis=1, sort=False)
     clusters_df.to_csv(cfg['PATHS']['K-PROTOTYPES'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
                        index_label=False, index=False)
+
+    # Visualize clusters' LIME explanations
+    visualize_multiple_explanations(explanations, 'Explanations for k-prototypes clusters',
+                                    cfg['PATHS']['IMAGES'] + 'cluster_explanations')
     return
 
 if __name__ == '__main__':
