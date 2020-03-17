@@ -210,27 +210,6 @@ def visualize_multiple_explanations(explanations, title):
     return fig
 
 
-def visualize_cluster_explanations(explanations, cluster_freqs, title, file_path=None):
-    '''
-    Create a single figure containing bar charts of a list of explanations of clusters.
-    :param explanations: List of Explanation objects
-    :param cluster_freqs: List of fractions of clients belonging to each cluster
-    :param title: Plot title
-    :param file_path: The path (including file name) where to save the resulting image
-    '''
-    fig = visualize_multiple_explanations(explanations, title)  # Generate figure to show all centroid explanations
-
-    # Set title for each explanation graph according to cluster # and % of clients it contains
-    for i in range(len(explanations)):
-        fig.axes[i].text(0.5, 0.92, 'Cluster ' + str(i + 1) + ' (' + '{:.2f}'.format(cluster_freqs[i] * 100) +
-                                      '% of Clients)', fontsize=25, transform=fig.axes[i].transAxes, horizontalalignment='center')
-
-    # Save the image
-    if file_path is not None:
-        plt.savefig(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
-    return
-
-
 def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''
     Plot a series of explanations and weights, sorted by weights, on a horizontal bar graph
@@ -366,4 +345,52 @@ def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
     # Save the image
     if file_path is not None:
         plt.savefig(file_path + 'LIME_Submodular_Pick_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
+
+
+def visualize_cluster_explanations(explanations, cluster_freqs, title, file_path=None):
+    '''
+    Create a single figure containing bar charts of a list of explanations of clusters.
+    :param explanations: List of Explanation objects
+    :param cluster_freqs: List of fractions of clients belonging to each cluster
+    :param title: Plot title
+    :param file_path: The path (including file name) where to save the resulting image
+    '''
+    fig = visualize_multiple_explanations(explanations, title)  # Generate figure to show all centroid explanations
+
+    # Set title for each explanation graph according to cluster # and % of clients it contains
+    for i in range(len(explanations)):
+        fig.axes[i].text(0.5, 0.92, 'Cluster ' + str(i + 1) + ' (' + '{:.2f}'.format(cluster_freqs[i] * 100) +
+                                      '% of Clients)', fontsize=25, transform=fig.axes[i].transAxes, horizontalalignment='center')
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
+
+
+def visualize_silhouette_plot(k_range, silhouette_scores, optimal_k, file_path=None):
+    '''
+    Plot average silhouette score for all samples at different values of k. Use this to determine optimal number of
+    clusters (k). The optimal k is the one that maximizes the average Silhouette Score over the range of k provided.
+    :param k_range: Range of k explored
+    :param silhouette_scores: Average Silhouette Score corresponding to values in k range
+    :param optimal_k: The value of k that has the highest average Silhouette Score
+    '''
+
+    # Plot the average Silhouette Score vs. k
+    axes = plt.subplot()
+    axes.plot(k_range, silhouette_scores)
+
+    # Set plot axis labels, title, and subtitle.
+    axes.set_xlabel("k (# of clusters)", labelpad=10, size=15)
+    axes.set_ylabel("Average Silhouette Score", labelpad=10, size=15)
+    axes.set_xticks(k_range, minor=False)
+    axes.axvline(x=optimal_k, linestyle='--')
+    axes.set_title("Silhouette Plot", fontsize=25)
+    axes.text(0.5, 0.92, "Average Silhouette Score over a range of k-values", size=15, ha='center')
+
+    # Save the image
+    if file_path is not None:
+        plt.savefig(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return

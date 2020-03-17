@@ -6,24 +6,23 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 from kmodes.kprototypes import KPrototypes
-from kmodes.util.dissim import jaccard_dissim_label, euclidean_dissim
+from kmodes.util.dissim import euclidean_dissim, matching_dissim
 from tensorflow.keras.models import load_model
 from sklearn.externals.joblib import load
 from sklearn.preprocessing import StandardScaler
-from sklearn.compose import ColumnTransformer
+from sklearn.metrics import silhouette_score
 from src.interpretability.lime_explain import predict_and_explain
-from src.visualization.visualize import visualize_cluster_explanations
+from src.visualization.visualize import visualize_cluster_explanations, visualize_silhouette_plot
 
-def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=True):
+def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True):
     '''
     Runs k-prototype clustering algorithm on preprocessed dataset
+    :param k: Desired number of clusters
     :param save_centroids: Boolean indicating whether to save cluster centroids
     :param save_clusters: Boolean indicating whether to save client cluster assignments
     :param explain_centroids:
-    :return:
+    :return: A KPrototypes object that describes the best clustering of all the runs
     '''
-
-    # Load project config data
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
     # Load preprocessed client data
@@ -54,10 +53,17 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
     X[:, noncat_feat_idxs] = X_noncat
 
     # Run k-prototypes algorithm on all clients and obtain cluster assignment (range [1, K]) for each client
-    k_prototypes = KPrototypes(n_clusters=cfg['K-PROTOTYPES']['K'], verbose=1, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
-                               n_jobs=cfg['K-PROTOTYPES']['N_JOBS'], init='Cao',
-                               num_dissim=euclidean_dissim)
+    if k is None:
+        k = cfg[cfg['K-PROTOTYPES']['K']]
+    k_prototypes = KPrototypes(n_clusters=k, verbose=1, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
+                               n_jobs=cfg['K-PROTOTYPES']['N_JOBS'], init='Cao', num_dissim=euclidean_dissim,
+                               cat_dissim=matching_dissim)
     client_clusters = k_prototypes.fit_predict(X, categorical=cat_feat_idxs)
+    k_prototypes.samples = X
+    k_prototypes.labels = client_clusters
+    k_prototypes.dist = lambda x0, x1: \
+        k_prototypes.num_dissim(np.expand_dims(x0[noncat_feat_idxs], axis=0), np.expand_dims(x1[noncat_feat_idxs], axis=0)) + \
+            k_prototypes.gamma * k_prototypes.cat_dissim(np.expand_dims(x0[cat_feat_idxs], axis=0), np.expand_dims(x1[cat_feat_idxs], axis=0))
     client_clusters += 1    # Enforce that cluster labels are integer range of [1, K]
     clusters_df = pd.DataFrame({'ClientID': client_ids, 'Cluster Membership': client_clusters})
     clusters_df.set_index('ClientID')
@@ -128,10 +134,39 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
     if save_clusters:
         clusters_df.to_csv(cfg['PATHS']['K-PROTOTYPES_CLUSTERS'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
                            index_label=False, index=False)
-    return
+    return k_prototypes
+
+
+def silhouette_analysis(k_min=2, k_max=20):
+    '''
+    Perform Silhouette Analysis to determine the optimal value for k. For each value of k, run k-prototypes and
+    calculate the average Silhouette Score. The optimal k is the one that maximizes the average Silhouette Score over
+    the range of k provided.
+    :param k_min: Smallest k to consider
+    :param k_max: Largest k to consider
+    :return: Optimal value of k
+    '''
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    k_range = np.arange(k_min, k_max + 1, 1)    # Range is [k_min, k_max]
+    silhouette_scores = []
+
+    # Run k-prototypes for each value of k in the specified range and calculate average Silhouette Score
+    for k in k_range:
+        print('Running k-prototypes with k = ' + str(k))
+        clustering = cluster_clients(k=k, save_centroids=False, save_clusters=False, explain_centroids=False)
+        print('Calculating average Silhouette Score for k = ' + str(k))
+        silhouette_avg = silhouette_score(clustering.samples, clustering.labels, metric=clustering.dist, sample_size=1500)
+        silhouette_scores.append(silhouette_avg)
+    optimal_k = k_range[np.argmax(silhouette_scores)]   # Optimal k is that which maximizes average Silhouette Score
+
+    # Visualize the Silhouette Plot
+    visualize_silhouette_plot(k_range, silhouette_scores, optimal_k=optimal_k,
+                              file_path=cfg['PATHS']['IMAGES'] + 'silhouette_plot_')
+    return optimal_k
 
 
 if __name__ == '__main__':
-    cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=True)
+    d = cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
+    #optimal_k = silhouette_analysis(k_min=2, k_max=20)
 
 
