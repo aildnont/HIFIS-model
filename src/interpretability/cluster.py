@@ -6,12 +6,13 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 from kmodes.kprototypes import KPrototypes
+from kmodes.util.dissim import jaccard_dissim_label, euclidean_dissim
 from tensorflow.keras.models import load_model
 from sklearn.externals.joblib import load
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from src.interpretability.lime_explain import predict_and_explain
-from src.visualization.visualize import visualize_multiple_explanations
+from src.visualization.visualize import visualize_cluster_explanations
 
 def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=True):
     '''
@@ -53,8 +54,9 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
     X[:, noncat_feat_idxs] = X_noncat
 
     # Run k-prototypes algorithm on all clients and obtain cluster assignment (range [1, K]) for each client
-    k_prototypes = KPrototypes(n_clusters=cfg['K-PROTOTYPES']['K'], verbose=2, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
-                               n_jobs=cfg['K-PROTOTYPES']['N_JOBS'], init='random')
+    k_prototypes = KPrototypes(n_clusters=cfg['K-PROTOTYPES']['K'], verbose=1, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
+                               n_jobs=cfg['K-PROTOTYPES']['N_JOBS'], init='Cao',
+                               num_dissim=euclidean_dissim)
     client_clusters = k_prototypes.fit_predict(X, categorical=cat_feat_idxs)
     client_clusters += 1    # Enforce that cluster labels are integer range of [1, K]
     clusters_df = pd.DataFrame({'ClientID': client_ids, 'Cluster Membership': client_clusters})
@@ -111,8 +113,11 @@ def cluster_clients(save_centroids=True, save_clusters=True, explain_centroids=T
         exp_df = pd.DataFrame(exp_rows, columns=exp_col_names)
         centroids_df = pd.concat([centroids_df, exp_df], axis=1, sort=False)    # Concatenate client features and explanations
 
+        # Get fraction of clients in each cluster
+        cluster_freqs = np.bincount(client_clusters) / client_clusters.shape[0]
+
         # Visualize clusters' LIME explanations
-        visualize_multiple_explanations(explanations, 'Explanations for k-prototypes clusters',
+        visualize_cluster_explanations(explanations, cluster_freqs, 'Explanations for k-prototypes clusters',
                                         cfg['PATHS']['IMAGES'] + 'centroid_explanations_')
 
     # Save centroid features and explanations to spreadsheet

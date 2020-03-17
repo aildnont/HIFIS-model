@@ -426,6 +426,7 @@ packages.
 |   |   ├── preprocess.py         <- Main preprocessing script
 |   |   └── spdat.py              <- SPDAT data preprocessing script
 │   ├── interpretability          <- Model interpretability scripts
+|   |   ├── cluster.py            <- Script for learning client clusters
 |   |   ├── lime_explain.py       <- Script for generating LIME explanations
 |   |   └── submodular_pick.py    <- Modified version of file taken from lime package
 │   ├── models                    <- TensorFlow model definitions
