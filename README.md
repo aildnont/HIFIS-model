@@ -315,7 +315,7 @@ _layers_.
 ![alt text](documents/readme_images/hparam_example.png "A sample HParams
 dashboard view")
 
-### Bulk predictions from raw data
+### Batch predictions from raw data
 Once a trained model is produced, the user may wish to obtain
 predictions and explanations for all clients currently in the HIFIS
 database. As clients' life situations change over time, their records in
@@ -356,11 +356,49 @@ for all clients, given raw data from HIFIS and a trained model.
       previous times, enabling the user to compare the change in
       predictions and explanations for particular clients over time.
 
+### Client Clustering Experiment (Using K-Prototypes)
+We were interested in investigating whether HIFIS client data could be
+clustered. Since HIFIS consists of numerical and categorical data and in
+the spirit of minimizing time complexity,
+[k-prototypes](https://www.semanticscholar.org/paper/CLUSTERING-LARGE-DATA-SETS-WITH-MIXED-NUMERIC-AND-Huang/d42bb5ad2d03be6d8fefa63d25d02c0711d19728)
+was selected as the clustering algorithm. We wish to acknowledge Nico de
+Vos, as we made use of his
+[implementation](https://github.com/nicodv/kmodes) of k-prototypes. This
+experiment runs k-prototypes a series of times and selects the set of
+clusters with the best results (i.e. least average dissimilarity between
+clients and cluster centroids). By following the steps below, you can
+cluster clients into a desired number of clusters, examine the clusters'
+centroids, and view LIME explanations of these centroids.
+1. Ensure that you have already run
+   _[lime_explain.py](src/interpretability/lime_explain.py)_ after
+   training your model, as it will have generated and saved a LIME
+   Explainer object at _data/interpretability/lime_explainer.pkl_.
+2. Ensure that you have a .CSV file of preprocessed data located within
+   in the processed data folder (_data/processed/_). See
+   [Getting Started](#getting-started) for help.
+3. Run _[cluster.py](src/interpretability/cluster.py)_. Consult
+   [Project Config](#k-prototypes) before changing default clustering
+   parameters in [config.yml](/config.yml).
+4. 3 separate files will be saved once clustering is complete:
+   1. A spreadsheet depicting cluster assignments by Client ID will be
+      located at _results/experiments/_, and it will be called
+      _client_clusters_yyyymmdd-hhmmss.csv_ (where yyyymmdd-hhmmss is
+      the current time).
+   2. Cluster centroids will be saved to a spreadsheet. Centroids have
+      the same features as clients and their LIME explanations will be
+      appended to the end by default. The spreadsheet will be located at
+      _results/experiments/_, and it will be called
+      _cluster_centroids_yyyymmdd-hhmmss.csv_.
+   3. A graphic depicting the LIME explanations of all centroids will be
+      located at _documents/generated_images/_, and it will be called
+      _centroid_explanations_yyyymmdd-hhmmss.png_.
+
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
 any _.gitkeep_ files, as their only purpose is to force Git to track
-empty directories. Disregard any _.__init__.py_ files, as they are empty
-files that enable Python to recognize certain directories as packages.
+empty directories. Disregard any _.\__init\__.py_ files, as they are
+empty files that enable Python to recognize certain directories as
+packages.
 
 ```
 ├── data
@@ -388,6 +426,7 @@ files that enable Python to recognize certain directories as packages.
 |   |   ├── preprocess.py         <- Main preprocessing script
 |   |   └── spdat.py              <- SPDAT data preprocessing script
 │   ├── interpretability          <- Model interpretability scripts
+|   |   ├── cluster.py            <- Script for learning client clusters
 |   |   ├── lime_explain.py       <- Script for generating LIME explanations
 |   |   └── submodular_pick.py    <- Modified version of file taken from lime package
 │   ├── models                    <- TensorFlow model definitions
@@ -562,6 +601,14 @@ below.
 - **THRESHOLD**: Classification threshold for prediction
 - **CLASS_NAMES**: Identifiers for the classes predicted by the neural
   network as included in the prediction spreadsheet.
+#### K-PROTOTYPES
+- **K**: Desired number of client clusters when running k-prototypes
+- **N_RUNS**: Number of attempts at running k-prototypes. Best clusters
+  are saved.
+- **N_JOBS**: Number of parallel compute jobs to create for
+  k-prototypes. This is useful when N_RUNS is high and you want to
+  decrease the total runtime of clustering. Before increasing this
+  number, check how many CPUs are available to you.
 
 ## Contact
 

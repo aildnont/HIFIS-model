@@ -7,7 +7,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: './data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/model.h5'
-  MODEL_TO_LOAD: 'results/models/model.h5'
+  MODEL_TO_LOAD: 'results/models/model20200312-115408.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -20,8 +20,10 @@ PATHS:
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
-  BULK_PREDICTIONS: './results/predictions/predictions'
+  BATCH_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
+  K-PROTOTYPES_CENTROIDS: 'results/experiments/cluster_centroids_'
+  K-PROTOTYPES_CLUSTERS: 'results/experiments/client_clusters_'
 
 # Constants pertaining to data structure
 DATA:
@@ -114,7 +116,7 @@ LIME:
   KERNEL_WIDTH: 2.5
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
-  NUM_SAMPLES: 85000
+  NUM_SAMPLES: 5000
   MAX_DISPLAYED_RULES: 30
   SP:
     SAMPLE_SIZE: 300
@@ -127,7 +129,13 @@ HORIZON_SEARCH:
   N_INTERVAL: 4
   RUNS_PER_N: 10
 
-# Bulk predictions on raw data
+# Batch predictions on raw data
 PREDICTION:
   THRESHOLD: 0.5
   CLASS_NAMES: {0: 'not at risk', 1: 'at risk'}
+
+# Data clustering
+K-PROTOTYPES:
+  K: 6
+  N_RUNS: 10
+  N_JOBS: 1
