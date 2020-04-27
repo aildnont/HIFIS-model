@@ -179,7 +179,7 @@ def setup_lime():
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
-    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
+    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
     return lime_dict
 
 

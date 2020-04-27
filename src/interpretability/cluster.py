@@ -95,7 +95,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
             scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
             ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
             explainer = dill.load(open(cfg['PATHS']['LIME_EXPLAINER'], 'rb'))
-            model = load_model(cfg['PATHS']['MODEL_TO_LOAD'])
+            model = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
         except FileNotFoundError as not_found_err:
             print('File "' + not_found_err.filename + 
                   '" was not found. Ensure you have trained a model and run LIME before running this script.')
