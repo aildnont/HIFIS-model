@@ -1,8 +1,4 @@
-import pandas as pd
-import yaml
-import os
 import random
-import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
@@ -278,7 +274,8 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     # Define metrics.
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
     metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
-               Recall(name='recall', thresholds=thresholds), AUC(name='auc')]
+               Recall(name='recall', thresholds=thresholds), F1Score(name='f1score', thresholds=thresholds),
+               AUC(name='auc')]
 
     # Set callbacks.
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=cfg['TRAIN']['PATIENCE'], mode='min', restore_best_weights=True)
@@ -309,18 +306,29 @@ def train_experiment(experiment='single_train', save_weights=True, write_logs=Tr
     roc_img = plot_roc("Test set", data['Y_test'], test_predictions, dir_path=None)
     cm_img = plot_confusion_matrix(data['Y_test'], test_predictions, dir_path=None)
 
-    # Log test set results and plots in TensorBoard
+    # Log test set results, plots, model hyperparameters in TensorBoard
     if write_logs:
         writer = tf.summary.create_file_writer(logdir=log_dir)
+
+        # Create summary of test set metrics
         test_summary_str = [['**Metric**','**Value**']]
         for metric in test_metrics:
-            if metric in ['precision', 'recall'] and isinstance(metric, list):
+            if metric in ['precision', 'recall', 'f1score'] and isinstance(metric, list):
                 metric_values = dict(zip(thresholds, test_metrics[metric]))
             else:
                 metric_values = test_metrics[metric]
             test_summary_str.append([metric, str(metric_values)])
+
+        # Create table of model and train config values
+        hparam_summary_str = [['**Variable**', '**Value**']]
+        for key in cfg['TRAIN']:
+            hparam_summary_str.append([key, str(cfg['TRAIN'][key])])
+        for key in cfg['NN']['MODEL1']:
+            hparam_summary_str.append([key, str(cfg['NN']['MODEL1'][key])])
+
         with writer.as_default():
-            tf.summary.text(name='Test set metrics', data=tf.convert_to_tensor(test_summary_str), step=0)
+            tf.summary.text(name='Metrics on Test Set', data=tf.convert_to_tensor(test_summary_str), step=0)
+            tf.summary.text(name='Summary of Hyperparameters', data=tf.convert_to_tensor(hparam_summary_str), step=0)
             tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)
             tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
 
