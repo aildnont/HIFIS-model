@@ -143,7 +143,7 @@ def setup_lime():
     FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
 
     # Load feature information
-    input_stream = open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r')
+    input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
     cfg_feats = yaml.full_load(input_stream)
     noncat_features = cfg_feats['NON_CAT_FEATURES']
     sv_cat_values = cfg_feats['SV_CAT_VALUES']

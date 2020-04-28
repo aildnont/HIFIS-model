@@ -78,7 +78,7 @@ def plot_roc(name, labels, predictions, dir_path=None):
     ax.set_aspect('equal')
     if dir_path is not None:
         plt.savefig(dir_path + 'ROC_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
-    return plot_to_tensor()
+    return plt
 
 def plot_confusion_matrix(labels, predictions, p=0.5, dir_path=None):
     '''
@@ -114,7 +114,7 @@ def plot_confusion_matrix(labels, predictions, p=0.5, dir_path=None):
     # Print these statistics
     print('True (-)ves: ', cm[0][0], '\nFalse (+)ves: ', cm[0][1], '\nFalse (-)ves: ', cm[1][0], '\nTrue (+)ves: ',
           cm[1][1])
-    return plot_to_tensor()
+    return plt
 
 def plot_horizon_search(results_df, file_path):
     '''
