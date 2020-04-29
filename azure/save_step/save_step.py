@@ -1,0 +1,45 @@
+import os
+import yaml
+import argparse
+import datetime
+import shutil
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--preprocessedoutputdir', type=str, help="intermediate preprocessed pipeline data directory")
+parser.add_argument('--trainoutputdir', type=str, help="intermediate training pipeline data directory")
+parser.add_argument('--interpretabilityoutputdir', type=str, help="intermediate interpretability pipeline data directory")
+parser.add_argument('--outputsdir', type=str, help="persistent outputs directory on blob")
+args = parser.parse_args()
+cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+
+# Get paths of data on intermediate pipeline storage
+cfg = yaml.full_load(open(os.getcwd() + "./config.yml", 'r'))  # Load config data
+train_set_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['TRAIN_SET'].split('/')[-1]
+test_set_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['TEST_SET'].split('/')[-1]
+data_info_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['DATA_INFO'].split('/')[-1]
+ordinal_col_transformer_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['ORDINAL_COL_TRANSFORMER'].split('/')[-1]
+ohe_col_transformer_mv_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['OHE_COL_TRANSFORMER_MV'].split('/')[-1]
+ohe_col_transformer_sv_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['OHE_COL_TRANSFORMER_SV'].split('/')[-1]
+scaler_col_transformer_path = args.trainoutputdir + '/' + cfg['PATHS']['SCALER_COL_TRANSFORMER'].split('/')[-1]
+model_to_load_path = args.trainoutputdir + '/' + cfg['PATHS']['MODEL_TO_LOAD'].split('/')[-1]
+lime_explainer_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['LIME_EXPLAINER'].split('/')[-1]
+lime_submodular_pick_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['LIME_SUBMODULAR_PICK'].split('/')[-1]
+submod_pick_image_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['IMAGES'].split('/')[-1] + '/submodular_pick.png'
+
+# Build destination paths in output folder on blob datastore
+destination_dir = args.outputsdir + cur_date + '/'
+if not os.path.exists(destination_dir):
+    os.makedirs(destination_dir)
+
+# Move all outputs from intermediate data to outputs folder on blob
+shutil.move(train_set_path, destination_dir)
+shutil.move(test_set_path, destination_dir)
+shutil.move(data_info_path, destination_dir)
+shutil.move(ordinal_col_transformer_path, destination_dir)
+shutil.move(ohe_col_transformer_mv_path, destination_dir)
+shutil.move(ohe_col_transformer_sv_path, destination_dir)
+shutil.move(scaler_col_transformer_path, destination_dir)
+shutil.move(model_to_load_path, destination_dir)
+shutil.move(lime_explainer_path, destination_dir)
+shutil.move(lime_submodular_pick_path, destination_dir)
+shutil.move(submod_pick_image_path, destination_dir)

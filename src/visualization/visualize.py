@@ -298,7 +298,7 @@ def visualize_avg_explanations(results_df, sample_fraction, file_path=None):
     Builds a graph for visualizing the average weights of LIME explanations over all provided explanations
     :param results_df: Output dataframe of running a LIME experiment to explain multiple predictions
     :param sample_fraction: Fraction of test set that explanations were produced for
-    :param file_path: The path to the directory at which to save the resulting image
+    :param file_path: The path at which to save the resulting image
     '''
 
     # Concatenate all feature explanations and their corresponding weights for each example
@@ -344,7 +344,7 @@ def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
 
     # Save the image
     if file_path is not None:
-        plt.savefig(file_path + 'LIME_Submodular_Pick_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+        plt.savefig(file_path)
     return
 
 

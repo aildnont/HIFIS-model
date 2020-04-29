@@ -122,14 +122,16 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
     return results_df
 
 
-def setup_lime():
+def setup_lime(cfg=None):
     '''
     Load relevant information and create a LIME Explainer
+    :param: cfg: custom config object
     :return: dict containing important information and objects for explanation experiments
     '''
 
-    # Load relevant constants from project config file
-    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    # Load relevant constants from project config file if custsom config object not supplied
+    if cfg is None:
+        cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     lime_dict = {}
     lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
     lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
@@ -183,10 +185,11 @@ def setup_lime():
     return lime_dict
 
 
-def submodular_pick(lime_dict):
+def submodular_pick(lime_dict, file_path=None):
     '''
     Perform submodular pick on the training set to approximate global explanations for the model.
     :param lime_dict: dict containing important information and objects for explanation experiments
+    :param file_path: Path at which to save the image summarizing the submodular pick
     '''
 
     def predict_example(x):
@@ -234,7 +237,9 @@ def submodular_pick(lime_dict):
 
     # Visualize the the average explanations
     sample_fraction = sample_size / lime_dict['X_TRAIN'].shape[0]
-    visualize_submodular_pick(W_avg, sample_fraction, file_path=lime_dict['IMG_PATH'])
+    if file_path is None:
+        file_path = lime_dict['IMG_PATH'] + 'LIME_Submodular_Pick_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png'
+    visualize_submodular_pick(W_avg, sample_fraction, file_path=file_path)
     return
 
 
