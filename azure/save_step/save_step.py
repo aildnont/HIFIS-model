@@ -22,6 +22,7 @@ ohe_col_transformer_mv_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['O
 ohe_col_transformer_sv_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['OHE_COL_TRANSFORMER_SV'].split('/')[-1]
 scaler_col_transformer_path = args.trainoutputdir + '/' + cfg['PATHS']['SCALER_COL_TRANSFORMER'].split('/')[-1]
 model_to_load_path = args.trainoutputdir + '/' + cfg['PATHS']['MODEL_TO_LOAD'].split('/')[-1]
+logs_path = args.trainoutputdir + '/logs'
 lime_explainer_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['LIME_EXPLAINER'].split('/')[-1]
 lime_submodular_pick_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['LIME_SUBMODULAR_PICK'].split('/')[-1]
 submod_pick_image_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['IMAGES'].split('/')[-1] + '/submodular_pick.png'
@@ -40,6 +41,7 @@ shutil.move(ohe_col_transformer_mv_path, destination_dir)
 shutil.move(ohe_col_transformer_sv_path, destination_dir)
 shutil.move(scaler_col_transformer_path, destination_dir)
 shutil.move(model_to_load_path, destination_dir)
+shutil.move(logs_path, destination_dir)
 shutil.move(lime_explainer_path, destination_dir)
 shutil.move(lime_submodular_pick_path, destination_dir)
 shutil.move(submod_pick_image_path, destination_dir)
