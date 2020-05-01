@@ -354,7 +354,7 @@ def preprocess(config=None, n_weeks=None, include_gt=True, calculate_gt=True, cl
     run_start = datetime.today()
     tqdm.pandas()
     if config is None:
-        config = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))       # Load config data
+        config = yaml.full_load(open("./config.yml", 'r'))       # Load config data
 
     # Load lists of features in raw data
     categorical_feats = config['DATA']['CATEGORICAL_FEATURES']
@@ -431,7 +431,7 @@ def preprocess(config=None, n_weeks=None, include_gt=True, calculate_gt=True, cl
     if classify_cat_feats:
         sv_cat_feats, mv_cat_feats = classify_cat_features(df, categorical_feats)
     else:
-        input_stream = open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r')
+        input_stream = open(config['PATHS']['DATA_INFO'], 'r')
         cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
         sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
         mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
@@ -513,7 +513,7 @@ def preprocess(config=None, n_weeks=None, include_gt=True, calculate_gt=True, cl
     if include_gt:
         data_info['N_WEEKS'] = N_WEEKS      # Save the predictive horizon if we aren't preprocessing for prediction
     else:
-        old_data_info = yaml.full_load(open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r'))
+        old_data_info = yaml.full_load(open(config['PATHS']['DATA_INFO'], 'r'))
         data_info['N_WEEKS'] = old_data_info['N_WEEKS']     # Get predictive horizon from previous preprocessing records
     with open(config['PATHS']['DATA_INFO'], 'w') as file:
         cat_feat_doc = yaml.dump(data_info, file)

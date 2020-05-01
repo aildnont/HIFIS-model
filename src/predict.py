@@ -10,34 +10,42 @@ from tensorflow.keras.models import load_model
 from src.data.preprocess import preprocess
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
 
-def predict_and_explain_set(data_path=None, save_results=True, give_explanations=True, include_feat_values=True):
+def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True, include_feat_values=True,
+                            processed_df=None):
     '''
     Preprocess a raw dataset. Then get model predictions and corresponding LIME explanations.
-    :param data_path: Path at which to save results of this prediction
+    :param cfg: Custom config object
+    :param data_path: Path to look for raw data
     :param save_results: Flag specifying whether to save the prediction results to disk
     :param give_explanations: Flag specifying whether to provide LIME explanations with predictions spreadsheet
     :param include_feat_values: Flag specifying whether to include client feature values with predictions spreadsheet
+    :param processed_df: Dataframe of preprocessed data. data_path will be ignored if passed.
     :return: Dataframe of prediction results, including explanations.
     '''
 
     # Load project config data
-    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    if cfg is None:
+        cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
     # Load data transformers
     scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
     ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
 
-    # Preprocess the data, using pre-existing sklearn transformers and classification of categorical features.
-    if data_path is None:
-        data_path = cfg['PATHS']['RAW_DATA']
-    df = preprocess(n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False, load_ct=True,
-                      data_path=data_path)
+    # Get preprocessed data
+    if processed_df is not None:
+        df = processed_df
+        client_ids = np.array(df.pop('ClientID'))
+    else:
+        if data_path is None:
+            data_path = cfg['PATHS']['RAW_DATA']
+
+        # Preprocess the data, using pre-existing sklearn transformers and classification of categorical features.
+        df = preprocess(n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False, load_ct=True,
+                          data_path=data_path)
+        client_ids = np.array(df.index)
 
     # Load feature mapping information (from preprocessing)
-    data_info = yaml.full_load(open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r'))
-
-    # Get list of Client IDs
-    client_ids = np.array(df.index)
+    data_info = yaml.full_load(open(cfg['PATHS']['DATA_INFO'], 'r'))
 
     # Convert dataset to numpy array
     X = np.array(df)
@@ -114,8 +122,7 @@ def trending_prediction(data_path=None):
     data changes over time.
     :param data_path: Path of raw data
     '''
-    input_stream = open(os.getcwd() + "/config.yml", 'r')
-    cfg = yaml.full_load(input_stream)
+    cfg = yaml.full_load(open("./config.yml", 'r'))
     trending_pred_path = cfg['PATHS']['TRENDING_PREDICTIONS']
 
     # Get model predictions and explanations.
@@ -135,4 +142,9 @@ def trending_prediction(data_path=None):
 
 if __name__ == '__main__':
     #results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True, include_feat_values=True)
-    trending_prediction(data_path=None)
+    #trending_prediction(data_path=None)
+    cfg = yaml.full_load(open("./config.yml", 'r'))
+    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])
+    results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
+                            include_feat_values=True,
+                            processed_df=df)

@@ -367,6 +367,6 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
     return
 
 if __name__ == '__main__':
-    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    cfg = yaml.full_load(open("./config.yml", 'r'))
     train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT_TYPE'], save_weights=True, write_logs=True)
 
