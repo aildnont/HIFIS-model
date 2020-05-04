@@ -1,5 +1,6 @@
 import os
 import yaml
+import shutil
 import argparse
 import datetime
 import pandas as pd
@@ -22,13 +23,13 @@ cfg['PATHS']['MODEL_TO_LOAD'] = args.inferencedir + cfg['PATHS']['MODEL_TO_LOAD'
 cfg['PATHS']['LIME_EXPLAINER'] = args.inferencedir + cfg['PATHS']['LIME_EXPLAINER'].split('/')[-1]
 cfg['PATHS']['TRENDING_PREDICTIONS'] = args.inferencedir + cfg['PATHS']['TRENDING_PREDICTIONS'].split('/')[-1]
 
-# Load preprocessed data from intermediate pipeline data
+# Load preprocessed data from intermediate pipeline data and move it to the inference directory
 processed_df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])
-print("SHAPE", processed_df.shape)
+shutil.move(cfg['PATHS']['PROCESSED_DATA'], args.inferencedir + cfg['PATHS']['PROCESSED_DATA'].split('/')[-1])
 
 # Preprocess raw data, run inference, and run LIME on each client in the raw data
 results_df = predict_and_explain_set(cfg=cfg, data_path=None, save_results=False, give_explanations=True,
-                                     include_feat_values=True, processed_df=processed_df)
+                                     include_feat_values=False, processed_df=processed_df)
 
 results_df.insert(0, 'Timestamp', pd.to_datetime(datetime.datetime.today()))     # Add a timestamp to these results
 
