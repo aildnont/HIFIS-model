@@ -401,6 +401,7 @@ empty files that enable Python to recognize certain directories as
 packages.
 
 ```
+├── azure                         <- folder containing Azure ML pipelines
 ├── data
 │   ├── interpretability          <- Generated feature information
 │   ├── processed                 <- Products of preprocessing
@@ -609,6 +610,17 @@ below.
   k-prototypes. This is useful when N_RUNS is high and you want to
   decrease the total runtime of clustering. Before increasing this
   number, check how many CPUs are available to you.
+
+## Azure Machine Learning Pipelines
+We deployed our model retraining and batch predictions functionality to
+Azure cloud computing services. To do this, we created Jupyter notebooks
+to define and run experiments in Azure, and Python scripts corresponding
+to pipeline steps. We included these files in the _azure/_ folder, in
+case they may benefit any parties hoping to use this project. Note that
+Azure is **not** required to run HIFIS-v2 code, as all Python files
+necessary to get started are in the _src/_ folder. If you plan on using
+the Azure machine learning pipelines defined in the _azure/_ folder, be
+sure to install the _azureml-sdk_ and _azureml_widgets_ packages.
 
 ## Contact
 

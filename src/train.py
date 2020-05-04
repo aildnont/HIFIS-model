@@ -168,6 +168,9 @@ def multi_train(cfg, data, callbacks, base_log_dir):
     if 'loss' in metric_preference:
         best_metrics['loss'] = 10000.0
 
+    # Create dict to store test set metrics for all models
+    test_metrics_dict = dict.fromkeys(['Model #'] + metric_preference, [])
+
     # Train NUM_RUNS models and return the best one according to the preferred metrics
     for i in range(cfg['TRAIN']['NUM_RUNS']):
         print("Training run ", i+1, " / ", cfg['TRAIN']['NUM_RUNS'])
@@ -179,6 +182,11 @@ def multi_train(cfg, data, callbacks, base_log_dir):
 
         # Train the model and evaluate performance on test set
         new_model, test_metrics = train_model(cfg, data, cur_callbacks)
+
+        # Record this model's test set metrics
+        test_metrics_dict['Model #'] = test_metrics_dict['Model #'] + [i + 1]
+        for metric in metric_preference:
+            test_metrics_dict[metric] = test_metrics_dict[metric] + [test_metrics[metric]]
 
         # Log test set results and images
         if base_log_dir is not None:
@@ -198,7 +206,7 @@ def multi_train(cfg, data, callbacks, base_log_dir):
                 break
 
     print("Best model test metrics: ", best_metrics)
-    return best_model, best_metrics, best_model_date
+    return best_model, best_metrics, test_metrics_dict, best_model_date
 
 def random_hparam_search(cfg, data, callbacks, log_dir):
     '''
@@ -352,7 +360,9 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
     else:
         if experiment == 'multi_train':
             base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
-            model, test_metrics, cur_date = multi_train(cfg, data, callbacks, base_log_dir)
+            model, test_metrics, test_metrics_dict, cur_date = multi_train(cfg, data, callbacks, base_log_dir)
+            test_set_metrics_df = pd.DataFrame(test_metrics_dict)
+            test_set_metrics_df.to_csv(cfg['PATHS']['MULTI_TRAIN_TEST_METRICS'].split('.')[0] + cur_date + '.csv')
         else:
             if write_logs:
                 tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)

@@ -19,6 +19,7 @@ PATHS:
   ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
+  MULTI_TRAIN_TEST_METRICS: 'results/experiments/multi_train_test_metrics.csv'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
   BATCH_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
@@ -90,7 +91,7 @@ TRAIN:
   POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 10
+  NUM_RUNS: 15
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:

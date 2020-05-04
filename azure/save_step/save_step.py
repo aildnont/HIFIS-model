@@ -23,6 +23,7 @@ ohe_col_transformer_sv_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['O
 scaler_col_transformer_path = args.trainoutputdir + '/' + cfg['PATHS']['SCALER_COL_TRANSFORMER'].split('/')[-1]
 model_to_load_path = args.trainoutputdir + '/' + cfg['PATHS']['MODEL_TO_LOAD'].split('/')[-1]
 logs_path = args.trainoutputdir + '/logs'
+multi_train_test_metrics_path = args.trainoutputdir + '/' + cfg['PATHS']['MULTI_TRAIN_TEST_METRICS'].split('/')[-1]
 lime_explainer_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['LIME_EXPLAINER'].split('/')[-1]
 lime_submodular_pick_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['LIME_SUBMODULAR_PICK'].split('/')[-1]
 submod_pick_image_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['IMAGES'].split('/')[-1] + '/submodular_pick.png'
@@ -31,6 +32,9 @@ submod_pick_image_path = args.interpretabilityoutputdir + '/' + cfg['PATHS']['IM
 destination_dir = args.outputsdir + cur_date + '/'
 if not os.path.exists(destination_dir):
     os.makedirs(destination_dir)
+business_outputs_dir = destination_dir + 'business_outputs/'
+if not os.path.exists(business_outputs_dir):
+    os.makedirs(business_outputs_dir)
 
 # Move all outputs from intermediate data to outputs folder on blob
 shutil.move(train_set_path, destination_dir)
@@ -42,6 +46,7 @@ shutil.move(ohe_col_transformer_sv_path, destination_dir)
 shutil.move(scaler_col_transformer_path, destination_dir)
 shutil.move(model_to_load_path, destination_dir)
 shutil.move(logs_path, destination_dir)
+shutil.move(multi_train_test_metrics_path, business_outputs_dir)
 shutil.move(lime_explainer_path, destination_dir)
 shutil.move(lime_submodular_pick_path, destination_dir)
-shutil.move(submod_pick_image_path, destination_dir)
+shutil.move(submod_pick_image_path, business_outputs_dir)
