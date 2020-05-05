@@ -584,9 +584,10 @@ below.
 - **MAX_DISPLAYED_RULES**: The maximum number of explanations to be included
   in a global surrogate visualization
 - **SP**: Parameters associated with submodular pick
-  - **SAMPLE_SIZE**: An integer that specifies the number of samples
-    from the training set to generate candidate explanations for.
-    Alternatively, set to _'all'_ to sample the entire training set.
+  - **SAMPLE_FRACTION**: A float in the range _[0.0, 1.0]_ that
+    specifies the fraction of samples from the training and validation
+    sets to generate candidate explanations for. Alternatively, set to
+    _'all'_ to sample the entire training and validation sets.
   - **NUM_EXPLANATIONS**: The desired number of explanations that
     maximize explanation coverage
 #### HORIZON_SEARCH
