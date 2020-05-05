@@ -120,7 +120,7 @@ LIME:
   NUM_SAMPLES: 5000
   MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_SIZE: 300
+    SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
 
 # Predictive horizon search experiment

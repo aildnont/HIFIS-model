@@ -135,7 +135,7 @@ def setup_lime(cfg=None):
     lime_dict = {}
     lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
     lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
-    lime_dict['SAMPLE_SIZE'] = cfg['LIME']['SP']['SAMPLE_SIZE']
+    lime_dict['SAMPLE_FRACTION'] = cfg['LIME']['SP']['SAMPLE_FRACTION']
     lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
     lime_dict['IMG_PATH'] = cfg['PATHS']['IMAGES']
     lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
@@ -204,7 +204,7 @@ def submodular_pick(lime_dict, file_path=None):
     start_time = datetime.datetime.now()
 
     # Set sample size, ensuring that it isn't larger than size of training set.
-    sample_size = lime_dict['SAMPLE_SIZE']
+    sample_size = int(lime_dict['SAMPLE_FRACTION'] * lime_dict['X_TRAIN'].shape[0])
     if (sample_size == 'all') or (sample_size > lime_dict['X_TRAIN'].shape[0]):
         sample_size = lime_dict['X_TRAIN'].shape[0]
 

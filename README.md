@@ -618,9 +618,59 @@ to define and run experiments in Azure, and Python scripts corresponding
 to pipeline steps. We included these files in the _azure/_ folder, in
 case they may benefit any parties hoping to use this project. Note that
 Azure is **not** required to run HIFIS-v2 code, as all Python files
-necessary to get started are in the _src/_ folder. If you plan on using
-the Azure machine learning pipelines defined in the _azure/_ folder, be
-sure to install the _azureml-sdk_ and _azureml_widgets_ packages.
+necessary to get started are in the _src/_ folder.
+
+### Additional steps for Azure
+We deployed our model training and batch predictions functionality to
+Azure cloud computing services. To do this, we created Jupyter notebooks
+to define and run Azure machine learning pipelines as experiments in
+Azure, and Python scripts corresponding to pipeline steps. We included
+these files in the _azure/_ folder, in case they may benefit any parties
+hoping to use this project. Note that Azure is **not** required to run
+HIFIS-v2 code, as all Python files necessary to get started are in the
+_src/_ folder. If you plan on using the Azure machine learning pipelines
+defined in the _azure/_ folder, there are a few steps you will need to
+follow first:
+1. Obtain an active Azure subscription.
+2. Ensure you have installed the _azureml-sdk_ and _azureml_widgets_ pip
+   packages.
+3. In the [Azure portal](http://portal.azure.com/), create a resource
+   group.
+4. In the [Azure portal](http://portal.azure.com/), create a machine
+   learning workspace, and set its resource group to be the one you
+   created in step 2. When you open your workspace in the portal, there
+   will be a button near the top of the page that reads "Download
+   config.json". Click this button to download the config file for the
+   workspace, which contains confidential information about your
+   workspace and subscription. Once the config file is downloaded,
+   rename it to _ws_config.json_. Move this file to the _azure/_ folder
+   in the HIFIS-v2 repository. For reference, the contents of
+   _ws_config.json_ resemble the following:
+
+```
+{
+    "subscription_id": "your-subscription-id",
+    "resource_group": "name-of-your-resource-group",
+    "workspace_name": "name-of-your-machine-learning-workspace"
+}  
+```
+
+4. To configure automatic email alerts when raw data is not available,
+   you must create a file called _config_private.yml_ and place it in
+   the root directory of the HIFIS-v2 repository. Next, obtain an API
+   key from [SendGrid](https://sendgrid.com/), which is a service that
+   will allow your Python scripts to request that emails be sent. Within
+   _config_private.yml_, create an _EMAIL_ field that will specify who
+   will get email alerts. An example of the _EMAIL_ field is shown
+   below. The _TO_EMAILS_ and _CC_EMAILS_ fields should be lists of
+   email addresses to send the email alerts to and email addresses to CC
+   respectively.
+```
+EMAIL:
+  SENDGRID_API_KEY: 'your-sendgrid-api-key'
+  TO_EMAILS: [person1@website.com]
+  CC_EMAILS: [person2@otherwebsite.com, person3@website.com]
+```
 
 ## Contact
 
