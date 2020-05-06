@@ -102,6 +102,18 @@ def load_dataset(cfg):
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
     return data
 
+
+def define_callbacks(cfg):
+    '''
+    Build a list of Keras callbacks for training a model.
+    :param cfg: Project config object
+    :return: a list of Keras callbacks
+    '''
+    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=cfg['TRAIN']['PATIENCE'], mode='min', restore_best_weights=True)
+    callbacks = [early_stopping]
+    return callbacks
+
+
 def train_model(cfg, data, callbacks, verbose=2):
     '''
     Train a and evaluate model on given data.
@@ -349,9 +361,8 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
     # Load preprocessed data and partition into training, validation and test sets.
     data = load_dataset(cfg)
 
-    early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=cfg['TRAIN']['PATIENCE'], mode='min', restore_best_weights=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.00001, verbose=1)
-    callbacks = [early_stopping]
+    # Set callbacks
+    callbacks = define_callbacks(cfg)
 
     # Conduct the desired train experiment
     if experiment == 'hparam_search':
@@ -367,7 +378,7 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
             if write_logs:
                 tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
                 callbacks.append(tensorboard)
-            model, test_metrics, = train_model(cfg, data, callbacks)
+            model, test_metrics = train_model(cfg, data, callbacks)
             if write_logs:
                 log_test_results(cfg, model, data, test_metrics, log_dir)
         if save_weights:

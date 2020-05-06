@@ -32,9 +32,11 @@ def horizon_search():
 
         # Train the model several times at this prediction horizon
         results_df = pd.DataFrame()
+        data = load_dataset(cfg)
+        callbacks = define_callbacks(cfg)
         for i in range(RUNS_PER_N):
             print('** n = ', n, ' of ', N_MAX, '; i = ', i + 1, ' of ', RUNS_PER_N)
-            results = train_experiment(experiment='single_train', save_weights=False, write_logs=False)
+            _, results = train_model(cfg, data, callbacks)
             results_df = results_df.append(pd.DataFrame.from_records([results]))
         results_df.insert(0, 'n', n)    # Add prediction horizon to test results
         test_metrics_df = test_metrics_df.append(results_df)    # Append results from this value of n
