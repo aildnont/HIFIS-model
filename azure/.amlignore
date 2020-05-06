@@ -1,0 +1,13 @@
+processed/
+raw/
+transformers/
+data/interpretability/
+documents/
+results/
+.git/
+.idea/
+src/__pycache__
+LICENCE
+README.md
+.gitignore
+*.ipynb

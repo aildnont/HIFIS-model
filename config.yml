@@ -5,8 +5,8 @@ PATHS:
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
-  DATA_INFO: './data/interpretability/data_info.yml'
-  MODEL_WEIGHTS: 'results/models/model.h5'
+  DATA_INFO: 'data/interpretability/data_info.yml'
+  MODEL_WEIGHTS: 'results/models/'
   MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
@@ -19,6 +19,7 @@ PATHS:
   ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
+  MULTI_TRAIN_TEST_METRICS: 'results/experiments/multi_train_test_metrics.csv'
   LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
   BATCH_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
@@ -81,7 +82,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT_TYPE: 'single_train' # One of {'single_train', 'multi_train', 'hparam_search'}
+  EXPERIMENT_TYPE: 'multi_train' # One of {'single_train', 'multi_train', 'hparam_search'}
   TRAIN_SPLIT: 0.8
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
@@ -90,7 +91,7 @@ TRAIN:
   POS_WEIGHT: 0.6
   IMB_STRATEGY: 'class_weight'  # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 10
+  NUM_RUNS: 15
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:
@@ -119,7 +120,7 @@ LIME:
   NUM_SAMPLES: 5000
   MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_SIZE: 300
+    SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
 
 # Predictive horizon search experiment

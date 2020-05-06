@@ -338,9 +338,10 @@ def aggregate_df(df, noncat_feats, vec_mv_cat_feats, vec_sv_cat_feats):
     return df_unique_clients
 
 
-def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True, load_ct=False, data_path=None):
+def preprocess(config=None, n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True, load_ct=False, data_path=None):
     '''
     Load results of the HIFIS SQL query and process the data into features for model training or prediction.
+    :param cfg: Custom config object
     :param n_weeks: Prediction horizon [weeks]
     :param include_gt: Boolean describing whether to include ground truth in preprocessed data. Set False if using data to predict.
     :param calculate_gt: Boolean describing whether to compute ground truth or load from disk. Set True to compute ground truth.
@@ -352,7 +353,8 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     '''
     run_start = datetime.today()
     tqdm.pandas()
-    config = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))       # Load config data
+    if config is None:
+        config = yaml.full_load(open("./config.yml", 'r'))       # Load config data
 
     # Load lists of features in raw data
     categorical_feats = config['DATA']['CATEGORICAL_FEATURES']
@@ -429,7 +431,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     if classify_cat_feats:
         sv_cat_feats, mv_cat_feats = classify_cat_features(df, categorical_feats)
     else:
-        input_stream = open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r')
+        input_stream = open(config['PATHS']['DATA_INFO'], 'r')
         cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
         sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
         mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
@@ -511,7 +513,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     if include_gt:
         data_info['N_WEEKS'] = N_WEEKS      # Save the predictive horizon if we aren't preprocessing for prediction
     else:
-        old_data_info = yaml.full_load(open(os.getcwd() + config['PATHS']['DATA_INFO'], 'r'))
+        old_data_info = yaml.full_load(open(config['PATHS']['DATA_INFO'], 'r'))
         data_info['N_WEEKS'] = old_data_info['N_WEEKS']     # Get predictive horizon from previous preprocessing records
     with open(config['PATHS']['DATA_INFO'], 'w') as file:
         cat_feat_doc = yaml.dump(data_info, file)
@@ -520,6 +522,7 @@ def preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_fe
     return df_clients
 
 if __name__ == '__main__':
-    preprocessed_data = preprocess(n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True, load_ct=False)
+    preprocessed_data = preprocess(config=None, n_weeks=None, include_gt=True, calculate_gt=True,
+                                   classify_cat_feats=True, load_ct=False)
 
 
