@@ -360,7 +360,7 @@ def visualize_cluster_explanations(explanations, cluster_freqs, title, file_path
 
     # Set title for each explanation graph according to cluster # and % of clients it contains
     for i in range(len(explanations)):
-        fig.axes[i].text(0.5, 0.92, 'Cluster ' + str(i + 1) + ' (' + '{:.2f}'.format(cluster_freqs[i] * 100) +
+        fig.axes[i].text(0.5, 0.92, 'Cluster ' + str(i + 1) + ' (' + '{:.2f}'.format(cluster_freqs[i + 1] * 100) +
                                       '% of Clients)', fontsize=25, transform=fig.axes[i].transAxes, horizontalalignment='center')
 
     # Save the image
