@@ -37,7 +37,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
 
     # Load feature info
     try:
-        data_info = yaml.full_load(open(os.getcwd() + cfg['PATHS']['DATA_INFO'], 'r'))
+        data_info = yaml.full_load(open(cfg['PATHS']['DATA_INFO'], 'r'))
     except FileNotFoundError:
         print("No file found at " + cfg['PATHS']['DATA_INFO'] + ". Run preprocessing script before running this script.")
         return
@@ -54,7 +54,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
 
     # Run k-prototypes algorithm on all clients and obtain cluster assignment (range [1, K]) for each client
     if k is None:
-        k = cfg[cfg['K-PROTOTYPES']['K']]
+        k = cfg['K-PROTOTYPES']['K']
     k_prototypes = KPrototypes(n_clusters=k, verbose=1, n_init=cfg['K-PROTOTYPES']['N_RUNS'],
                                n_jobs=cfg['K-PROTOTYPES']['N_JOBS'], init='Cao', num_dissim=euclidean_dissim,
                                cat_dissim=matching_dissim)
@@ -120,7 +120,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         centroids_df = pd.concat([centroids_df, exp_df], axis=1, sort=False)    # Concatenate client features and explanations
 
         # Get fraction of clients in each cluster
-        cluster_freqs = np.bincount(client_clusters) / client_clusters.shape[0]
+        cluster_freqs = np.bincount(client_clusters) / float(client_clusters.shape[0])
 
         # Visualize clusters' LIME explanations
         visualize_cluster_explanations(explanations, cluster_freqs, 'Explanations for k-prototypes clusters',

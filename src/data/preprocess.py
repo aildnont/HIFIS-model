@@ -153,12 +153,13 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], errors='coerce')
     return df
 
-def remove_n_weeks(df, n_weeks, train_end_date, dated_feats, cat_feats):
+def remove_n_weeks(df, train_end_date, dated_feats, cat_feats):
     '''
     Remove records from the dataframe that have timestamps in the n weeks leading up to the ground truth date
     :param df: Pandas dataframe
-    :param n_weeks: number of recent weeks to remove records
     :param train_end_date: the most recent date that should appear in the dataset
+    :param dated_feats: list of feature names with dated events
+    :param cat_feats: list of categorical features
     :return: updated dataframe with the relevant rows removed
     '''
     print("Train end date: ", train_end_date)
@@ -416,7 +417,7 @@ def preprocess(config=None, n_weeks=None, include_gt=True, calculate_gt=True, cl
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", N_WEEKS, " weeks back.")
-    df = remove_n_weeks(df, N_WEEKS, train_end_date, config['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
+    df = remove_n_weeks(df, train_end_date, config['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total service features, monthly income total.")
