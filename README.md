@@ -356,6 +356,25 @@ for all clients, given raw data from HIFIS and a trained model.
       previous times, enabling the user to compare the change in
       predictions and explanations for particular clients over time.
 
+### Exclusion of sensitive features
+Depending on your organization's circumstances, you may wish to exclude
+specific HIFIS features that you consider sensitive due to legal,
+ethical or social reasons. A simply way to ensure that a feature does
+not cause bias in the model is to avoid including it as a feature of the
+model. This project supports the exclusion of specific features by
+dropping them at the start of data preprocessing. See the below steps
+for details on how to accomplish this:
+1. Having completed steps 1-3 in [Getting Started](#getting-started),
+   open the raw HIFIS data (i.e. _"HIFIS_Clients.csv"_), which should
+   be within the _data/raw/_ folder.
+2. Features that the model will be trained on correspond to the column
+   names of this file. Decide which features you wish to exclude from
+   model training. Take note of these column names.
+3. Open [config.yml](config.yml) for editing. Add the column names that
+   you decided on during step 2 to the list of features detailed in the
+   _FEATURES_TO_DROP_FIRST_ field of the _DATA_ section of
+   [config.yml](config.yml) (for more info see [Project Config](#data)).
+
 ### Client Clustering Experiment (Using K-Prototypes)
 We were interested in investigating whether HIFIS client data could be
 clustered. Since HIFIS consists of numerical and categorical data and in
