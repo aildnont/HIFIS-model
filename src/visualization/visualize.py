@@ -348,10 +348,12 @@ def visualize_submodular_pick(W_avg, sample_fraction, file_path=None):
     return
 
 
-def visualize_cluster_explanations(explanations, cluster_freqs, title, file_path=None):
+def visualize_cluster_explanations(explanations, predictions, cluster_freqs, title, file_path=None):
     '''
     Create a single figure containing bar charts of a list of explanations of clusters.
     :param explanations: List of Explanation objects
+    :param predictions: a (# clusters x 2) numpy array detailing predicted classes and probability of chronic
+                        homelessness
     :param cluster_freqs: List of fractions of clients belonging to each cluster
     :param title: Plot title
     :param file_path: The path (including file name) where to save the resulting image
@@ -361,7 +363,11 @@ def visualize_cluster_explanations(explanations, cluster_freqs, title, file_path
     # Set title for each explanation graph according to cluster # and % of clients it contains
     for i in range(len(explanations)):
         fig.axes[i].text(0.5, 0.92, 'Cluster ' + str(i + 1) + ' (' + '{:.2f}'.format(cluster_freqs[i + 1] * 100) +
-                                      '% of Clients)', fontsize=25, transform=fig.axes[i].transAxes, horizontalalignment='center')
+                                      '% of Clients)', fontsize=35, transform=fig.axes[i].transAxes, horizontalalignment='center')
+        fig.axes[i].text(0.02, 0.96, "Probability of chronic homelessness: {:.2f}%".format(predictions[i][1]),
+                         fontsize=15, transform=fig.axes[i].transAxes)
+        fig.axes[i].text(0.02, 0.98, "Prediction: " + str(predictions[i][0]) + " of chronic homelessness", fontsize=15,
+                         transform=fig.axes[i].transAxes)
 
     # Save the image
     if file_path is not None:

@@ -11,7 +11,7 @@ from tensorflow.keras.models import load_model
 from sklearn.externals.joblib import load
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
-from src.interpretability.lime_explain import predict_and_explain
+from src.interpretability.lime_explain import predict_and_explain, predict_instance
 from src.visualization.visualize import visualize_cluster_explanations, visualize_silhouette_plot
 
 def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True):
@@ -87,19 +87,39 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     cluster_num_series = pd.Series(np.arange(1, cluster_centroids.shape[0] + 1))
     centroids_df.insert(0, 'Cluster', cluster_num_series)
 
+    # Get fraction of clients in each cluster
+    cluster_freqs = np.bincount(client_clusters) / float(client_clusters.shape[0])
+    centroids_df.insert(1, '% of Clients', cluster_freqs[1:] * 100)
+
+    # Load objects necessary for prediction and explanations
+    try:
+        scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
+        ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
+        explainer = dill.load(open(cfg['PATHS']['LIME_EXPLAINER'], 'rb'))
+        model = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
+    except FileNotFoundError as not_found_err:
+        print('File "' + not_found_err.filename +
+              '" was not found. Ensure you have trained a model and run LIME before running this script.')
+        return
+
+    # Add model's prediction of centroids (classes and prediction probabilities) to the DataFrame
+    predicted_classes = []
+    prediction_probs = []
+    print("Obtaining model's predictions for cluster centroids.")
+    for i in tqdm(range(len(cluster_centroids))):
+        x = np.expand_dims(cluster_centroids[i], axis=0)
+        y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct).T, axis=1)  # Predict centroid
+        prediction = 1 if y[1] >= cfg['PREDICTION']['THRESHOLD'] else 0  # Model's classification
+        predicted_class = cfg['PREDICTION']['CLASS_NAMES'][prediction]
+        predicted_classes.append(predicted_class)
+        prediction_probs.append(y[1] * 100)     # Include as a percentage
+    centroids_df.insert(centroids_df.shape[1], 'At risk of chronic homelessness', pd.Series(predicted_classes))
+    centroids_df.insert(centroids_df.shape[1], 'Probability of chronic homelessness [%]', pd.Series(prediction_probs))
+
     # Predict and explain the cluster centroids
     if explain_centroids:
         NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
         NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
-        try:
-            scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
-            ohe_ct_sv = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
-            explainer = dill.load(open(cfg['PATHS']['LIME_EXPLAINER'], 'rb'))
-            model = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
-        except FileNotFoundError as not_found_err:
-            print('File "' + not_found_err.filename + 
-                  '" was not found. Ensure you have trained a model and run LIME before running this script.')
-            return
         exp_rows = []
         explanations = []
         print('Creating explanations for cluster centroids.')
@@ -119,11 +139,9 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         exp_df = pd.DataFrame(exp_rows, columns=exp_col_names)
         centroids_df = pd.concat([centroids_df, exp_df], axis=1, sort=False)    # Concatenate client features and explanations
 
-        # Get fraction of clients in each cluster
-        cluster_freqs = np.bincount(client_clusters) / float(client_clusters.shape[0])
-
         # Visualize clusters' LIME explanations
-        visualize_cluster_explanations(explanations, cluster_freqs, 'Explanations for k-prototypes clusters',
+        predictions = centroids_df[['At risk of chronic homelessness', 'Probability of chronic homelessness [%]']].to_numpy()
+        visualize_cluster_explanations(explanations, predictions, cluster_freqs, 'Explanations for k-prototypes clusters',
                                         cfg['PATHS']['IMAGES'] + 'centroid_explanations_')
 
     # Save centroid features and explanations to spreadsheet
