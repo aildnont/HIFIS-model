@@ -87,6 +87,10 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     cluster_num_series = pd.Series(np.arange(1, cluster_centroids.shape[0] + 1))
     centroids_df.insert(0, 'Cluster', cluster_num_series)
 
+    # Get fraction of clients in each cluster
+    cluster_freqs = np.bincount(client_clusters) / float(client_clusters.shape[0])
+    centroids_df.insert(1, '% of Clients', cluster_freqs[1:] * 100)
+
     # Load objects necessary for prediction and explanations
     try:
         scaler_ct = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
@@ -101,7 +105,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     # Add model's prediction of centroids (classes and prediction probabilities) to the DataFrame
     predicted_classes = []
     prediction_probs = []
-    print("Obtaining model's predictions for cluster centroids.\n")
+    print("Obtaining model's predictions for cluster centroids.")
     for i in tqdm(range(len(cluster_centroids))):
         x = np.expand_dims(cluster_centroids[i], axis=0)
         y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct).T, axis=1)  # Predict centroid
@@ -118,7 +122,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
         exp_rows = []
         explanations = []
-        print('Creating explanations for cluster centroids.\n')
+        print('Creating explanations for cluster centroids.')
         for i in tqdm(range(cluster_centroids.shape[0])):
             row = []
             exp = predict_and_explain(cluster_centroids[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
@@ -134,9 +138,6 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
             exp_col_names.extend(['Explanation ' + str(i + 1), 'Weight ' + str(i + 1)])
         exp_df = pd.DataFrame(exp_rows, columns=exp_col_names)
         centroids_df = pd.concat([centroids_df, exp_df], axis=1, sort=False)    # Concatenate client features and explanations
-
-        # Get fraction of clients in each cluster
-        cluster_freqs = np.bincount(client_clusters) / float(client_clusters.shape[0])
 
         # Visualize clusters' LIME explanations
         predictions = centroids_df[['At risk of chronic homelessness', 'Probability of chronic homelessness [%]']].to_numpy()
