@@ -2,7 +2,7 @@ import random
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.externals.joblib import dump
+from joblib import dump
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model

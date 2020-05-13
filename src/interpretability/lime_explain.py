@@ -10,7 +10,7 @@ from src.interpretability.lime_tabular import LimeTabularExplainer
 from src.interpretability.submodular_pick import SubmodularPick
 #from lime.lime_tabular import LimeTabularExplainer
 #from lime.submodular_pick import SubmodularPick
-from sklearn.externals.joblib import load
+from joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations, visualize_submodular_pick
 

@@ -6,7 +6,7 @@ import numpy as np
 import scipy as sp
 from tqdm import tqdm
 from datetime import datetime
-from sklearn.externals.joblib import load
+from joblib import load
 from tensorflow.keras.models import load_model
 from src.data.preprocess import preprocess
 from src.interpretability.lime_explain import predict_and_explain, predict_instance

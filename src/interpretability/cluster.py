@@ -8,7 +8,7 @@ from datetime import datetime
 from kmodes.kprototypes import KPrototypes
 from kmodes.util.dissim import euclidean_dissim, matching_dissim
 from tensorflow.keras.models import load_model
-from sklearn.externals.joblib import load
+from joblib import load
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
