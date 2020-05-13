@@ -1,14 +1,5 @@
 import numpy as np
 import warnings
-from tqdm import tqdm
-
-'''
-***********************************************************************************************************************
-This file is the modified version of submodular_pick.py from the lime package.
-Modifications were made because out-of-memory errors were occurring when conducting submodular pick with a sample size
-of > 80. For now, the fix is resetting irrelevant yet large members of Explanation objects.
-***********************************************************************************************************************
-'''
 
 
 class SubmodularPick(object):
@@ -62,28 +53,26 @@ class SubmodularPick(object):
             del kwargs['top_labels']
         # Parse args
         if method == 'sample':
-            if sample_size > len(data):
+            if sample_size > data.shape[0]:
                 warnings.warn("""Requested sample size larger than
                               size of input data. Using all data""")
-                sample_size = len(data)
-            all_indices = np.arange(len(data))
+                sample_size = data.shape[0]
+            all_indices = np.arange(data.shape[0])
             np.random.shuffle(all_indices)
             sample_indices = all_indices[:sample_size]
         elif method == 'full':
-            sample_indices = np.arange(len(data))
+            sample_indices = np.arange(data.shape[0])
         else:
             raise ValueError('Method must be \'sample\' or \'full\'')
 
         # Generate Explanations
         self.explanations = []
-        for i in tqdm(sample_indices):
-            exp = explainer.explain_instance(
+        for i in sample_indices:
+            self.explanations.append(
+                explainer.explain_instance(
                     data[i], predict_fn, num_features=num_features,
                     top_labels=top_labels,
-                    **kwargs)
-            exp.scaled_data = np.zeros((1))
-            exp.domain_mapper.scaled_row = np.zeros((1))
-            self.explanations.append(exp)
+                    **kwargs))
         # Error handling
         try:
             num_exps_desired = int(num_exps_desired)

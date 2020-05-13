@@ -7,7 +7,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: 'data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/'
-  MODEL_TO_LOAD: 'results/models/model.h5'
+  MODEL_TO_LOAD: 'results/models/model20200508-123846.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
@@ -29,7 +29,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
-  GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
+  GROUND_TRUTH_DATE: '2020-05-04'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
@@ -75,10 +75,10 @@ NN:
     NODES:
       DENSE0: 80
       DENSE1: 60
-    LAYERS: 4
+    LAYERS: 3
     L2_LAMBDA: 0.01
     DROPOUT: 0.35
-    LR: 0.0003
+    LR: 0.0001
 
 # Training
 TRAIN:
@@ -117,10 +117,10 @@ LIME:
   KERNEL_WIDTH: 2.5
   FEATURE_SELECTION: 'lasso_path'
   NUM_FEATURES: 15
-  NUM_SAMPLES: 85000
+  NUM_SAMPLES: 60000
   MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_FRACTION: 1.0
+    SAMPLE_FRACTION: 0.05
     NUM_EXPLANATIONS: 15
 
 # Predictive horizon search experiment

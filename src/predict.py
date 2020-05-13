@@ -3,6 +3,7 @@ import yaml
 import os
 import dill
 import numpy as np
+import scipy as sp
 from tqdm import tqdm
 from datetime import datetime
 from sklearn.externals.joblib import load
@@ -44,6 +45,10 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
                           data_path=data_path)
         client_ids = np.array(df.index)
 
+    # Ensure DataFrame does not contain ground truth (could happen if custom preprocessed data is passed)
+    if 'GroundTruth' in df.columns:
+        df.drop('GroundTruth', axis=1, inplace=True)
+
     # Load feature mapping information (from preprocessing)
     data_info = yaml.full_load(open(cfg['PATHS']['DATA_INFO'], 'r'))
 
@@ -79,7 +84,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
 
     # Predict and explain all items in dataset
     print('Predicting and explaining examples.')
-    for i in tqdm(range(X.shape[0])):
+    for i in tqdm(X.shape[0]):
 
         # Predict this example
         x = np.expand_dims(X[i], axis=0)
@@ -90,7 +95,8 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
 
         # Explain this prediction
         if give_explanations:
-            explanation = predict_and_explain(X[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
+            x = sp.sparse.csr_matrix(X[i])
+            explanation = predict_and_explain(x, model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
             exp_tuples = explanation.as_list()
             for exp_tuple in exp_tuples:
                 row.extend(list(exp_tuple))

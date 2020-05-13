@@ -98,10 +98,10 @@ def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     cat_value_names = {}  # Dictionary of categorical feature indices and corresponding names of feature values
     if load_ct:
         col_trans_ordinal = load(config['PATHS']['ORDINAL_COL_TRANSFORMER'])
-        df[sv_cat_features] = col_trans_ordinal.transform(df) - 1
+        df[sv_cat_features] = col_trans_ordinal.transform(df)
     else:
         col_trans_ordinal = ColumnTransformer(transformers=[('col_trans_ordinal', OrdinalEncoder(handle_unknown='value'), sv_cat_features)])
-        df[sv_cat_features] = col_trans_ordinal.fit_transform(df) - 1   # Want integer representation of features to start at 0
+        df[sv_cat_features] = col_trans_ordinal.fit_transform(df)   # Want integer representation of features to start at 0
         dump(col_trans_ordinal, config['PATHS']['ORDINAL_COL_TRANSFORMER'], compress=True)  # Save the column transformer
 
     # Preserve named values of each categorical feature
@@ -138,6 +138,8 @@ def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     data_info['SV_CAT_FEATURES'] = sv_cat_features
     data_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
     data_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
+    for i in range(len(sv_cat_features)):
+        cat_value_names[cat_feature_idxs[i]].insert(0, 'DUMMY_VAL')
     data_info['SV_CAT_VALUES'] = cat_value_names
     return df, df_ohe, data_info
 
