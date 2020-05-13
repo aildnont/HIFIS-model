@@ -138,6 +138,8 @@ def vec_single_value_cat_features(df, sv_cat_features, config, load_ct=False):
     data_info['SV_CAT_FEATURES'] = sv_cat_features
     data_info['VEC_SV_CAT_FEATURES'] = vec_sv_cat_features
     data_info['SV_CAT_FEATURE_IDXS'] = cat_feature_idxs
+
+    # To use sparse matrices in LIME, ordinal encoded values must start at 1. Add dummy value to MV categorical features name lists.
     for i in range(len(sv_cat_features)):
         cat_value_names[cat_feature_idxs[i]].insert(0, 'DUMMY_VAL')
     data_info['SV_CAT_VALUES'] = cat_value_names
