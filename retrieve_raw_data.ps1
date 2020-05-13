@@ -3,9 +3,9 @@
 ##   Script to export HIFIS Data for consumption by Azure Machine Learning Studio
 ##
 ##
-##   This script will run the SQLCMD utility to generate two CSV files
+##   This script will run the SQLPS commands to generate two CSV files for upload to azure blob storage
 ##   Source SQL Scripts are found in the src\data\queries folder
-##   csv files are saved to the data\raw\ folder.
+##   csv files are saved to data\raw\ folder.
 ##
 ##   CSV files are uploaded to Azure Blob storage for consumption by Azure Machine Learning Studio.
 ##
@@ -17,7 +17,7 @@ Import-Module SQLPS -DisableNameChecking
 $VerbosePreference = "SilentlyContinue"
 
 ## Database Instance Name. Place it in the following line.
-$instanceName = [DatabaseInstanceName] 
+$instanceName = "[INSTANCE NAME\DATABASE NAME]"
 
 # SQL Scripts
 $clientScript = "src\data\queries\client_export.sql"
@@ -46,7 +46,6 @@ If ((Test-Path -Path $clientOutputFile) -and (Test-Path -Path $spdatOutputFile))
     # Managed identities for Azure resources provides Azure services with an automatically managed identity in Azure Active Directory. 
     # You can use this identity to authenticate to any service that supports Azure AD authentication, without having credentials in your code.
     # https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/qs-configure-portal-windows-vm
-    # https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/tutorial-windows-vm-access-arm
 
     $response = Invoke-WebRequest -Uri 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F' -Method GET -Headers @{Metadata="true"} -UseBasicParsing
 
@@ -57,7 +56,7 @@ If ((Test-Path -Path $clientOutputFile) -and (Test-Path -Path $spdatOutputFile))
     $ArmToken = $content.access_token
 
     # Get Storage Account Keys from Azure Resource Manager
-    $keysResponse = Invoke-WebRequest -Uri https://management.azure.com/subscriptions/<SUBSCRIPTION ID>/resourceGroups/<RESOURCE GROUP NAME>/providers/Microsoft.Storage/storageAccounts/<STORAGE ACCOUNT NAME>/listKeys/?api-version=2016-12-01 -Method POST -Headers @{Authorization="Bearer $ARMToken"} -UseBasicParsing
+    $keysResponse = Invoke-WebRequest -Uri https://management.azure.com/subscriptions/[SUBSCTRIPTION GUID]/resourceGroups/[RESOURCE GROUP NAME]/providers/Microsoft.Storage/storageAccounts/[STORAGE ACCOUNT NAME]/listKeys/?api-version=2016-12-01 -Method POST -Headers @{Authorization="Bearer $ARMToken"} -UseBasicParsing
 
     # Get "Content" element from key response
     $keysContent = $keysResponse.Content | ConvertFrom-Json
@@ -70,10 +69,10 @@ If ((Test-Path -Path $clientOutputFile) -and (Test-Path -Path $spdatOutputFile))
     $ctx = New-AzureStorageContext -StorageAccountName [STORAGE ACCOUNT NAME] -StorageAccountKey $key
 
     # Upload HIFIS_Clients.csv File
-    Set-AzureStorageBlobContent -File $clientOutputFile -Container [CONTAINER NAME] -blob [BLOB NAME] -Context $ctx -Force
+    Set-AzureStorageBlobContent -File $clientOutputFile -Container [CONTAINER NAME] -blob [BLOB FOLDER]/HIFIS_Clients.csv -Context $ctx -Force
 
     # Upload HIFIS_SPDATS.csv File
-    Set-AzureStorageBlobContent -File $spdatOutputFile -Container [CONTAINER NAME] -blob [BLOB NAME] -Context $ctx -Force
+    Set-AzureStorageBlobContent -File $spdatOutputFile -Container [CONTAINER NAME] -blob [BLOB FOLDER]/SPDATS.json -Context $ctx -Force
 
 }
 

@@ -1,5 +1,4 @@
-USE HIFIS
-GO
+-- Azure ML VISPDAT EXPORT
 
 SELECT  
 
