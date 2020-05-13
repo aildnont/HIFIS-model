@@ -84,7 +84,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
 
     # Predict and explain all items in dataset
     print('Predicting and explaining examples.')
-    for i in tqdm(X.shape[0]):
+    for i in tqdm(range(X.shape[0])):
 
         # Predict this example
         x = np.expand_dims(X[i], axis=0)
