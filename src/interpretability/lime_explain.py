@@ -3,9 +3,13 @@ import yaml
 import os
 import datetime
 import dill
+import collections
 import numpy as np
-from lime.lime_tabular import LimeTabularExplainer
+import scipy as sp
+from src.interpretability.lime_tabular import LimeTabularExplainer
 from src.interpretability.submodular_pick import SubmodularPick
+#from lime.lime_tabular import LimeTabularExplainer
+#from lime.submodular_pick import SubmodularPick
 from sklearn.externals.joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations, visualize_submodular_pick
@@ -44,12 +48,93 @@ def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_s
         :param x: List of perturbed examples from an example
         :return: A numpy array constituting a list of class probabilities for each predicted perturbation
         '''
+        if sp.sparse.issparse(x):
+            x = x.toarray()
         probs = predict_instance(x, model, ohe_ct_sv, scaler_ct)
         return probs
 
     # Generate explanation for the example
     explanation = exp.explain_instance(x, predict, num_features=num_features, num_samples=num_samples)
     return explanation
+
+
+def setup_lime(cfg=None):
+    '''
+    Load relevant information and create a LIME Explainer
+    :param: cfg: custom config object
+    :return: dict containing important information and objects for explanation experiments
+    '''
+
+    # Load relevant constants from project config file if custsom config object not supplied
+    if cfg is None:
+        cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    lime_dict = {}
+    lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
+    lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
+    lime_dict['SAMPLE_FRACTION'] = cfg['LIME']['SP']['SAMPLE_FRACTION']
+    lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
+    lime_dict['IMG_PATH'] = cfg['PATHS']['IMAGES']
+    lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
+    lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
+    lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
+    KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
+    FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
+
+    # Load feature information
+    input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
+    cfg_feats = yaml.full_load(input_stream)
+    noncat_features = cfg_feats['NON_CAT_FEATURES']
+    sv_cat_values = cfg_feats['SV_CAT_VALUES']
+
+    # Load train and test sets
+    train_df = pd.read_csv(cfg['PATHS']['TRAIN_SET'])
+    test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
+
+    # Get client IDs and corresponding ground truths
+    Y_train = pd.concat([train_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+
+    # Load data transformers
+    lime_dict['SCALER_CT'] = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
+    lime_dict['OHE_CT_SV'] = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
+
+    # Get indices of categorical and noncategorical featuress
+    noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
+    cat_feat_idxs = [i for i in range(len(test_df.columns)) if i not in noncat_feat_idxs]
+
+    # Convert datasets to numpy arrays
+    lime_dict['X_TRAIN'] = np.array(train_df)
+    lime_dict['X_TEST'] = np.array(test_df)
+
+    # Define the LIME explainer
+    train_labels = Y_train['GroundTruth'].to_numpy()
+    feature_names = train_df.columns.tolist()
+
+    # Get training data stats
+    training_data_stats = {'means': {}, 'mins': {}, 'maxs': {}, 'stds': {}, 'feature_values': {}, 'feature_frequencies': {}}
+    for i in range(len(feature_names)):
+        training_data_stats['means'][i] = np.mean(lime_dict['X_TRAIN'][:,i])
+        training_data_stats['mins'][i] = np.min(lime_dict['X_TRAIN'][:, i])
+        training_data_stats['maxs'][i] = np.max(lime_dict['X_TRAIN'][:, i])
+        training_data_stats['stds'][i] = np.std(lime_dict['X_TRAIN'][:, i])
+        values, frequencies = map(list, zip(*(sorted(collections.Counter(lime_dict['X_TRAIN'][:, i]).items()))))
+        training_data_stats['feature_values'][i] = values
+        training_data_stats['feature_frequencies'][i] = frequencies
+
+    # Convert to sparse matrices
+    lime_dict['X_TRAIN'] = sp.sparse.csr_matrix(lime_dict['X_TRAIN'])
+    lime_dict['X_TEST'] = sp.sparse.csr_matrix(lime_dict['X_TEST'])
+
+    lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['0', '1'],
+                                    categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
+                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='decile',
+                                    discretize_continuous=True)
+    dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
+
+    # Load trained model's weights
+    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
+    return lime_dict
+
 
 def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, num_features, num_samples, file_path, all=False):
     '''
@@ -122,69 +207,6 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
     return results_df
 
 
-def setup_lime(cfg=None):
-    '''
-    Load relevant information and create a LIME Explainer
-    :param: cfg: custom config object
-    :return: dict containing important information and objects for explanation experiments
-    '''
-
-    # Load relevant constants from project config file if custsom config object not supplied
-    if cfg is None:
-        cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
-    lime_dict = {}
-    lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
-    lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
-    lime_dict['SAMPLE_FRACTION'] = cfg['LIME']['SP']['SAMPLE_FRACTION']
-    lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
-    lime_dict['IMG_PATH'] = cfg['PATHS']['IMAGES']
-    lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
-    lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
-    lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
-    KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
-    FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
-
-    # Load feature information
-    input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
-    cfg_feats = yaml.full_load(input_stream)
-    noncat_features = cfg_feats['NON_CAT_FEATURES']
-    sv_cat_values = cfg_feats['SV_CAT_VALUES']
-
-    # Load train and test sets
-    train_df = pd.read_csv(cfg['PATHS']['TRAIN_SET'])
-    test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
-
-    # Get client IDs and corresponding ground truths
-    Y_train = pd.concat([train_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
-    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
-
-    # Load data transformers
-    lime_dict['SCALER_CT'] = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
-    lime_dict['OHE_CT_SV'] = load(cfg['PATHS']['OHE_COL_TRANSFORMER_SV'])
-
-    # Get indices of categorical and noncategorical featuress
-    noncat_feat_idxs = [test_df.columns.get_loc(c) for c in noncat_features if c in test_df]
-    cat_feat_idxs = [i for i in range(len(test_df.columns)) if i not in noncat_feat_idxs]
-
-    # Convert datasets to numpy arrays
-    X_train = np.array(train_df)
-    lime_dict['X_TRAIN'] = X_train
-    lime_dict['X_TEST'] = np.array(test_df)
-
-    # Define the LIME explainer
-    train_labels = Y_train['GroundTruth'].to_numpy()
-    feature_names = train_df.columns.tolist()
-
-    lime_dict['EXPLAINER'] = LimeTabularExplainer(X_train, feature_names=feature_names, class_names=['0', '1'],
-                                    categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='decile')
-    dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
-
-    # Load trained model's weights
-    lime_dict['MODEL'] = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
-    return lime_dict
-
-
 def submodular_pick(lime_dict, file_path=None):
     '''
     Perform submodular pick on the training set to approximate global explanations for the model.
@@ -198,6 +220,8 @@ def submodular_pick(lime_dict, file_path=None):
         :param x: List of perturbed examples from an example
         :return: A numpy array constituting a list of class probabilities for each predicted perturbation
         '''
+        if sp.sparse.issparse(x):
+            x = x.toarray()
         probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'])
         return probs
 
@@ -273,6 +297,6 @@ def run_lime_experiment_and_visualize(lime_dict):
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
-    explain_single_client(lime_dict, 00000)    # Replace with Client ID from a client in test set
+    explain_single_client(lime_dict, 86182)    # Replace with Client ID from a client in test set
     #run_lime_experiment_and_visualize(lime_dict)
     #submodular_pick(lime_dict)
