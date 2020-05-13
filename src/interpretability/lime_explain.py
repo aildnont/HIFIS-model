@@ -299,7 +299,13 @@ def run_lime_experiment_and_visualize(lime_dict):
     return
 
 if __name__ == '__main__':
-    lime_dict = setup_lime()
-    #explain_single_client(lime_dict, 86182)    # Replace with Client ID from a client in test set
-    run_lime_experiment_and_visualize(lime_dict)
-    #submodular_pick(lime_dict)
+    cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    lime_dict = setup_lime(cfg)
+    client_id = 00000
+    if cfg['LIME']['EXPERIMENT'] == 'submodular_pick':
+        submodular_pick(lime_dict)
+    elif cfg['LIME']['EXPERIMENT'] == 'lime_experiment':
+        run_lime_experiment_and_visualize(lime_dict)
+    else:
+        client_id = 00000    # <-- Replace with Client ID from a client in test set
+        explain_single_client(lime_dict, client_id)

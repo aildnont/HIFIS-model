@@ -184,7 +184,10 @@ def silhouette_analysis(k_min=2, k_max=20):
 
 
 if __name__ == '__main__':
-    cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
-    #optimal_k = silhouette_analysis(k_min=2, k_max=20)
+    cfg = yaml.full_load(open("./config.yml", 'r'))
+    if cfg['K-PROTOTYPES']['EXPERIMENT'] == 'cluster_clients':
+        cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
+    else:
+        optimal_k = silhouette_analysis(k_min=cfg['K-PROTOTYPES']['K_MIN'], k_max=cfg['K-PROTOTYPES']['K_MAX'])
 
 

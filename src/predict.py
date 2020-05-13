@@ -147,10 +147,9 @@ def trending_prediction(data_path=None):
 
 
 if __name__ == '__main__':
-    #results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True, include_feat_values=True)
-    #trending_prediction(data_path=None)
     cfg = yaml.full_load(open("./config.yml", 'r'))
-    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])
-    results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
-                            include_feat_values=True,
-                            processed_df=df)
+    if cfg['PREDICTION']['EXPERIMENT'] == 'trending_prediction':
+        trending_prediction(data_path=None)
+    else:
+        results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
+                                include_feat_values=True)
