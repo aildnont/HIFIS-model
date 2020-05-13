@@ -107,10 +107,11 @@ you care about optimizing.
    [Train a model and visualize results](#train-a-model-and-visualize-results).
 2. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
    _'multi_train'_.
-3. Decide which metric you would like to optimize. In
-   [config.yml](config.yml), set _METRIC_MONITOR_ within _TRAIN_ to your
-   chosen metric. For example, if you decide to select the model with
-   the best recall on the test set, set this field to _'recall'_.
+3. Decide which metrics you would like to optimize and in what order. In
+   [config.yml](config.yml), set _METRIC_PREFERENCE_ within _TRAIN_ to
+   your chosen metrics, in order from most to least important. For
+   example, if you decide to select the model with the best recall on
+   the test set, set the first element in this field to _'recall'_.
 4. Decide how many models you wish to train. In
    [config.yml](config.yml), set _NUM_RUNS_ within _TRAIN_ to your
    chosen number of training sessions. For example, if you wish to train
@@ -376,17 +377,20 @@ for details on how to accomplish this:
 
 ### Client Clustering Experiment (Using K-Prototypes)
 We were interested in investigating whether HIFIS client data could be
-clustered. Since HIFIS consists of numerical and categorical data and in
-the spirit of minimizing time complexity,
+clustered. Since HIFIS consists of numerical and categorical data, and
+in the spirit of minimizing time complexity,
 [k-prototypes](https://www.semanticscholar.org/paper/CLUSTERING-LARGE-DATA-SETS-WITH-MIXED-NUMERIC-AND-Huang/d42bb5ad2d03be6d8fefa63d25d02c0711d19728)
 was selected as the clustering algorithm. We wish to acknowledge Nico de
 Vos, as we made use of his
 [implementation](https://github.com/nicodv/kmodes) of k-prototypes. This
-experiment runs k-prototypes a series of times and selects the set of
-clusters with the best results (i.e. least average dissimilarity between
-clients and cluster centroids). By following the steps below, you can
-cluster clients into a desired number of clusters, examine the clusters'
-centroids, and view LIME explanations of these centroids.
+experiment runs k-prototypes a series of times and selects the best
+clustering (i.e. least average dissimilarity between clients and their
+assigned clusters' centroids). Our intention is that by examining
+clusters and obtaining their LIME explanations, one can gain further
+insight into patterns in the data and how the model behaves in different
+scenarios. By following the steps below, you can cluster clients into a
+desired number of clusters, examine the clusters' centroids, and view
+LIME explanations of these centroids.
 1. Ensure that you have already run
    _[lime_explain.py](src/interpretability/lime_explain.py)_ after
    training your model, as it will have generated and saved a LIME
@@ -410,6 +414,30 @@ centroids, and view LIME explanations of these centroids.
    3. A graphic depicting the LIME explanations of all centroids will be
       located at _documents/generated_images/_, and it will be called
       _centroid_explanations_yyyymmdd-hhmmss.png_.
+
+A tradeoff for the efficiency of k-prototypes is the fact that the
+number of clusters must be specified a priori. In an attempt to
+determine the optimal number of clusters, the
+[Average Silhouette Method](https://uc-r.github.io/kmeans_clustering#silo)
+was implemented. During this procedure, different clusterings are
+computed for a range of values of _k_. A graph is produced that plots
+average Silhouette Score versus _k_. The higher average Silhouette Score
+is, the more optimal _k_ is. To run this experiment, see the below
+steps.
+1. Follow steps 1 and 2 as outlined above in the clustering
+   instructions.
+2. In the _main_ function of
+   _[cluster.py](src/interpretability/cluster.py)_, ensure that
+   ```optimal_k = silhouette_analysis(k_min=2, k_max=20)``` is
+   uncommented. You may wish to comment out other calls here, for now.
+   Values of _k_ in the integer range of _[k_min, k_max]_ will be
+   investigated.
+3. Run _[cluster.py](src/interpretability/cluster.py)_. An image
+   depicting a graph of average Silhouette Score versus _k_ will be
+   saved to _documents/generated_images/_, and it will be called
+   _silhouette_plot_yyyymmdd-hhmmss.png_. Upon visualizing this graph,
+   note that a larger average Silhouette Score implies a more quality
+   clustering.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
@@ -446,7 +474,9 @@ packages.
 |   |   └── spdat.py              <- SPDAT data preprocessing script
 │   ├── interpretability          <- Model interpretability scripts
 |   |   ├── cluster.py            <- Script for learning client clusters
+|   |   ├── lime_base.py          <- Modified version of file taken from lime package
 |   |   ├── lime_explain.py       <- Script for generating LIME explanations
+|   |   ├── lime_tabular.py       <- Modified version of file taken from lime package
 |   |   └── submodular_pick.py    <- Modified version of file taken from lime package
 │   ├── models                    <- TensorFlow model definitions
 |   |   └── models.py             <- Script containing model definition
@@ -564,9 +594,11 @@ below.
 - **EXPERIMENT_TYPE**: The type of training experiment you would like to
   perform if executing [_train.py_](src/train.py). Choices are
   _'single_train'_, _'multi_train'_, or _'hparam_search'_.
-- **METRIC_MONITOR**: The metric to monitor when training multiple
-  models serially (i.e. the _'multi_train'_ experiment in
-  [_train.py_](src/train.py))
+- **METRIC_PREFERENCE**: A list of metrics in order of importance (from
+  left to right) to guide selection of the best model after training
+  multiple models in series (i.e. the
+  [_'multi_train'_](#train-multiple-models-and-save-the-best-one)
+  experiment in [_train.py_](src/train.py))
 - **NUM_RUNS**: The number of times to train a model in the
   _'multi_train'_ experiment
 - **THRESHOLDS**: A single float or list of floats in range [0, 1]
@@ -699,6 +731,11 @@ Information Technology Services, City Manager’s Office
 City of London  
 Suite 300 - 201 Queens Ave, London, ON. N6A 1J1  
 maross@london.ca
+
+**Blake VanBerlo**  
+Owner  
+VanBerlo Consulting  
+vanberloblake@gmail.com
 
 
 

@@ -20,7 +20,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     :param k: Desired number of clusters
     :param save_centroids: Boolean indicating whether to save cluster centroids
     :param save_clusters: Boolean indicating whether to save client cluster assignments
-    :param explain_centroids:
+    :param explain_centroids: Boolean indicating whether to compute LIME explanations for cluster centroids
     :return: A KPrototypes object that describes the best clustering of all the runs
     '''
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -152,7 +152,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     if save_clusters:
         clusters_df.to_csv(cfg['PATHS']['K-PROTOTYPES_CLUSTERS'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
                            index_label=False, index=False)
-    return k_prototypes
+    return
 
 
 def silhouette_analysis(k_min=2, k_max=20):
@@ -184,7 +184,7 @@ def silhouette_analysis(k_min=2, k_max=20):
 
 
 if __name__ == '__main__':
-    d = cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
+    cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
     #optimal_k = silhouette_analysis(k_min=2, k_max=20)
 
 
