@@ -162,8 +162,11 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
 
     # Make predictions on the test set. Explain every positive prediction and some negative predictions
     rows = []
-    for i in range(X_test.shape[0]):
-        x = np.expand_dims(X_test[i], axis=0)
+    n_examples = X_test.shape[0]
+    for i in range(n_examples):
+        x = X_test[i]
+        if sp.sparse.issparse(x):
+            x = x.toarray()
         y = np.squeeze(predict_instance(x, model, ohe_ct, scaler_ct).T, axis=1)     # Predict example
         pred = 1 if y[1] >= threshold else 0        # Model's classification
         client_id = Y_test.index[i]
@@ -181,7 +184,7 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
 
         # Explain this example.
         if (pred == 1) or (gt == 1) or (pos_exp_counter >= NEG_EXP_PERIOD) or all:
-            print('Explaining test example ', i, '/', X_test.shape[0])
+            print('Explaining test example ', i, '/', n_examples)
             row = [client_id, gt, pred, classification, y[0], y[1]]
 
             # Explain this prediction
@@ -271,7 +274,7 @@ def explain_single_client(lime_dict, client_id):
     '''
     # Make a prediction and explain the rationale
     :param lime_dict: dict containing important information and objects for explanation experiments
-    :param client_id: Client to predict and explain
+    :param client_id: a Client ID (integer) from the test set to predict and explain
     '''
     i = lime_dict['Y_TEST'].index.get_loc(client_id)
     start_time = datetime.datetime.now()
@@ -297,6 +300,6 @@ def run_lime_experiment_and_visualize(lime_dict):
 
 if __name__ == '__main__':
     lime_dict = setup_lime()
-    explain_single_client(lime_dict, 86182)    # Replace with Client ID from a client in test set
-    #run_lime_experiment_and_visualize(lime_dict)
+    #explain_single_client(lime_dict, 86182)    # Replace with Client ID from a client in test set
+    run_lime_experiment_and_visualize(lime_dict)
     #submodular_pick(lime_dict)

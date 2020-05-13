@@ -5,12 +5,10 @@ joblib==0.14.1
 kmodes==0.10.2
 imbalanced_learn==0.6.1
 tensorboard==2.0.2
-azureml_widgets==1.2.0
 dill==0.3.0
 tqdm==4.40.2
 pandas==0.25.3
 matplotlib==3.1.1
-sendgrid==6.3.0
 numpy==1.17.4
 scipy==1.4.1
 category_encoders==2.1.0
