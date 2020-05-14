@@ -301,7 +301,6 @@ def run_lime_experiment_and_visualize(lime_dict):
 if __name__ == '__main__':
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     lime_dict = setup_lime(cfg)
-    client_id = 00000
     if cfg['LIME']['EXPERIMENT'] == 'submodular_pick':
         submodular_pick(lime_dict)
     elif cfg['LIME']['EXPERIMENT'] == 'lime_experiment':
