@@ -152,7 +152,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     if save_clusters:
         clusters_df.to_csv(cfg['PATHS']['K-PROTOTYPES_CLUSTERS'] + datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',
                            index_label=False, index=False)
-    return
+    return k_prototypes
 
 
 def silhouette_analysis(k_min=2, k_max=20):
@@ -186,7 +186,7 @@ def silhouette_analysis(k_min=2, k_max=20):
 if __name__ == '__main__':
     cfg = yaml.full_load(open("./config.yml", 'r'))
     if cfg['K-PROTOTYPES']['EXPERIMENT'] == 'cluster_clients':
-        cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
+        _ = cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
     else:
         optimal_k = silhouette_analysis(k_min=cfg['K-PROTOTYPES']['K_MIN'], k_max=cfg['K-PROTOTYPES']['K_MAX'])
 
