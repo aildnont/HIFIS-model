@@ -36,7 +36,7 @@ if os.path.exists(raw_data_info_path):
 else:
     raw_data_info = {'N_ROWS': raw_df.shape[0], 'N_COLS': raw_df.shape[1]}
 
-check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # Maximum for training set records
+check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # 1 week ago from today
 raw_df['ServiceStartDate'] = pd.to_datetime(raw_df['ServiceStartDate'], errors='coerce')
 recent_df = raw_df[raw_df['ServiceStartDate'] > check_date]               # Get rows with service occurring in last week
 failure_msg = ''
