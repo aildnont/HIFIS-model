@@ -30,7 +30,7 @@ cfg['PATHS']['GROUND_TRUTH'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['
 raw_df = pd.read_csv(cfg['PATHS']['RAW_DATA'], encoding="ISO-8859-1", low_memory=False)
 
 # Load meta-info from the last retrieved snapshot of raw HIFIS data
-raw_data_info_path = args.inferencedatadir + '/raw_data_info.yml'
+raw_data_info_path = args.inferencedir + '/raw_data_info.yml'
 if os.path.exists(raw_data_info_path):
     raw_data_info = yaml.full_load(open(raw_data_info_path, 'r'))  # Load config data
 else:
