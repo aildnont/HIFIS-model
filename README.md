@@ -3,20 +3,27 @@
 explanation") ![alt text](documents/readme_images/hifis_logo.png "A
 sample LIME explanation")
 
-The purpose of this project is deliver a machine
-learning solution to assist in identifying individuals at risk of
-chronic homelessness. A model was built for the Homeless Prevention division of the City of London, Ontario, Canada. This work was led by the Artificial Intelligence Research and Development Lab out of the Information Technology Services division. This repository
-contains the code used to train a neural network model to classify
-clients in the city's [Homeless Individuals and Families Information
+The purpose of this project is deliver a machine learning solution to
+assist in identifying individuals at risk of chronic homelessness. A
+model was built for the Homeless Prevention division of the City of
+London, Ontario, Canada. This work was led by the Artificial
+Intelligence Research and Development Lab out of the Information
+Technology Services division. This repository contains the code used to
+train a neural network model to classify clients in the city's
+[Homeless Individuals and Families Information
 System](https://www.canada.ca/en/employment-social-development/programs/homelessness/hifis.html)
 (HIFIS) database as either at risk or not at risk of chronic
-homelessness within a specified predictive horizon. In an effort to build AI ethically and 
-anticipate forthcoming federal and provincial regulation of automated
-decision-making systems, this repository applies interpretability and
-bias-reducing methods to explain the model's predictions. The model also employs functionality to enable ease of client record removal, entire feature removal and audit trails to facilitate appeals and other data governance processes.  This
-repository is intended to serve as a turnkey template for other
-municipalities using the HIFIS application and HIFIS database schema who wish to explore the
-application of this model in their own locales.
+homelessness within a specified predictive horizon. In an effort to
+build AI ethically and anticipate forthcoming federal and provincial
+regulation of automated decision-making systems, this repository applies
+interpretability and bias-reducing methods to explain the model's
+predictions. The model also employs functionality to enable ease of
+client record removal, entire feature removal and audit trails to
+facilitate appeals and other data governance processes. This repository
+is intended to serve as a turnkey template for other municipalities
+using the HIFIS application and HIFIS database schema who wish to
+explore the application of this model in their own locales. This model
+was built using data from HIFIS 4.0.57.30.
 
 ## Getting Started
 1. Clone this repository (for help see this
