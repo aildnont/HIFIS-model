@@ -1,6 +1,7 @@
+-- Azure ML Client Export
+
 USE HIFIS
 GO
-
 
 ;WITH Consent AS(
 
@@ -35,6 +36,8 @@ SELECT
 	HousePlacementID,
 	PrimaryClientID,
 	MovedInDate
+--INTO
+--	HousingPlacements
 FROM
 (
 	SELECT 
@@ -62,28 +65,31 @@ Families AS
 (
 
 	SELECT  
-		pg.PeopleGroupID,
-		pg.[GroupID], 
-		pg.[DateEnd], 
-		pg.[DateStart], 
-		pg.[GroupRoleTypeID], 
-		pg.[GroupHeadYN], 
-		pg.[ServiceFee], 
-		pg.[EmergencyContactYN], 
-		pg.[PeopleRelationshipTypeID], 
-		pg.[HifisRowVersion], 
-		pg.[PersonID], 
-		pg.[CreatedDate], 
-		pg.[LastUpdatedDate], 
-		pg.[LastUpdatedBy], 
-		pg.[CreatedBy],
-		prt.NameE as RelationshipType
-	FROM
-		HIFIS_People_Groups pg
-		INNER JOIN HIFIS_Groups g ON g.GroupID = pg.GroupID
-		INNER JOIN HIFIS_PeopleRelationshipTypes prt ON prt.id = pg.PeopleRelationshipTypeID
-	WHERE 
-		( EXISTS 
+    pg.PeopleGroupID,
+    pg.[GroupID], 
+    pg.[DateEnd], 
+    pg.[DateStart], 
+    pg.[GroupRoleTypeID], 
+    pg.[GroupHeadYN], 
+    pg.[ServiceFee], 
+    pg.[EmergencyContactYN], 
+    pg.[PeopleRelationshipTypeID], 
+    pg.[HifisRowVersion], 
+    pg.[PersonID], 
+    pg.[CreatedDate], 
+    pg.[LastUpdatedDate], 
+    pg.[LastUpdatedBy], 
+    pg.[CreatedBy],
+	prt.NameE as RelationshipType
+--INTO 
+--	#FAMILIES
+FROM
+	HIFIS_People_Groups pg
+    INNER JOIN HIFIS_Groups g ON g.GroupID = pg.GroupID
+	INNER JOIN HIFIS_PeopleRelationshipTypes prt ON prt.id = pg.PeopleRelationshipTypeID
+	
+WHERE 
+( EXISTS 
 		(	-- role type 11 = clients
 			SELECT 
 			1 AS [C1]
@@ -105,6 +111,10 @@ Families AS
 		(g.DateEnd > GetDate())
 	) 
 	AND pg.GroupRoleTypeID <> 9
+	
+
+
+
 
 ),
 Incomes
@@ -113,6 +123,7 @@ AS
 		SELECT * FROM
 		(
 			SELECT
+				--ROW_NUMBER() OVER (PARTITION BY HIFIS_ClientINComes.clientID,HIFIS_ClientIncomes.IncomeTypeID ORDER BY DateStart DESC) as RowNumber,
 				ci.ClientID,
 				IncomeTypeID,
 				ClientIncomeID,
@@ -126,7 +137,9 @@ AS
 				INNER JOIN HIFIS_IncomeTypes it ON it.ID = ci.incomeTypeID
 			WHERE 
 				ci.createdDate IS NULL
-			
+			--AND
+			--	ClientIncomeID NOT IN (Select ClientIncomeID FROM CTE)
+
 		) t
 
 ),
@@ -134,81 +147,83 @@ AS
 Expenses AS
 (
 	SELECT 
-		ce.ClientExpenseID,
-		ce.ClientID,
-		ce.ExpenseTypeID,
-		ExpenseType = et.NameE,
-		ce.DateStart,
-		ce.DateEnd,
-		ce.PayFrequencyTypeID,
-		ExpenseFrequency = pft.NameE,
-		ce.ExpenseAmount,
-		ce.IsEssentialYN
+	ce.ClientExpenseID,
+	ce.ClientID,
+	ce.ExpenseTypeID,
+	ExpenseType = et.NameE,
+	ce.DateStart,
+	ce.DateEnd,
+	ce.PayFrequencyTypeID,
+	ExpenseFrequency = pft.NameE,
+	ce.ExpenseAmount,
+	ce.IsEssentialYN
+
+	
 	 FROM 
-		HIFIS_ClientExpenses ce
-		INNER JOIN HIFIS_ExpenseTypes et ON et.ID = ce.ExpenseTypeID 
-		INNER JOIN HIFIS_PayFrequencyTypes pft ON pft.ID = ce.PayFrequencyTypeID
+	HIFIS_ClientExpenses ce
+	INNER JOIN HIFIS_ExpenseTypes et ON et.ID = ce.ExpenseTypeID 
+	INNER JOIN HIFIS_PayFrequencyTypes pft ON pft.ID = ce.PayFrequencyTypeID
 
 ),
 
 HealthIssues AS
 (
-	SELECT 
-		hi.HealthIssueID,
-		hi.ClientID,
-		hi.HealthIssueTypeID,
-		HealthIssue = hit.NameE,
-		DateFrom,
-		DateTo,
-		Description,
-		Symptoms,
-		Medication,
-		Treatment,
-		SelfReportedYN,
-		SuspectedYN,
-		DiagnosedYN,
-		ContagiousYN,
-		hm.MedicationName
-	FROM
-		HIFIS_HealthIssues hi
-		INNER JOIN HIFIS_HealthIssueTypes hit ON hit.ID = hi.HealthIssueTypeID --HIFIS_HealthIssues.HealthIssueTypeID = HIFIS_HealthIssueTypes.ID
-		LEFT OUTER JOIN HIFIS_Medications hm ON hm.HealthIssueId = hi.HealthIssueID --HIFIS_HealthIssues.HealthIssueID = HIFIS_Medications.HealthIssueID
+SELECT 
+hi.HealthIssueID,
+hi.ClientID,
+hi.HealthIssueTypeID,
+HealthIssue = hit.NameE,
+DateFrom,
+DateTo,
+Description,
+Symptoms,
+Medication,
+Treatment,
+SelfReportedYN,
+SuspectedYN,
+DiagnosedYN,
+ContagiousYN,
+hm.MedicationName
+ FROM
+HIFIS_HealthIssues hi
+INNER JOIN HIFIS_HealthIssueTypes hit ON hit.ID = hi.HealthIssueTypeID --HIFIS_HealthIssues.HealthIssueTypeID = HIFIS_HealthIssueTypes.ID
+LEFT OUTER JOIN HIFIS_Medications hm ON hm.HealthIssueId = hi.HealthIssueID --HIFIS_HealthIssues.HealthIssueID = HIFIS_Medications.HealthIssueID
 
 ),
 
 AssestsandLiabilities as
 (
-	SELECT
-		la.LiabilityOrAssetID,
-		la.ClientID,
-		Type='Asset',
-		la.DateStart,
-		la.DateEnd,
-		la.Description,
-		la.Amount,
-		ast.NameE
-	FROM 
-	HIFIS_LiabilitiesOrAssests la
-	LEFT OUTER JOIN HIFIS_AssetTypes  ast ON ast.ID = la.AssetTypeID -- HIFIS_LiabilitiesOrAssests.AssetTypeID = HIFIS_AssetTypes.ID
-	WHERE 
-		AssetTypeID IS NOT NULL
+	select 
+la.LiabilityOrAssetID,
+la.ClientID,
+Type='Asset',
+la.DateStart,
+la.DateEnd,
+la.Description,
+la.Amount,
+ast.NameE
 
-	UNION
+ FROM 
+HIFIS_LiabilitiesOrAssests la
+LEFT OUTER JOIN HIFIS_AssetTypes  ast ON ast.ID = la.AssetTypeID -- HIFIS_LiabilitiesOrAssests.AssetTypeID = HIFIS_AssetTypes.ID
+WHERE AssetTypeID IS NOT NULL
 
-	SELECT
-		la.LiabilityOrAssetID,
-		la.ClientID,
-		Type='Liability',
-		la.DateStart,
-		la.DateEnd,
-		la.Description,
-		la.Amount,
-		lt.NameE
-	FROM 
-		HIFIS_LiabilitiesOrAssests la
-		LEFT OUTER JOIN HIFIS_LiabilityTypes lt ON lt.ID = la.AssetTypeID --HIFIS_LiabilitiesOrAssests.AssetTypeID = HIFIS_LiabilityTypes.ID
-	WHERE 
-		LiabilityTypeID IS NOT NULL
+UNION
+
+select 
+la.LiabilityOrAssetID,
+la.ClientID,
+Type='Liability',
+la.DateStart,
+la.DateEnd,
+la.Description,
+la.Amount,
+lt.NameE
+FROM 
+HIFIS_LiabilitiesOrAssests la
+LEFT OUTER JOIN HIFIS_LiabilityTypes lt ON lt.ID = la.AssetTypeID --HIFIS_LiabilitiesOrAssests.AssetTypeID = HIFIS_LiabilityTypes.ID
+WHERE 
+ LiabilityTypeID IS NOT NULL
 
 ),
 WatchConcerns AS
@@ -227,56 +242,56 @@ WatchConcerns AS
 	FROM 
 		HIFIS_Client_WatchConcerns cwc
 		INNER JOIN HIFIS_WatchConcernTypes wct ON  wct.ID = cwc.WatchConcernTypeID 
-	WHERE 
-		ID = 1000
+		--HIFIS_Client_WatchConcerns.WatchConcernTypeID = HIFIS_WatchConcernTypes.ID
+	WHERE ID = 1000
 ) t
-WHERE 
-	ROW#=1
+WHERE ROW#=1
 	
 ),
 ContributingFactors AS
 (
 	SELECT 
-		cf.ClientContributingFactorID,
-		cf.ClientID,
-		ContributingFactor = cft.NameE,
-		cf.DateStart,
-		cf.DateEnd
-	FROM 
-		HIFIS_Client_ContributingFactor cf
-	INNER JOIN HIFIS_ContributingFactorTypes cft ON cft.ID = cf.ContributingTypeID
+cf.ClientContributingFactorID,
+cf.ClientID,
+ContributingFactor = cft.NameE,
+cf.DateStart,
+cf.DateEnd
 
+ FROM HIFIS_Client_ContributingFactor cf
+INNER JOIN HIFIS_ContributingFactorTypes cft ON cft.ID = cf.ContributingTypeID
+-- HIFIS_Client_ContributingFactor.ContributingTypeID = HIFIS_ContributingFactorTypes.ID
 ),
 BehavioralRiskFactors AS
 (
 
 	SELECT 
-		ClientBehaviouralFactorID,
-		ClientID,
-		BehavioralFactor = bft.NameE,
-		Severity = pt.NameE,
-		DateStart,
-		DateEnd
-	FROM 
-		HIFIS_Client_BehaviouralFactor cbf
-		INNER JOIN HIFIS_BehaviouralFactorTypes bft ON bft.ID = cbf.BehavioralTypeID -- HIFIS_Client_BehaviouralFactor.BehavioralTypeID = HIFIS_BehaviouralFactorTypes.ID
-		INNER JOIN HIFIS_ProbabilityTypes pt ON pt.ID = cbf.probabilityTypeID 
-	
+	ClientBehaviouralFactorID,
+	ClientID,
+	BehavioralFactor = bft.NameE,
+	Severity = pt.NameE,
+	DateStart,
+	DateEnd
+	FROM HIFIS_Client_BehaviouralFactor cbf
+	INNER JOIN HIFIS_BehaviouralFactorTypes bft ON bft.ID = cbf.BehavioralTypeID -- HIFIS_Client_BehaviouralFactor.BehavioralTypeID = HIFIS_BehaviouralFactorTypes.ID
+	INNER JOIN HIFIS_ProbabilityTypes pt ON pt.ID = cbf.probabilityTypeID 
+	-- HIFIS_Client_BehaviouralFactor.ProbabilityTypeID = HIFIS_ProbabilityTypes.ID
+
+
 ),
 LifeEvents AS
 (
 	SELECT 
-		PeopleLifeEventID,
-		PersonID,
-		let.ID,
-		LifeEvent = let.NameE,
-		DateStart,
-		DateEnd
-	FROM
-		HIFIS_People_LifeEvents le
-		INNER JOIN HIFIS_LifeEventsTypes let ON let.ID = le.lifeEventTypeID
-	WHERE 
-		le.LifeEventTypeID <> 1005
+PeopleLifeEventID,
+PersonID,
+let.ID,
+LifeEvent = let.NameE,
+DateStart,
+DateEnd
+FROM
+HIFIS_People_LifeEvents le
+INNER JOIN HIFIS_LifeEventsTypes let ON let.ID = le.lifeEventTypeID
+-- ON HIFIS_People_LifeEvents.LifeEventTypeID = HIFIS_LifeEventsTypes.ID
+WHERE le.LifeEventTypeID <> 1005
 
 )
 ,VISPDATS AS
@@ -284,72 +299,99 @@ LifeEvents AS
 
 (	
 	SELECT  
-		cli.ClientID,
-		ppl.CurrentAge,
-		SPDAT_Type = sit.NameE,
-		PreScreenPeriod = psp.NameE,
-		AssessmentPeriod = apt.NameE,
+			 cli.ClientID,
+			 ppl.CurrentAge,
+			 SPDAT_Type = sit.NameE,
+			 PreScreenPeriod = psp.NameE,
+			 AssessmentPeriod = apt.NameE,
 			 
-		SPDAT_Date = si.StartDateTime,
-		si.LastUpdatedDate,
-		orgs.OrganizationID,
-		orgs.Name as ServiceProvider,
-		ss.TotalScore
-	
-	FROM            
-		HIFIS_SPDAT_Intake si
-		INNER JOIN HIFIS_SPDAT_ScoringSummary ss on ss.intakeID = si.IntakeID
-		INNER JOIN HIFIS_Services serv ON  serv.ServiceID = si.ServiceID
-		INNER JOIN HIFIS_Client_Services cserv ON cserv.serviceID = serv.ServiceID 
-		INNER JOIN HIFIS_Clients cli ON cli.ClientID = cserv.ClientID
-		INNER JOIN HIFIS_People ppl ON ppl.personID = cli.personID 
-		INNER JOIN HIFIS_SPDAT_IntakeTypes sit ON sit.ID = si.IntakeTYpe 
-		INNER JOIN HIFIS_ORganizations orgs ON orgs.OrganizationID = serv.OrganizationID
-		LEFT OUTER JOIN	HIFIS_SPDAT_AssessmentPeriodTypes apt on apt.ID = si.AssessmentPeriodTypeID
-		LEFT OUTER JOIN HIFIS_SPDAT_PreScreenPeriodTypes psp ON psp.ID = si.PreScreenPeriodTypeID
-	WHERE 
-		TOTALSCORE IS NOT NULL
-	AND 
-		cli.ClientStateTypeID = 1
-	AND 
-		orgs.ClusterID = 16
-	AND
-		sit.NameE LIKE '%VI%'
+			 SPDAT_Date = si.StartDateTime,
+			 si.LastUpdatedDate,
+			 orgs.OrganizationID,
+			 orgs.Name as ServiceProvider,
+			 --Questions.AssessmentQuestionID,
+			 --Questions.QuestionE,
+			 --Questions.DescriptionE,
+			 --QA.ScoreValue,
+			 ss.TotalScore
+			--RowNumber = ROW_NUMBER() OVER(PARTITION BY HIFIS_Clients.clientID ORDER BY HIFIS_Clients.ClientID,HIFIS_SPDAT_Intake.LastUpdatedDate DESC)
+		FROM            
+			HIFIS_SPDAT_Intake si
+			INNER JOIN HIFIS_SPDAT_ScoringSummary ss on ss.intakeID = si.IntakeID
+			-- ON HIFIS_SPDAT_Intake.IntakeID = HIFIS_SPDAT_ScoringSummary.IntakeID 
+			INNER JOIN HIFIS_Services serv ON  serv.ServiceID = si.ServiceID
+			--HIFIS_SPDAT_Intake.ServiceID = HIFIS_Services.ServiceID 
+			INNER JOIN HIFIS_Client_Services cserv ON cserv.serviceID = serv.ServiceID 
+			-- HIFIS_Services.ServiceID = HIFIS_Client_Services.ServiceID
+			INNER JOIN HIFIS_Clients cli ON cli.ClientID = cserv.ClientID
+			--HIFIS_Client_Services.ClientID = HIFIS_Clients.ClientID 
+			INNER JOIN HIFIS_People ppl ON ppl.personID = cli.personID 
+			--HIFIS_CLients.PersonID = HIFIS_People.PersonID 
+			INNER JOIN HIFIS_SPDAT_IntakeTypes sit ON sit.ID = si.IntakeTYpe 
+			--HIFIS_SPDAT_Intake.IntakeType = HIFIS_SPDAT_IntakeTypes.ID 
+			INNER JOIN HIFIS_ORganizations orgs ON orgs.OrganizationID = serv.OrganizationID
+			--HIFIS_Services.OrganizationID = HIFIS_Organizations.OrganizationID 
+			LEFT OUTER JOIN	HIFIS_SPDAT_AssessmentPeriodTypes apt on apt.ID = si.AssessmentPeriodTypeID
+			-- ON HIFIS_SPDAT_Intake.AssessmentPeriodTypeID = HIFIS_SPDAT_AssessmentPeriodTypes.ID 
+			LEFT OUTER JOIN HIFIS_SPDAT_PreScreenPeriodTypes psp ON psp.ID = si.PreScreenPeriodTypeID
+			-- HIFIS_SPDAT_Intake.PreScreenPeriodTypeID = HIFIS_SPDAT_PreScreenPeriodTypes.ID
+			--INNER JOIN HIFIS_SPDAT_Intake_QuestionsAnswered QA ON HIFIS_SPDAT_Intake.IntakeID = QA.IntakeID
+			--INNER JOIN HIFIS_SPDAT_AssessmentQuestions Questions ON QA.AssessmentQuestionID = Questions.AssessmentQuestionID
+		WHERE 
+			TOTALSCORE IS NOT NULL
+		--	TotalScore > 8
+		AND 
+			cli.ClientStateTypeID = 1
+		AND 
+			--orgs.OrganizationID IN (SELECT OrganizationID FROM HIFIS_Organizations WHERE ClusterID = 16)
+			orgs.ClusterID = 16
+		AND
+			sit.NameE LIKE '%VI%'
+
+
 
 )
 
 ,Medications AS
 (
-	SELECT 
-		medicationID,
-		ClientID,
-		MedicationName,
-		Dosage,
-		DateStart,
-		DateEnd
-	FROM
-		HIFIS_Medications 
-	WHERE 
-		HealthIssueID IS NULL
+SELECT 
+medicationID,
+ClientID,
+MedicationName,
+Dosage,
+DateStart,
+DateEnd
+
+
+FROM
+HIFIS_Medications 
+WHERE HealthIssueID IS NULL
+
+
 ),
 Diets AS
 (
 	SELECT 
-		cd.ClientDietID,
-		cd.ClientID,
-		DietCatetory = dct.NameE,
-		FoodType = dfi.NameE,
-		cd.AvoidedDietYN
-	 FROM
-	HIFIS_ClientDiets cd
-	INNER JOIN HIFIS_DietCategoryTypes dct ON dct.ID = cd.DietCategoryTypeID
-	INNER JOIN HIFIS_DietFoodItemTypes dfi ON dfi.ID = cd.DietFoodItemTypeID
+cd.ClientDietID,
+cd.ClientID,
+DietCatetory = dct.NameE,
+FoodType = dfi.NameE,
+cd.AvoidedDietYN
+
+ FROM
+HIFIS_ClientDiets cd
+INNER JOIN HIFIS_DietCategoryTypes dct ON dct.ID = cd.DietCategoryTypeID
+-- HIFIS_ClientDiets.DietCategoryTypeID = HIFIS_DietCategoryTypes.ID
+INNER JOIN HIFIS_DietFoodItemTypes dfi ON dfi.ID = cd.DietFoodItemTypeID
+-- HIFIS_ClientDiets.DietFoodItemTypeID = HIFIS_DietFoodItemTypes.ID
+
 )
 
 
 
 
----- MAIN QUERY ------------------------------------------------------------------------
+
+
 
 SELECT 
 
@@ -357,9 +399,11 @@ SELECT
 	cli.ClientID,
 	Consent.ConsentType,
 	FamilyID = Families.GroupID,
+	--Families.PeopleRelationshipTypeID,
 	Families.RelationshipType,
 	ppl.DOB,
 	ppl.CurrentAge,
+	--CurrentAge = DATEDIFF(Day,HIFIS_People.DOB,GetDate()) / 365.2422,
 	Gender = gt.NameE,--  cbas.Gender_En, --Gender_En,
 	AboriginalIndicator = ait.NameE, --serv.AboriginalIndicator_En,
 	Citizenship = ctz.NameE, --serv.Citizenship_En,
@@ -424,10 +468,12 @@ SELECT
 	VISPDATS.TotalScore
 FROM 
 	HIFIS_Services serv
+	--vw_ClientsServices Serv
 	INNER JOIN  HIFIS_Client_Services cserv ON cserv.ServiceID = serv.ServiceID
 	INNER JOIN HIFIS_Clients cli ON cli.ClientID = cserv.ClientID
 	INNER JOIN HIFIS_People ppl ON ppl.PersonID = cli.PersonID
 	INNER JOIN HIFIS_Organizations orgs ON orgs.OrganizationID = serv.OrganizationID
+	--INNER JOIN vw_ClientBasics cbas on cbas.ClientID = cli.clientID
 	INNER JOIN HIFIS_ServiceTypes servTypes ON ServTypes.ID = serv.ServiceTypeID
 	LEFT OUTER JOIN HIFIS_ReasonForServiceTypes rfs on rfs.ID = serv.ReasonForServiceTYpeID
 	INNER JOIN HIFIS_AboriginalIndicatorTypes ait ON  ait.ID = cli.AboriginalIndicatorID
@@ -456,7 +502,9 @@ FROM
 	LEFT OUTER JOIN Diets ON Diets.clientID = cli.ClientID
 	LEFT OUTER JOIN VISPDATS ON VISPDATS.ClientID = cli.ClientID
 WHERE 
-	serv.OrganizationID  IN (SELECT OrganizationID FROM HIFIS_Organizations WHERE ClusterID = 16)
-ORDER BY 
-	ClientID 
+	orgs.ClusterID = 16 -- HIFIS Shared Cluster
+	--serv.OrganizationID  IN (SELECT OrganizationID FROM HIFIS_Organizations WHERE ClusterID = 16)
+	
+
+ORDER BY ClientID 
 

@@ -6,7 +6,7 @@ import numpy as np
 import scipy as sp
 from tqdm import tqdm
 from datetime import datetime
-from sklearn.externals.joblib import load
+from joblib import load
 from tensorflow.keras.models import load_model
 from src.data.preprocess import preprocess
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
@@ -84,7 +84,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
 
     # Predict and explain all items in dataset
     print('Predicting and explaining examples.')
-    for i in tqdm(X.shape[0]):
+    for i in tqdm(range(X.shape[0])):
 
         # Predict this example
         x = np.expand_dims(X[i], axis=0)
@@ -147,10 +147,9 @@ def trending_prediction(data_path=None):
 
 
 if __name__ == '__main__':
-    #results = predict_and_explain_set(data_path=None, save_results=True, give_explanations=True, include_feat_values=True)
-    #trending_prediction(data_path=None)
     cfg = yaml.full_load(open("./config.yml", 'r'))
-    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])
-    results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
-                            include_feat_values=True,
-                            processed_df=df)
+    if cfg['PREDICTION']['EXPERIMENT'] == 'trending_prediction':
+        trending_prediction(data_path=None)
+    else:
+        results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
+                                             include_feat_values=True)

@@ -2,7 +2,7 @@ import random
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.externals.joblib import dump
+from joblib import dump
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
@@ -389,5 +389,5 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
 
 if __name__ == '__main__':
     cfg = yaml.full_load(open("./config.yml", 'r'))
-    train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT_TYPE'], save_weights=True, write_logs=True)
+    train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT'], save_weights=True, write_logs=True)
 

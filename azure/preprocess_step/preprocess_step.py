@@ -26,16 +26,39 @@ cfg['PATHS']['TRAIN_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TRA
 cfg['PATHS']['TEST_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TEST_SET'].split('/')[-1]
 cfg['PATHS']['GROUND_TRUTH'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['GROUND_TRUTH'].split('/')[-1]
 
-# Send email alert if raw data blob has not been updated in over 1 week.
+# A few checks to screen for problems with SQL query that retrieves HIFIS data. In these cases, send alert email.
 raw_df = pd.read_csv(cfg['PATHS']['RAW_DATA'], encoding="ISO-8859-1", low_memory=False)
-check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # Maximum for training set records
+
+# Load meta-info from the last retrieved snapshot of raw HIFIS data
+raw_data_info_path = args.inferencedir + '/raw_data_info.yml'
+if os.path.exists(raw_data_info_path):
+    raw_data_info = yaml.full_load(open(raw_data_info_path, 'r'))  # Load config data
+else:
+    raw_data_info = {'N_ROWS': raw_df.shape[0], 'N_COLS': raw_df.shape[1]}
+
+check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # 1 week ago from today
 raw_df['ServiceStartDate'] = pd.to_datetime(raw_df['ServiceStartDate'], errors='coerce')
-raw_df = raw_df[raw_df['ServiceStartDate'] > check_date]               # Get rows with service occurring in last week
-if raw_df.shape[0] == 0:
+recent_df = raw_df[raw_df['ServiceStartDate'] > check_date]               # Get rows with service occurring in last week
+failure_msg = ''
+if recent_df.shape[0] == 0:
+    failure_msg += 'HIFIS_Clients.csv did not contain any service entries with start dates within the last week.\n'
+if raw_df.shape[0] < raw_data_info['N_ROWS']:
+    failure_msg += 'HIFIS_Clients.csv contains less rows than it did last week.\n'
+if raw_df.shape[1] < raw_data_info['N_COLS']:
+    failure_msg += 'HIFIS_Clients.csv contains less columns than it did last week.\n'
+
+# Update raw data meta-info file
+raw_data_info['N_ROWS'] = raw_df.shape[0]
+raw_data_info['N_COLS'] = raw_df.shape[1]
+with open(raw_data_info_path, 'w') as file:
+    raw_data_info_doc = yaml.dump(raw_data_info, file)
+
+# If necessary, send alert email and trigger pipeline run failure.
+if len(failure_msg) > 0:
+    failure_msg += 'Azure machine learning pipeline run was cancelled. Please check the SQL query.'
     cfg_private = yaml.full_load(open("./config-private.yml", 'r'))  # Load private config data
-    failure_text = 'HIFIS_Clients.csv did not contain any service entries with start dates within the last week. Please check the SQL query.'
     message = Mail(from_email='HIFISModelAlerts@no-reply.ca', to_emails=cfg_private['EMAIL']['TO_EMAILS'],
-                   subject='HIFIS Raw Client Data', html_content=failure_text)
+                   subject='HIFIS Raw Client Data', html_content=failure_msg)
     for email_address in cfg_private['EMAIL']['CC_EMAILS']:
         message.add_cc(email_address)
     try:
@@ -43,7 +66,8 @@ if raw_df.shape[0] == 0:
         response = sg.send(message)
     except Exception as e:
         print(str(e.body))
-    raise Exception(failure_text)
+    raise Exception(failure_msg)
+
 
 # Create path for preproces step output data if it doesn't already exist on the blob.
 if not os.path.exists(args.preprocessedoutputdir):

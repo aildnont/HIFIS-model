@@ -8,7 +8,7 @@ from datetime import datetime
 from kmodes.kprototypes import KPrototypes
 from kmodes.util.dissim import euclidean_dissim, matching_dissim
 from tensorflow.keras.models import load_model
-from sklearn.externals.joblib import load
+from joblib import load
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from src.interpretability.lime_explain import predict_and_explain, predict_instance
@@ -20,7 +20,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
     :param k: Desired number of clusters
     :param save_centroids: Boolean indicating whether to save cluster centroids
     :param save_clusters: Boolean indicating whether to save client cluster assignments
-    :param explain_centroids:
+    :param explain_centroids: Boolean indicating whether to compute LIME explanations for cluster centroids
     :return: A KPrototypes object that describes the best clustering of all the runs
     '''
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -184,7 +184,10 @@ def silhouette_analysis(k_min=2, k_max=20):
 
 
 if __name__ == '__main__':
-    d = cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
-    #optimal_k = silhouette_analysis(k_min=2, k_max=20)
+    cfg = yaml.full_load(open("./config.yml", 'r'))
+    if cfg['K-PROTOTYPES']['EXPERIMENT'] == 'cluster_clients':
+        _ = cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_centroids=True)
+    else:
+        optimal_k = silhouette_analysis(k_min=cfg['K-PROTOTYPES']['K_MIN'], k_max=cfg['K-PROTOTYPES']['K_MAX'])
 
 

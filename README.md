@@ -3,20 +3,27 @@
 explanation") ![alt text](documents/readme_images/hifis_logo.png "A
 sample LIME explanation")
 
-The purpose of this project is deliver a machine
-learning solution to assist in identifying individuals at risk of
-chronic homelessness. A model was built for the Homeless Prevention division of the City of London, Ontario, Canada. This work was led by the Artificial Intelligence Research and Development Lab out of the Information Technology Services division. This repository
-contains the code used to train a neural network model to classify
-clients in the city's [Homeless Individuals and Families Information
+The purpose of this project is deliver a machine learning solution to
+assist in identifying individuals at risk of chronic homelessness. A
+model was built for the Homeless Prevention division of the City of
+London, Ontario, Canada. This work was led by the Artificial
+Intelligence Research and Development Lab out of the Information
+Technology Services division. This repository contains the code used to
+train a neural network model to classify clients in the city's
+[Homeless Individuals and Families Information
 System](https://www.canada.ca/en/employment-social-development/programs/homelessness/hifis.html)
 (HIFIS) database as either at risk or not at risk of chronic
-homelessness within a specified predictive horizon. In an effort to build AI ethically and 
-anticipate forthcoming federal and provincial regulation of automated
-decision-making systems, this repository applies interpretability and
-bias-reducing methods to explain the model's predictions. The model also employs functionality to enable ease of client record removal, entire feature removal and audit trails to facilitate appeals and other data governance processes.  This
-repository is intended to serve as a turnkey template for other
-municipalities using the HIFIS application and HIFIS database schema who wish to explore the
-application of this model in their own locales.
+homelessness within a specified predictive horizon. In an effort to
+build AI ethically and anticipate forthcoming federal and provincial
+regulation of automated decision-making systems, this repository applies
+interpretability and bias-reducing methods to explain the model's
+predictions. The model also employs functionality to enable ease of
+client record removal, entire feature removal and audit trails to
+facilitate appeals and other data governance processes. This repository
+is intended to serve as a turnkey template for other municipalities
+using the HIFIS application and HIFIS database schema who wish to
+explore the application of this model in their own locales. This model
+was built using data from HIFIS 4.0.57.30.
 
 ## Getting Started
 1. Clone this repository (for help see this
@@ -71,7 +78,7 @@ application of this model in their own locales.
    _HIFIS_Processed_OHE.csv_. The latter is identical to the former with
    the exception being that its single-valued categorical features have
    been one-hot encoded.
-3. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
+3. In [config.yml](config.yml), set _EXPERIMENT_ within _TRAIN_ to
    _'single_train'_.
 4. Execute [train.py](src/train.py). The trained model's weights will be
    located in _results/models/_, and its filename will resemble the
@@ -105,12 +112,13 @@ that scored the best result on the test set for a particular metric that
 you care about optimizing.
 1. Follow steps 1 and 2 in
    [Train a model and visualize results](#train-a-model-and-visualize-results).
-2. In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within _TRAIN_ to
+2. In [config.yml](config.yml), set _EXPERIMENT_ within _TRAIN_ to
    _'multi_train'_.
-3. Decide which metric you would like to optimize. In
-   [config.yml](config.yml), set _METRIC_MONITOR_ within _TRAIN_ to your
-   chosen metric. For example, if you decide to select the model with
-   the best recall on the test set, set this field to _'recall'_.
+3. Decide which metrics you would like to optimize and in what order. In
+   [config.yml](config.yml), set _METRIC_PREFERENCE_ within _TRAIN_ to
+   your chosen metrics, in order from most to least important. For
+   example, if you decide to select the model with the best recall on
+   the test set, set the first element in this field to _'recall'_.
 4. Decide how many models you wish to train. In
    [config.yml](config.yml), set _NUM_RUNS_ within _TRAIN_ to your
    chosen number of training sessions. For example, if you wish to train
@@ -184,21 +192,24 @@ explain the model's predictions on examples in the test set.
 2. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
    the path of the model weights file (_.h5_ file) that you wish to use
    for prediction.
-3. In the _main_ function of
-   _[lime_explain.py](src/interpretability/lime_explain.py)_, you can
-   select to either **(i)** perform a LIME experiment on the test set,
-   **(ii)** perform a submodular pick, or **(iii)** run LIME on 1 test
-   set example. Uncomment the function you wish to execute.
-   1. You can call `run_lime_experiment_and_visualize(lime_dict)`, which
-      will run LIME on all examples in the test set, create a .csv file
-      of the results, and produce a visualization of the average
-      explainable feature rules. The .csv file will be located in
+3. By setting the appropriate value in the _EXPERIMENT_ field of _LIME_
+   in [config.yml](config.yml), you can select to either **(i)** perform
+   a LIME experiment on the test set, **(ii)** perform a submodular
+   pick, or **(iii)** run LIME on 1 test set example. Once the
+   appropriate field is set, execute
+   [lime_explain.py](src/interpretability/lime_explain.py).
+   1. By setting the _EXPERIMENT_ field of _LIME_ in
+      [config.yml](config.yml) to _'lime_experiment'_, you will run LIME
+      on all examples in the test set, create a .csv file of the
+      results, and produce a visualization of the average explainable
+      feature rules. The .csv file will be located in
       _results/experiments/_, and will be called
       _lime_experimentyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is the
       current time. The visualization will be located in
       _documents/generated_images/_, and will be called
       _LIME_Eplanations_yyyymmdd-hhmmss.csv_.
-   2. You can call `submodular_pick(lime_dict)`, which will use the
+   2. By setting the _EXPERIMENT_ field of _LIME_ in
+      [config.yml](config.yml) to _'submodular_pick'_, you will run the
       submodular pick algorithm (as described in the
       [LIME paper](https://arxiv.org/abs/1602.04938)) to pick and
       amalgamate a set explanations of training set examples that
@@ -210,14 +221,18 @@ explain the model's predictions on examples in the test set.
       appended to this file with timestamps. The visualization will be
       located in _documents/generated_images/_, and will be called
       _LIME_Submodular_Pick_yyyymmdd-hhmmss.csv_.
-   3. You can call `explain_single_client(lime_dict, client_id)`, which
-      will run LIME on the example in the test set whose ClientID is
-      that which you passed to the function. An image will be generated
-      that depicts the top explainable features that the model used to
-      make its prediction. The image will be automatically saved in
-      _documents/generated_images/_, and its filename will resemble the
-      following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See below
-      for an example of this graphic.
+   3. By setting the _EXPERIMENT_ field of _LIME_ in
+      [config.yml](config.yml) to _'explain_client'_, you will run LIME
+      on the example in the test set whose ClientID is that which you
+      passed to the function. You will have to set the Client ID of a
+      client who is in the test set in the main function of
+      [lime_explain.py](src/interpretability/lime_explain.py) (it
+      currently reads ```client_id = 00000```). An image will be
+      generated that depicts the top explainable features that the model
+      used to make its prediction. The image will be automatically saved
+      in _documents/generated_images/_, and its filename will resemble
+      the following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See
+      below for an example of this graphic.
 4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
@@ -258,9 +273,10 @@ the model's test set performance metrics.
 In our random hyperparameter search, we study the effects of _x_ random
 combinations of hyperparameters by training the model _y_ times for each
 of the _x_ combinations and recording the results. See the steps below
-on how to conduct a random hyperparameter search with our implementation
-for the following 3 hyperparameters: _dropout_, _learning rate_, and
-_layers_.
+on how to conduct a random hyperparameter search. Note that if you are
+not planning on changing the hyperparameters or their ranges, you may
+skip steps 2-4, as a default set of hyperparameter ranges is already
+defined in code.
 1. In the in the _HP_ subsection of the _TRAIN_ section of
    [config.yml](config.yml), set the number of random combinations of
    hyperparameters you wish to study and the number of times you would
@@ -271,35 +287,51 @@ _layers_.
    REPEATS: 2
    ```
 2. Set the ranges of hyperparameters you wish to study in the _HP_
-   subsection of the _TRAIN_ section of [config.yml](config.yml).
-   Consider whether your hyperparameter ranges are continuous (i.e.
-   real) or discrete and whether any need to be investigated on the
-   logarithmic scale.
+   subsection of the _TRAIN_ section of [config.yml](config.yml). The
+   config file already has a comprehensive set of hyperparameter ranges
+   defined (as shown below), so you may not need to change anything in
+   this step. Consider whether your hyperparameter ranges are continuous
+   (i.e. real) or discrete and whether any need to be investigated on
+   the logarithmic scale.
    ```
-   DROPOUT: [0.2, 0.5]          # Real range
-   LR: [-4.0, -2.5]             # Real range on logarithmic scale (10^x)   
-   LAYERS: [2, 3, 4]            # Discrete range
+      NODES0: [80, 100]               # Discrete range
+      NODES1: [60, 80]                # Discrete range
+      LAYERS: [2, 3, 4]               # Discrete range
+      DROPOUT: [0.2, 0.4]             # Real range
+      LR: [-3.0, -3.0]                # Real range on logarithmic scale (10^x)
+      OPTIMIZER: ['adam', 'sgd']      # Discrete range
+      BETA_1: [-1.0, -1.0]            # 1st moment for Adam. Real range on log scale (1 - 10^x)
+      BETA_2: [-3.0, -3.0]            # 2nd moment for Adam. Real range on log scale (1 - 10^x)
+      L2_LAMBDA: [-2.0, -2.0]         # Real range on log scale (10^x)
+      BATCH_SIZE: [128, 256]          # Discrete range
+      POS_WEIGHT: [0.6, 0.7]          # Weight multiplier for positive class. Real range
+      IMB_STRATEGY: ['class_weight', 'smote', 'random_oversample']  # Discrete range
    ```
 3.  Within the _random_hparam_search()_ function defined in
-    [train.py](src/train.py), add your hyperparameters as HParam objects
-    to the list of hyperparameters being considered.
+    [train.py](src/train.py), ensure your hyperparameters are added as
+    HParam objects to the list of hyperparameters being considered. The
+    below code is already included in [train.py](src/train.py); only
+    change it if you have changed the default hyperparameter ranges in
+    [config.yml](config.yml).
     ```
-    HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
-    HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
+    HPARAMS.append(hp.HParam('NODES0', hp.Discrete(hp_ranges['NODES0'])))
+    HPARAMS.append(hp.HParam('NODES1', hp.Discrete(hp_ranges['NODES1'])))
     HPARAMS.append(hp.HParam('LAYERS', hp.Discrete(hp_ranges['LAYERS'])))
+    HPARAMS.append(hp.HParam('DROPOUT', hp.RealInterval(hp_ranges['DROPOUT'][0], hp_ranges['DROPOUT'][1])))
+    HPARAMS.append(hp.HParam('L2_LAMBDA', hp.RealInterval(hp_ranges['L2_LAMBDA'][0], hp_ranges['L2_LAMBDA'][1])))
+    HPARAMS.append(hp.HParam('LR', hp.RealInterval(hp_ranges['LR'][0], hp_ranges['LR'][1])))
+    HPARAMS.append(hp.HParam('BETA_1', hp.RealInterval(hp_ranges['BETA_1'][0], hp_ranges['BETA_1'][1])))
+    HPARAMS.append(hp.HParam('BETA_2', hp.RealInterval(hp_ranges['BETA_2'][0], hp_ranges['BETA_2'][1])))
+    HPARAMS.append(hp.HParam('OPTIMIZER', hp.Discrete(hp_ranges['OPTIMIZER'])))
+    HPARAMS.append(hp.HParam('BATCH_SIZE', hp.Discrete(hp_ranges['BATCH_SIZE'])))
+    HPARAMS.append(hp.HParam('POS_WEIGHT', hp.RealInterval(hp_ranges['POS_WEIGHT'][0], hp_ranges['POS_WEIGHT'][1])))
+    HPARAMS.append(hp.HParam('IMB_STRATEGY', hp.Discrete(hp_ranges['IMB_STRATEGY'])))
     ```
-4. In the appropriate location (varies by hyperparameter), ensure that
-   you set the hyperparameters based on the random combination. In our
-   example, all of these hyperparameters are set in the model definition
-   (i.e. within _model1()_ in [model.py](src/models/models.py)). You may
-   have to search the code to determine where to set your particular
-   choice of hyperparameters.
-   ```
-   dropout = hparams['DROPOUT']
-   lr = 10 ** hparams['LR']             # Transform to logarithmic scale
-   layers = hparams['LAYERS']
-   ```
-5.  In [config.yml](config.yml), set _EXPERIMENT_TYPE_ within the
+4. If you have added other hyperparameters not listed already in
+   [config.yml](config.yml), ensure that you set the hyperparameters
+   based on the random combination in either
+   [model.py](src/models/models.py) or [train.py](src/train.py).
+5.  In [config.yml](config.yml), set _EXPERIMENT_ within the
     _TRAIN_ section to _'hparam_search'_.
 6. Execute [train.py](src/train.py). The experiment's logs will be
    located in _results/logs/hparam_search/_, and the directory name will
@@ -334,26 +366,28 @@ for all clients, given raw data from HIFIS and a trained model.
 3. In [config.yml](config.yml), set _MODEL_TO_LOAD_ within _PATHS_ to
    the path of the model weights file (_.h5_ file) that you wish to use
    for prediction.
-4. In the _main_ function of _[predict.py](src/predict.py)_, you can opt
-   to either **(i)** save predictions to a new file or **(ii)** append
-   predictions and their corresponding timestamps to a file containing
-   past predictions. Ensure the function you wish to execute is
-   uncommented.
-   1. You can call `results = predict_and_explain_set(data_path=None,
-      save_results=True, give_explanations=True)`, which will preprocess
+4. By changing the value of the _EXPERIMENT_ field of the _PREDICTION_
+   section of [config.yml](config.yml) to your desired experiment, you
+   can opt to either **(i)** save predictions to a new file or **(ii)**
+   append predictions and their corresponding timestamps to a file
+   containing past predictions.
+   1. Setting the _EXPERIMENT_ field of the _PREDICTION_ section of
+      [config.yml](config.yml) to _'batch_prediction'_ will preprocess
       raw client data, run prediction for all clients, and run LIME to
       explain these predictions. Results will be saved in a .csv file,
       which will be located in _results/predictions/_, and will be
       called _predictionsyyyymmdd-hhmmss.csv_, where yyyymmdd-hhmmss is
       the current time.
-   2. You can call `trending_prediction(data_path=None)`, which will
-      produce predictions and explanations in the same method as
-      described in (i), but will include timestamps for when the
-      predictions were made. The results will be appended to a file
-      called _trending_predictions.csv_, located within
-      _results/prediction/_. This file contains predictions made at
-      previous times, enabling the user to compare the change in
-      predictions and explanations for particular clients over time.
+   2. Setting the _EXPERIMENT_ field of the _PREDICTION_ section of
+      [config.yml](config.yml) to _'trending_prediction'_ will produce
+      predictions and explanations in the same method as described in
+      (i), but will include timestamps for when the predictions were
+      made. The results will be appended to a file called
+      _trending_predictions.csv_, located within _results/prediction/_.
+      This file contains predictions made at previous times, enabling
+      the user to compare the change in predictions and explanations for
+      particular clients over time.
+5.  Execute [predict.py](src/predict.py).
 
 ### Exclusion of sensitive features
 Depending on your organization's circumstances, you may wish to exclude
@@ -376,17 +410,20 @@ for details on how to accomplish this:
 
 ### Client Clustering Experiment (Using K-Prototypes)
 We were interested in investigating whether HIFIS client data could be
-clustered. Since HIFIS consists of numerical and categorical data and in
-the spirit of minimizing time complexity,
+clustered. Since HIFIS consists of numerical and categorical data, and
+in the spirit of minimizing time complexity,
 [k-prototypes](https://www.semanticscholar.org/paper/CLUSTERING-LARGE-DATA-SETS-WITH-MIXED-NUMERIC-AND-Huang/d42bb5ad2d03be6d8fefa63d25d02c0711d19728)
 was selected as the clustering algorithm. We wish to acknowledge Nico de
 Vos, as we made use of his
 [implementation](https://github.com/nicodv/kmodes) of k-prototypes. This
-experiment runs k-prototypes a series of times and selects the set of
-clusters with the best results (i.e. least average dissimilarity between
-clients and cluster centroids). By following the steps below, you can
-cluster clients into a desired number of clusters, examine the clusters'
-centroids, and view LIME explanations of these centroids.
+experiment runs k-prototypes a series of times and selects the best
+clustering (i.e. least average dissimilarity between clients and their
+assigned clusters' centroids). Our intention is that by examining
+clusters and obtaining their LIME explanations, one can gain further
+insight into patterns in the data and how the model behaves in different
+scenarios. By following the steps below, you can cluster clients into a
+desired number of clusters, examine the clusters' centroids, and view
+LIME explanations of these centroids.
 1. Ensure that you have already run
    _[lime_explain.py](src/interpretability/lime_explain.py)_ after
    training your model, as it will have generated and saved a LIME
@@ -394,10 +431,12 @@ centroids, and view LIME explanations of these centroids.
 2. Ensure that you have a .CSV file of preprocessed data located within
    in the processed data folder (_data/processed/_). See
    [Getting Started](#getting-started) for help.
-3. Run _[cluster.py](src/interpretability/cluster.py)_. Consult
+3. Set the _EXPERIMENT_ field of the _K-PROTOTYPES_ section of
+   [config.yml](/config.yml) to _'cluster_clients'_.
+4. Run _[cluster.py](src/interpretability/cluster.py)_. Consult
    [Project Config](#k-prototypes) before changing default clustering
    parameters in [config.yml](/config.yml).
-4. 3 separate files will be saved once clustering is complete:
+5. 3 separate files will be saved once clustering is complete:
    1. A spreadsheet depicting cluster assignments by Client ID will be
       located at _results/experiments/_, and it will be called
       _client_clusters_yyyymmdd-hhmmss.csv_ (where yyyymmdd-hhmmss is
@@ -410,6 +449,29 @@ centroids, and view LIME explanations of these centroids.
    3. A graphic depicting the LIME explanations of all centroids will be
       located at _documents/generated_images/_, and it will be called
       _centroid_explanations_yyyymmdd-hhmmss.png_.
+
+A tradeoff for the efficiency of k-prototypes is the fact that the
+number of clusters must be specified a priori. In an attempt to
+determine the optimal number of clusters, the
+[Average Silhouette Method](https://uc-r.github.io/kmeans_clustering#silo)
+was implemented. During this procedure, different clusterings are
+computed for a range of values of _k_. A graph is produced that plots
+average Silhouette Score versus _k_. The higher average Silhouette Score
+is, the more optimal _k_ is. To run this experiment, see the below
+steps.
+1. Follow steps 1 and 2 as outlined above in the clustering
+   instructions.
+2. Set the _EXPERIMENT_ field of the _K-PROTOTYPES_ section of
+   [config.yml](/config.yml) to _'silhouette_analysis'_. At this time,
+   you may wish to change the _K_MIN_ and _K_MAX_ field of the
+   _K-PROTOTYPES_ section from their defaults. Values of _k_ in the
+   integer range of _[K_MIN, K_MAX]_ will be investigated.
+3. Run _[cluster.py](src/interpretability/cluster.py)_. An image
+   depicting a graph of average Silhouette Score versus _k_ will be
+   saved to _documents/generated_images/_, and it will be called
+   _silhouette_plot_yyyymmdd-hhmmss.png_. Upon visualizing this graph,
+   note that a larger average Silhouette Score implies a more quality
+   clustering.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
@@ -446,7 +508,9 @@ packages.
 |   |   └── spdat.py              <- SPDAT data preprocessing script
 │   ├── interpretability          <- Model interpretability scripts
 |   |   ├── cluster.py            <- Script for learning client clusters
+|   |   ├── lime_base.py          <- Modified version of file taken from lime package
 |   |   ├── lime_explain.py       <- Script for generating LIME explanations
+|   |   ├── lime_tabular.py       <- Modified version of file taken from lime package
 |   |   └── submodular_pick.py    <- Modified version of file taken from lime package
 │   ├── models                    <- TensorFlow model definitions
 |   |   └── models.py             <- Script containing model definition
@@ -561,12 +625,14 @@ below.
   dataset, the ratio of positive to negative ground truth was very low,
   prompting the use of these strategies. Set either to _'class_weight'_,
   _'random_oversample'_, _'smote'_, or _'adasyn'_.
-- **EXPERIMENT_TYPE**: The type of training experiment you would like to
+- **EXPERIMENT**: The type of training experiment you would like to
   perform if executing [_train.py_](src/train.py). Choices are
   _'single_train'_, _'multi_train'_, or _'hparam_search'_.
-- **METRIC_MONITOR**: The metric to monitor when training multiple
-  models serially (i.e. the _'multi_train'_ experiment in
-  [_train.py_](src/train.py))
+- **METRIC_PREFERENCE**: A list of metrics in order of importance (from
+  left to right) to guide selection of the best model after training
+  multiple models in series (i.e. the
+  [_'multi_train'_](#train-multiple-models-and-save-the-best-one)
+  experiment in [_train.py_](src/train.py))
 - **NUM_RUNS**: The number of times to train a model in the
   _'multi_train'_ experiment
 - **THRESHOLDS**: A single float or list of floats in range [0, 1]
@@ -608,6 +674,10 @@ below.
     _'all'_ to sample the entire training and validation sets.
   - **NUM_EXPLANATIONS**: The desired number of explanations that
     maximize explanation coverage
+- **EXPERIMENT**: The type of LIME interpretability experiment you would
+  like to perform if executing
+  [_lime_explain.py_](src/interpretability/lime_explain.py). Choices are
+  _'explain_client'_, _'lime_experiment'_, or _'submodular_pick'_.
 #### HORIZON_SEARCH
 - **N_MIN**: Smallest prediction horizon to use in the prediction
   horizon search experiment (in weeks)
@@ -621,6 +691,9 @@ below.
 - **THRESHOLD**: Classification threshold for prediction
 - **CLASS_NAMES**: Identifiers for the classes predicted by the neural
   network as included in the prediction spreadsheet.
+- **EXPERIMENT**: The type of prediction experiment you would like to
+  perform if executing [_predict.py_](src/predict.py). Choices are
+  _'batch_prediction'_ or _'trending_prediction'_.
 #### K-PROTOTYPES
 - **K**: Desired number of client clusters when running k-prototypes
 - **N_RUNS**: Number of attempts at running k-prototypes. Best clusters
@@ -629,6 +702,14 @@ below.
   k-prototypes. This is useful when N_RUNS is high and you want to
   decrease the total runtime of clustering. Before increasing this
   number, check how many CPUs are available to you.
+- **K_MIN**: Minimum value of _k_ to investigate in the Silhouette
+  Analysis experiment
+- **K_MAX**: Maximum value of _k_ to investigate in the Silhouette
+  Analysis experiment
+- **EXPERIMENT**: The type of k-prototypes clustering experiment you
+  would like to perform if executing
+  [_cluster.py_](src/interpretability/cluster.py). Choices are
+  _'cluster_clients'_ or _'silhouette_analysis'_.
 
 ## Azure Machine Learning Pipelines
 We deployed our model retraining and batch predictions functionality to
@@ -699,6 +780,11 @@ Information Technology Services, City Manager’s Office
 City of London  
 Suite 300 - 201 Queens Ave, London, ON. N6A 1J1  
 maross@london.ca
+
+**Blake VanBerlo**  
+Owner  
+VanBerlo Consulting  
+vanberloblake@gmail.com
 
 
 

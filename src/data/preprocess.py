@@ -6,7 +6,7 @@ import yaml
 import os
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.externals.joblib import dump, load
+from joblib import dump, load
 from category_encoders import OrdinalEncoder
 from src.data.spdat import get_spdat_data
 
