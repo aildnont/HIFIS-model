@@ -29,7 +29,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
-  GROUND_TRUTH_DATE: '2020-05-04'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
+  GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
   FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
