@@ -380,17 +380,14 @@ def calculate_client_service_features(df, end_date, counted_services, timed_serv
     for service in counted_services:
         df[feat_prefix + service] = 0
         numerical_service_features.append(feat_prefix + service)
-    df_temp = df.copy()
-    df_temp = df_temp.groupby('ClientID').progress_apply(client_services)
-    df_temp = df_temp[total_timed_service_feats + numerical_service_features]
-    #df_temp = df_temp.droplevel('ClientID', axis='index')
-    #df.update(df_temp)  # Update all rows with corresponding stay length and total income
-    df_temp.drop_duplicates(inplace=True)
+    df = df.groupby('ClientID').progress_apply(client_services)
+    df = df[total_timed_service_feats + numerical_service_features]
+    df.drop_duplicates(inplace=True)
 
     # Update list of noncategorical features
     noncat_feats.extend(numerical_service_features)
     noncat_feats.extend(total_timed_service_feats)
-    return df_temp, noncat_feats
+    return df, noncat_feats
 
 def calculate_client_income(df, noncat_feats):
     '''

@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from joblib import dump
+from tqdm import tqdm
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
@@ -35,7 +36,7 @@ def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     '''
     if algorithm == 'random_oversample':
         sampler = RandomOverSampler(random_state=np.random.randint(0, high=1000))
-    if algorithm == 'smote':
+    elif algorithm == 'smote':
         sampler = SMOTE(random_state=np.random.randint(0, high=1000))
     elif algorithm == 'adasyn':
         sampler = ADASYN(random_state=np.random.randint(0, high=1000))
@@ -58,7 +59,6 @@ def load_dataset(cfg):
     input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
     data_info = yaml.full_load(input_stream)
     data['N_WEEKS'] = data_info['N_WEEKS']
-
     noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
 
     # Load and partition dataset
@@ -79,6 +79,101 @@ def load_dataset(cfg):
     train_df_ohe.drop('ClientID', axis=1, inplace=True)
     val_df_ohe.drop('ClientID', axis=1, inplace=True)
     test_df_ohe.drop('ClientID', axis=1, inplace=True)
+
+    # Get indices of noncategorical features
+    noncat_feat_idxs = [test_df_ohe.columns.get_loc(c) for c in noncat_features if c in test_df_ohe]
+
+    # Separate ground truth from dataframe and convert to numpy arrays
+    data['Y_train'] = np.array(train_df_ohe.pop('GroundTruth'))
+    data['Y_val'] = np.array(val_df_ohe.pop('GroundTruth'))
+    data['Y_test'] = np.array(test_df_ohe.pop('GroundTruth'))
+
+    # Convert feature dataframes to numpy arrays
+    data['X_train'] = np.array(train_df_ohe)
+    data['X_val'] = np.array(val_df_ohe)
+    data['X_test'] = np.array(test_df_ohe)
+
+    # Normalize numerical data and save the scaler for prediction.
+    col_trans_scaler = ColumnTransformer(transformers=[('col_trans_ordinal', StandardScaler(), noncat_feat_idxs)],
+                                         remainder='passthrough')
+    data['X_train'] = col_trans_scaler.fit_transform(data['X_train'])   # Only fit train data to prevent data leakage
+    data['X_val'] = col_trans_scaler.transform(data['X_val'])
+    data['X_test'] = col_trans_scaler.transform(data['X_test'])
+    dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
+    return data
+
+
+def load_time_series_dataset(cfg):
+    '''
+    Load the static and time series data from disk and join them. Create time series examples to form large dataset with
+    time series and static features. Partition into train/val/test sets. Normalize numerical data.
+    :param cfg: Project config (from config.yml)
+    :return: A dict of partitioned and normalized datasets, split into examples and labels
+    '''
+
+    def client_windows(client_ts_df):
+        '''
+        Helper function to create examples with time series features going back T_X time steps for a client's records
+        :param client_ts_df: A Dataframe of a client's time series service features
+        :return: A Dataframe with client's current and past T_X time series service features in each row
+        '''
+        client_ts_df.sort_values(by=['Date'], ascending=False, inplace=True) # Sort records by date
+        #index_cols = client_ts_df[['Date']]
+        #other_cols = client_ts_df[[f for f in client_ts_df.columns if f not in ['ClientID', 'Date']]]
+        #df_prev_time_steps = pd.DataFrame()
+        for i in range(1, T_X):
+            cur_time_series_feats = [f for f in df_ts.columns if '(-' + str(i) + ')' in f]
+            for f in time_series_feats:
+                client_ts_df['(-' + str(i) + ')' + f] = client_ts_df[f].shift(-i, axis=0)
+            #df_time_step.columns = ['(-' + str(i) + ')' + c for c in df_time_step.columns]
+            #df_prev_time_steps = pd.concat([df_time_step, df_prev_time_steps], axis=1)
+        #client_ts_df = pd.concat([index_cols, df_prev_time_steps, other_cols], axis=1)
+        #client_ts_df = client_ts_df[:-(T_X-1)]
+        return client_ts_df
+
+    # Load data info generated during preprocessing
+    data = {}
+    input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
+    data_info = yaml.full_load(input_stream)
+    data['N_WEEKS'] = data_info['N_WEEKS']
+    noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
+    T_X = cfg['DATA']['TIME_SERIES']['T_X']
+    tqdm.pandas()
+
+    # Load time series and static data. Join them.
+    df_ohe = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
+    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])   # Data prior to one hot encoding
+    df_ts = pd.read_csv(cfg['PATHS']['PROCESSED_TS_DATA'])  # Features that change with time
+    time_series_feats = [f for f in df_ts.columns if '-Day_' in f]
+    for f in time_series_feats:
+        for i in range(1, T_X):
+            df_ts.insert(2, '(-' + str(i) + ')' + f, 0)
+    df_ts = df_ts.groupby('ClientID').progress_apply(client_windows)
+    df_ts.dropna(inplace=True)
+    df_ohe = df_ts.merge(df_ohe, on='ClientID', how='left')
+    df = df_ts.merge(df, on='ClientID', how='left')
+
+    # Partition dataset by date
+    train_split = cfg['TRAIN']['TRAIN_SPLIT']
+    val_split = cfg['TRAIN']['VAL_SPLIT']
+    unique_dates = df['Date'].unique()
+    train_df_dates = unique_dates[-int(train_split*unique_dates.shape[0]):]
+    val_df_dates = unique_dates[-int((train_split + val_split)*unique_dates.shape[0]):-int(train_split*unique_dates.shape[0])]
+    test_df_dates = unique_dates[0:-int((train_split + val_split)*unique_dates.shape[0])]
+    train_df_ohe = df_ohe[df_ohe['Date'].isin(train_df_dates)]
+    val_df_ohe = df_ohe[df_ohe['Date'].isin(val_df_dates)]
+    test_df_ohe = df_ohe[df_ohe['Date'].isin(test_df_dates)]
+    train_df = df[df['Date'].isin(train_df_dates)]
+    test_df = df[df['Date'].isin(test_df_dates)]
+
+    # Save train & test set for LIME
+    train_df.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False)
+    test_df.to_csv(cfg['PATHS']['TEST_SET'], sep=',', header=True, index=False)
+
+    # Anonymize clients
+    train_df_ohe.drop(['ClientID', 'Date'], axis=1, inplace=True)
+    val_df_ohe.drop(['ClientID', 'Date'], axis=1, inplace=True)
+    test_df_ohe.drop(['ClientID', 'Date'], axis=1, inplace=True)
 
     # Get indices of noncategorical features
     noncat_feat_idxs = [test_df_ohe.columns.get_loc(c) for c in noncat_features if c in test_df_ohe]
@@ -359,7 +454,10 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
         os.makedirs(cfg['PATHS']['LOGS'] + "training\\")
 
     # Load preprocessed data and partition into training, validation and test sets.
-    data = load_dataset(cfg)
+    if cfg['TRAIN']['MODEL'] == 'time_series':
+        data = load_time_series_dataset(cfg)
+    else:
+        data = load_dataset(cfg)
 
     # Set callbacks
     callbacks = define_callbacks(cfg)
