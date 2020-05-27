@@ -496,8 +496,9 @@ def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_d
     timed_service_feats = cfg['DATA']['TIMED_SERVICE_FEATURES']
     counted_service_feats = cfg['DATA']['COUNTED_SERVICE_FEATURES']
     TIME_STEP = cfg['DATA']['TIME_SERIES']['TIME_STEP']             # Size of timestep (in days)
-    EARLIEST_TIME_SERIES_DATE = df['ServiceStartDate'].min() + timedelta(days=(n_weeks * 7))
     T_X = cfg['DATA']['TIME_SERIES']['T_X']                         # length of input sequence (in timesteps)
+    EARLIEST_TIME_SERIES_DATE = df['ServiceEndDate'].min() + timedelta(days=(n_weeks * 7))
+    print("Earliest time series date: ", EARLIEST_TIME_SERIES_DATE)
 
     if not include_gt:
         num_iterations = T_X
@@ -522,7 +523,7 @@ def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_d
                 df_gt = pd.concat([df_gt, df_gt_cur], axis=0, sort=False)
 
         # Remove records from the database from n weeks ago and onwards
-        df_temp = remove_n_weeks(df, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
+        df_temp = remove_n_weeks(df_temp, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
 
         # Compute weekly and total stays + services accessed for each client for each timestep.
         start_date = train_end_date - timedelta(days=TIME_STEP)
@@ -595,6 +596,9 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
         data_path = cfg['PATHS']['RAW_DATA']
     df = load_df(data_path)
 
+    ##TAKE OUT LATER#########################################
+    df = df[0:int(df.shape[0]*0.2)]
+
     # Exclude clients who did not provide consent to use their information for this project
     df.drop(df[df['ClientID'].isin(cfg['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
 
@@ -619,7 +623,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     print("Converting timestamps to datetimes.")
     df = process_timestamps(df)
 
-    if cfg['TRAIN']['MODEL'] == 'time_series':
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
         # Compute total monthly income for each client.
         print("Calculating monthly income total.")
         df, noncategorical_feats = calculate_client_income(df, noncategorical_feats)
@@ -660,7 +664,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     df_clients = aggregate_df(df, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
 
     # Include SPDAT data
-    if cfg['DATA']['SPDAT']['INCLUDE_SPDATS'] and cfg['TRAIN']['MODEL'] != 'time_series':
+    if cfg['DATA']['SPDAT']['INCLUDE_SPDATS'] and cfg['TRAIN']['MODEL_DEF'] != 'hifis_rnn_mlp':
         print("Adding SPDAT questions as features.")
         train_end_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=(n_weeks * 7))
         spdat_df, sv_cat_spdat_feats, noncat_spdat_feats = get_spdat_data(cfg['PATHS']['RAW_SPDAT_DATA'],
@@ -700,7 +704,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
 
     # Append ground truth to dataset and log some useful stats about ground truth
     if include_gt:
-        if cfg['TRAIN']['MODEL'] == 'time_series':
+        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
             df_time_series = df_time_series.join(df_gt)  # Set ground truth for all clients to their saved values
             df_time_series['GroundTruth'] = df_time_series['GroundTruth'].fillna(0)
             num_pos = df_time_series['GroundTruth'].sum()  # Number of clients with positive ground truth
@@ -727,7 +731,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     if include_gt:
         df_clients.to_csv(cfg['PATHS']['PROCESSED_DATA'], sep=',', header=True)
         df_ohe_clients.to_csv(cfg['PATHS']['PROCESSED_OHE_DATA'], sep=',', header=True)
-        if cfg['TRAIN']['MODEL'] == 'time_series':
+        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
             df_time_series.to_csv(cfg['PATHS']['PROCESSED_TS_DATA'], sep=',', header=True)
 
     # For producing interpretable results with categorical data:

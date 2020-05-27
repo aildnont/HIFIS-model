@@ -75,8 +75,18 @@ DATA:
 
 # Neural network models
 NN:
-  MODEL1:
+  HIFIS_MLP:
     NODES:
+      DENSE0: 80
+      DENSE1: 60
+    LAYERS: 3
+    L2_LAMBDA: 0.01
+    DROPOUT: 0.35
+    LR: 0.0001
+  HIFIS_RNN_MLP:
+    LSTM:
+      UNITS: 50
+    DENSE:
       DENSE0: 80
       DENSE1: 60
     LAYERS: 3
@@ -87,7 +97,7 @@ NN:
 # Training
 TRAIN:
   EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
-  MODEL: 'time_series'
+  MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.8
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1

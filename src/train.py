@@ -9,7 +9,7 @@ from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau
 from tensorboard.plugins.hparams import api as hp
-from src.models.models import model1
+from src.models.models import *
 from src.custom.metrics import F1Score
 from src.visualization.visualize import *
 
@@ -56,9 +56,10 @@ def load_dataset(cfg):
 
     # Load data info generated during preprocessing
     data = {}
+    data['METADATA'] = {}
     input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
     data_info = yaml.full_load(input_stream)
-    data['N_WEEKS'] = data_info['N_WEEKS']
+    data['METADATA']['N_WEEKS'] = data_info['N_WEEKS']
     noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
 
     # Load and partition dataset
@@ -133,9 +134,10 @@ def load_time_series_dataset(cfg):
 
     # Load data info generated during preprocessing
     data = {}
+    data['METADATA'] = {}
     input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
     data_info = yaml.full_load(input_stream)
-    data['N_WEEKS'] = data_info['N_WEEKS']
+    data['METADATA']['N_WEEKS'] = data_info['N_WEEKS']
     noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
     T_X = cfg['DATA']['TIME_SERIES']['T_X']
     tqdm.pandas()
@@ -195,6 +197,9 @@ def load_time_series_dataset(cfg):
     data['X_val'] = col_trans_scaler.transform(data['X_val'])
     data['X_test'] = col_trans_scaler.transform(data['X_test'])
     dump(col_trans_scaler, cfg['PATHS']['SCALER_COL_TRANSFORMER'], compress=True)
+
+    data['METADATA']['NUM_TS_FEATS'] = len(time_series_feats)   # Number of different time series features
+    data['METADATA']['T_X'] = T_X
     return data
 
 
@@ -240,8 +245,12 @@ def train_model(cfg, data, callbacks, verbose=2):
     output_bias = np.log([num_pos / num_neg])
 
     # Build the model graph.
-    model = model1(cfg['NN']['MODEL1'], (data['X_train'].shape[-1],), metrics, data['N_WEEKS'],
-                   output_bias=output_bias)
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        model_def = hifis_rnn_mlp
+    else:
+        model_def = hifis_mlp
+    model = model_def(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()], (data['X_train'].shape[-1],), metrics,
+                      data['METADATA'], output_bias=output_bias)
 
     # Train the model.
     history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
@@ -370,7 +379,7 @@ def random_hparam_search(cfg, data, callbacks, log_dir):
                     val = 10 ** hparams[h]      # These hyperparameters are sampled on the log scale.
                 else:
                     val = hparams[h]
-                cfg['NN']['MODEL1'][h] = val
+                cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()][h] = val
 
             # Set some hyperparameters that are not specified in model definition.
             cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']
@@ -421,8 +430,8 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
     hparam_summary_str = [['**Variable**', '**Value**']]
     for key in cfg['TRAIN']:
         hparam_summary_str.append([key, str(cfg['TRAIN'][key])])
-    for key in cfg['NN']['MODEL1']:
-        hparam_summary_str.append([key, str(cfg['NN']['MODEL1'][key])])
+    for key in cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()]:
+        hparam_summary_str.append([key, str(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()][key])])
 
     # Write to TensorBoard logs
     with writer.as_default():
@@ -454,7 +463,7 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
         os.makedirs(cfg['PATHS']['LOGS'] + "training\\")
 
     # Load preprocessed data and partition into training, validation and test sets.
-    if cfg['TRAIN']['MODEL'] == 'time_series':
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
         data = load_time_series_dataset(cfg)
     else:
         data = load_dataset(cfg)
