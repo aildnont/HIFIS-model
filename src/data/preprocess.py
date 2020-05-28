@@ -173,7 +173,7 @@ def remove_n_weeks(df, train_end_date, dated_feats, cat_feats):
     # Set features with dated events occurring after the maximum training set date to null
     for feat in dated_feats:
         idxs_to_update = df[df[feat] > train_end_date].index.tolist()
-        dated_feats[feat] = [f for f in dated_feats[feat] if f in cat_feats]
+        dated_feats[feat] = [f for f in dated_feats[feat] if f in df.columns]
         df.loc[idxs_to_update, dated_feats[feat]] = np.nan
 
     # Update client age
