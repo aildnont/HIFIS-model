@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import yaml
 import os
@@ -46,16 +47,19 @@ def classify_cat_features(df, cat_features):
     df.groupby('ClientID').progress_apply(classify_features)
     return sv_cat_features, mv_cat_features
 
-def vec_multi_value_cat_features(df, mv_cat_features, cfg, load_ct=False):
+def vec_multi_value_cat_features(df, mv_cat_features, cfg, load_ct=False, categories=None):
     '''
         Converts multi-valued categorical features to vectorized format and appends to the dataframe
         :param df: A Pandas dataframe
         :param mv_categorical_features: The names of the categorical features to vectorize
         :param cfg: project config
         :param load_ct: Flag indicating whether to load a saved column transformer
+        :param categories: List of columns containing all possible values to encode
         :return: dataframe containing vectorized features, list of vectorized feature names
         '''
     orig_col_names = df.columns
+    if categories is None:
+        categories = 'auto'
 
     # One hot encode the multi-valued categorical features
     mv_cat_feature_idxs = [df.columns.get_loc(c) for c in mv_cat_features if c in df]  # List of categorical column indices
@@ -64,7 +68,7 @@ def vec_multi_value_cat_features(df, mv_cat_features, cfg, load_ct=False):
         df_ohe = pd.DataFrame(col_trans_ohe.transform(df), index=df.index.copy())
     else:
         col_trans_ohe = ColumnTransformer(
-            transformers=[('col_trans_mv_ohe', OneHotEncoder(sparse=False, handle_unknown='ignore', dtype=int), mv_cat_feature_idxs)],
+            transformers=[('col_trans_mv_ohe', OneHotEncoder(categories=categories, sparse=False, handle_unknown='ignore', dtype=int), mv_cat_feature_idxs)],
             remainder='passthrough'
         )
         df_ohe = pd.DataFrame(col_trans_ohe.fit_transform(df), index=df.index.copy())
@@ -166,14 +170,12 @@ def remove_n_weeks(df, train_end_date, dated_feats, cat_feats):
     :param cat_feats: list of categorical features
     :return: updated dataframe with the relevant rows removed
     '''
-    print("Train end date: ", train_end_date)
     df = df[df['ServiceStartDate'] <= train_end_date]               # Delete rows where service occurred after this date
     df['ServiceEndDate'] = df['ServiceEndDate'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
 
     # Set features with dated events occurring after the maximum training set date to null
     for feat in dated_feats:
         idxs_to_update = df[df[feat] > train_end_date].index.tolist()
-        #dated_feats[feat] = [f for f in dated_feats[feat] if f in cat_feats]
         dated_feats[feat] = [f for f in dated_feats[feat] if f in df.columns]
         df.loc[idxs_to_update, dated_feats[feat]] = np.nan
 
@@ -228,6 +230,10 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     df_temp['GroundTruth'] = 0
     df_temp = df_temp.loc[(df_temp['ServiceType'] == 'Stay')]
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
+    if df_temp.shape[0] == 0:
+        return None
+    if 'ClientID' not in df_temp.index:
+        df_temp.set_index(['ClientID'], append=True, inplace=True)
     df_gt = df_temp['GroundTruth']
     df_gt = df_gt.groupby(['ClientID']).agg({'GroundTruth': 'max'})
     return df_gt
@@ -315,7 +321,7 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
     return df, noncat_feats
 
 
-def calculate_client_service_features(df, end_date, timed_services, counted_services, total_timed_service_feats,
+def calculate_ts_client_features(df, end_date, timed_services, counted_services, total_timed_service_feats,
                                       numerical_service_feats, feat_prefix, start_date=None):
     '''
     Iterate through dataset by client to calculate numerical features from services received by a client
@@ -358,9 +364,8 @@ def calculate_client_service_features(df, end_date, timed_services, counted_serv
                     service_start = max(service_start, last_service_end[service])   # Don't count any service overlapping from previous service
                     if (service == 'Stay') and ((service_end - service_start).total_seconds() < min_stay_seconds):
                         continue    # Don't count a stay if it's less than 15 minutes
-                    total_services[feat_prefix + service] += (service_end.date() - service_start.date()).days
-                    if feat_prefix == 'Total_':
-                        total_services[feat_prefix + service] += (service_start.date() != last_service_end[service].date())
+                    total_services[feat_prefix + service] += (service_end.date() - service_start.date()).days + \
+                                                             (service_start.date() != last_service_end[service].date())
                     last_service_end[service] = service_end
                     last_service_start[service] = service_start
             elif (service in counted_services) and \
@@ -373,50 +378,54 @@ def calculate_client_service_features(df, end_date, timed_services, counted_serv
         # Set total length of timed service features in client's records
         for feat in total_services:
             client_df[feat] = total_services[feat]
-        return client_df
 
-    df_temp = df.copy()
-    min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
-    end_date -= timedelta(seconds=1)    # To make calculations easier
-    df_temp = df_temp.groupby('ClientID').progress_apply(client_services)
-    df_temp = df_temp.droplevel('ClientID', axis='index')
-    #df_temp = df_temp[total_timed_service_feats + numerical_service_feats]
-    #df_temp.drop_duplicates(inplace=True)
-    return df_temp
-
-def calculate_client_income(df, noncat_feats):
-    '''
-    Iterate through dataset by client to calculate numerical features from services received by a client
-    :param df: a Pandas dataframe
-    :param end_date: The latest date of the time period to consider
-    :param noncat_feats: List of noncategorical features
-    :param counted_services: Service features for which we wish to count occurrences and create a feature for
-    :param timed_services: Service features for which we wish to count total time received and create a feature for
-    :param start_date: The earliest date of the time period to consider
-    :return: the dataframe with the new service features included, updated list of noncategorical features
-    '''
-
-    def client_income(client_df):
-        '''
-        Helper function for total stay, total income and ground truth calculation.
-        To be used on a subset of the dataframe
-        :param client_df: A dataframe containing all rows for a client
-        :return: the client dataframe with total stays and ground truth columns appended
-        '''
         # Calculate total monthly income for client
         client_income_df = client_df.drop_duplicates(subset=['IncomeType'])
         client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
         return client_df
 
-    df['IncomeTotal'] = 0
-    df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
+    if df is None:
+        return df
     df_temp = df.copy()
-    df_temp = df_temp.groupby('ClientID').progress_apply(client_income)
-    df.update(df_temp)  # Update all rows with corresponding stay length and total income
+    min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
+    end_date -= timedelta(seconds=1)    # To make calculations easier
+    df_temp = df_temp.groupby('ClientID').progress_apply(client_services)
+    if df_temp.shape[0] == 0:
+        return None
+    df_temp = df_temp.droplevel('ClientID', axis='index')
+    return df_temp
 
-    # Update list of noncategorical features
-    noncat_feats.extend(['IncomeTotal'])
-    return df, noncat_feats
+
+def assemble_time_sequences(cfg, df_clients):
+    '''
+
+    :param cfg:
+    :param df_clients:
+    :return:
+    '''
+
+    def client_windows(client_ts_df):
+        '''
+        Helper function to create examples with time series features going back T_X time steps for a client's records
+        :param client_ts_df: A Dataframe of a client's time series service features
+        :return: A Dataframe with client's current and past T_X time series service features in each row
+        '''
+        client_ts_df.sort_values(by=['Date'], ascending=False, inplace=True) # Sort records by date
+        for i in range(1, T_X):
+            for f in time_series_feats:
+                client_ts_df['(-' + str(i) + ')' + f] = client_ts_df[f].shift(-i, axis=0)
+        return client_ts_df
+
+    T_X = cfg['DATA']['TIME_SERIES']['T_X']
+    time_series_feats = [f for f in df_clients.columns if '-Day_' in f]
+    df_ts_idx = list(df_clients.columns).index(time_series_feats[0])    # Get column number of first time series feature
+    for i in range(1, T_X):
+        for f in reversed(time_series_feats):
+            df_clients.insert(df_ts_idx, '(-' + str(i) + ')' + f, 0)
+    df_clients = df_clients.groupby('ClientID', group_keys=False).progress_apply(client_windows)
+    df_clients.dropna(inplace=True)
+    return df_clients
+
 
 def aggregate_df(df, noncat_feats, vec_mv_cat_feats, vec_sv_cat_feats):
     '''
@@ -477,7 +486,7 @@ def calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_fe
             ds_gt.index = ds_gt.index.astype(int)
 
     # Remove records from the database from n weeks ago and onwards
-    print("Removing records ", n_weeks, " weeks back.")
+    print("Removing records ", n_weeks, " weeks back. Cutting off at ", train_end_date)
     df = remove_n_weeks(df, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
 
     # Compute total stays, total monthly income, total # services accessed for each client.
@@ -487,7 +496,21 @@ def calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_fe
     return df, ds_gt, noncategorical_feats
 
 
-def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_duration, include_gt, calculate_gt):
+def calculate_time_series(cfg, cfg_gen, df, categorical_feats, noncategorical_feats, gt_duration, include_gt, calculate_gt):
+    '''
+    Calculates ground truth, service time series features for client, client monthly income. Vectorizes multi-valued
+    categorical features. Aggregates data to be indexed by ClientID and Date.
+    :param cfg: Project config dict
+    :param cfg_gen: Generated config with feature information
+    :param df: Dataframe of raw data
+    :param categorical_feats: List of categorical features
+    :param noncategorical_feats: List of noncategorical features
+    :param gt_duration: Length of time used to calculate chronic homelessness ground truth
+    :param include_gt: Boolean indicating whether to include ground truth in processed data
+    :param calculate_gt: Boolean indicating whether to calculate ground truth
+    :return: Aggreated client Dataframe with time series features and one-hot encoded multi-valued categorical features,
+             Dataframe containing client ground truth, updated list of noncategorical features
+    '''
 
     gt_end_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE'])
     n_weeks = cfg['DATA']['N_WEEKS']
@@ -495,16 +518,25 @@ def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_d
     counted_service_feats = cfg['DATA']['COUNTED_SERVICE_FEATURES']
     TIME_STEP = cfg['DATA']['TIME_SERIES']['TIME_STEP']             # Size of timestep (in days)
     T_X = cfg['DATA']['TIME_SERIES']['T_X']                         # length of input sequence (in timesteps)
-    EARLIEST_TIME_SERIES_DATE = df['ServiceEndDate'].min() + timedelta(days=(n_weeks * 7))
-    print("Earliest time series date: ", EARLIEST_TIME_SERIES_DATE)
+    EARLIEST_TIME_SERIES_DATE = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - \
+                                relativedelta(years=cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'])
+    all_mv_cat_feats = []
+    print("Earliest time series date: ", EARLIEST_TIME_SERIES_DATE)     # Corresponds to earliest record for client stay
 
     if not include_gt:
         num_iterations = T_X
     else:
         num_iterations = (gt_end_date - EARLIEST_TIME_SERIES_DATE).days // TIME_STEP
 
+    sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
+    mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
+
     df_gt = pd.DataFrame()
-    df_time_series = pd.DataFrame()
+    df_clients_time_series = pd.DataFrame()
+
+    df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
+    noncategorical_feats.extend(['IncomeTotal'])
+    df['IncomeTotal'] = 0
 
     timestep_prefix = str(TIME_STEP) + '-Day_'
     total_prefix = 'Total_'
@@ -528,6 +560,8 @@ def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_d
             if calculate_gt:
                 df_gt_cur = calculate_ground_truth(df_temp, cfg['DATA']['CHRONIC_THRESHOLD'], gt_duration,
                                                     new_gt_end_date)
+                if df_gt_cur is None:
+                    continue
                 df_gt_cur.insert(0, 'Date', train_end_date)     # Insert Date column with train end date as index
                 df_gt = pd.concat([df_gt, df_gt_cur], axis=0, sort=False)
 
@@ -536,18 +570,28 @@ def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_d
 
         # Compute weekly and total stays + services accessed for each client for each timestep.
         start_date = train_end_date - timedelta(days=TIME_STEP)
-        df_temp = calculate_client_service_features(df_temp, train_end_date, timed_service_feats,
-                                                           counted_service_feats, ts_timed_service_feats,
-                                                           ts_numerical_service_feats, timestep_prefix,
-                                                           start_date=start_date)
-        df_temp = calculate_client_service_features(df_temp, train_end_date, timed_service_feats,
+        df_temp = calculate_ts_client_features(df_temp, train_end_date, timed_service_feats,
                                                            counted_service_feats, total_timed_service_feats,
                                                            total_numerical_service_feats, total_prefix,
                                                            start_date=None)
+        if df_temp is None:
+            continue
+        df_temp = calculate_ts_client_features(df_temp, train_end_date, timed_service_feats,
+                                                           counted_service_feats, ts_timed_service_feats,
+                                                           ts_numerical_service_feats, timestep_prefix,
+                                                           start_date=start_date)
         df_temp[ts_timed_service_feats + ts_numerical_service_feats + total_timed_service_feats + total_numerical_service_feats]\
             .fillna(0, inplace=True)
+        df_temp = df_temp.set_index('ServiceStartDate')
+
+        # Encode multi-valued categorical variables and aggregate the DataFrame
+        df_temp[mv_cat_feats] = df_temp[mv_cat_feats].fillna("None")
+        df_temp, vec_mv_cat_feats = vec_multi_value_cat_features(df_temp, mv_cat_feats, cfg, False)  ## Just added
+        all_mv_cat_feats += [f for f in vec_mv_cat_feats if f not in all_mv_cat_feats]
         df_temp.insert(0, 'Date', train_end_date)  # Insert Date column with train end date as index
-        df_time_series = pd.concat([df_time_series, df_temp], axis=0, sort=False)
+        df_clients = aggregate_df(df_temp, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
+        df_clients_time_series = pd.concat([df_clients_time_series, df_clients], axis=0, sort=False)
+        df_clients_time_series[all_mv_cat_feats] = df_clients_time_series[all_mv_cat_feats].fillna(0)
 
     if include_gt:
         if calculate_gt:
@@ -557,7 +601,7 @@ def calculate_time_series(cfg, df, categorical_feats, noncategorical_feats, gt_d
             df_gt = load_df(cfg['PATHS']['GROUND_TRUTH'])  # Load ground truth from file
             df_gt = df_gt.set_index('ClientID')
             df_gt.index = df_gt.index.astype(int)
-    return df_time_series, df_gt, noncategorical_feats
+    return df_clients_time_series, df_gt, noncategorical_feats
 
 
 def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True, load_ct=False, data_path=None):
@@ -599,7 +643,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     df = load_df(data_path)
 
     ##TAKE OUT LATER#########################################
-    #df = df[0:int(df.shape[0]*0.2)]
+    #df = df[int(df.shape[0]*0.85):df.shape[0]-1]
 
     # Exclude clients who did not provide consent to use their information for this project
     df.drop(df[df['ClientID'].isin(cfg['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
@@ -626,44 +670,46 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     df = process_timestamps(df)
 
     if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
-        # Compute total monthly income for each client.
-        print("Calculating monthly income total.")
-        df, noncategorical_feats = calculate_client_income(df, noncategorical_feats)
+        print("Loading previously saved info on multi-valued categorical variables")
+        cfg_gen = yaml.full_load(open(cfg['PATHS']['DATA_INFO'], 'r'))  # Get config data generated from previous preprocessing
+        sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
+        mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
 
         # Compute weekly and total service usage time series data for each client.
         print("Calculating cumulative and time series service features.")
-        df, df_gt, noncategorical_feats = calculate_time_series(cfg, df, categorical_feats, noncategorical_feats,
-                                                      GROUND_TRUTH_DURATION, include_gt, calculate_gt)
+        df_clients, df_gt, noncategorical_feats = calculate_time_series(cfg, cfg_gen, df, categorical_feats,
+                                                                        noncategorical_feats, GROUND_TRUTH_DURATION,
+                                                                        include_gt, calculate_gt)
     else:
         # Compute total stays, total monthly income, total # services accessed for each client.
         print("Calculating total service features, monthly income total.")
         df, df_gt, noncategorical_feats = calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_feats,
                                                                           GROUND_TRUTH_DURATION, include_gt, calculate_gt)
-    categorical_feats.remove('ServiceType')
+        categorical_feats.remove('ServiceType')
 
-    # Index dataframe by the service start column
-    df = df.set_index('ServiceStartDate')
+        # Index dataframe by the service start column
+        df = df.set_index('ServiceStartDate')
 
-    print("Separating multi and single-valued categorical features.")
-    if classify_cat_feats:
-        sv_cat_feats, mv_cat_feats = classify_cat_features(df, categorical_feats)
-    else:
-        input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
-        cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
-        sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
-        mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
-        noncategorical_feats = cfg_gen['NON_CAT_FEATURES']
+        print("Separating multi and single-valued categorical features.")
+        if classify_cat_feats:
+            sv_cat_feats, mv_cat_feats = classify_cat_features(df, categorical_feats)
+        else:
+            input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
+            cfg_gen = yaml.full_load(input_stream)  # Get config data generated from previous preprocessing
+            sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
+            mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
+            noncategorical_feats = cfg_gen['NON_CAT_FEATURES']
 
-    # Replace all instances of NaN in the dataframe with 0 or "Unknown"
-    df[mv_cat_feats] = df[mv_cat_feats].fillna("None")
+        # Replace all instances of NaN in the dataframe with 0 or "Unknown"
+        df[mv_cat_feats] = df[mv_cat_feats].fillna("None")
 
-    # Vectorize the multi-valued categorical features
-    print("Vectorizing multi-valued categorical features.")
-    df, vec_mv_cat_feats = vec_multi_value_cat_features(df, mv_cat_feats, cfg, load_ct)
+        # Vectorize the multi-valued categorical features
+        print("Vectorizing multi-valued categorical features.")
+        df, vec_mv_cat_feats, mv_cat_values = vec_multi_value_cat_features(df, mv_cat_feats, cfg, load_ct)
 
-    # Amalgamate rows to have one entry per client
-    print("Aggregating the dataframe.")
-    df_clients = aggregate_df(df, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
+        # Amalgamate rows to have one entry per client
+        print("Aggregating the dataframe.")
+        df_clients = aggregate_df(df, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
 
     # Include SPDAT data
     if cfg['DATA']['SPDAT']['INCLUDE_SPDATS'] and cfg['TRAIN']['MODEL_DEF'] != 'hifis_rnn_mlp':
@@ -700,6 +746,16 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     df_clients[sv_cat_feats] = df_clients[sv_cat_feats].fillna("Unknown")
     df_clients[noncategorical_feats] = df_clients[noncategorical_feats].fillna(-1)
 
+    # Create columns for most recent T_X values of time series service features and place at the end of the DataFrame
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        print("Creating columns for recent past values of time series features.")
+        df_clients = assemble_time_sequences(cfg, df_clients)
+        new_col_order = list(df_clients.columns).copy()
+        for col_name in list(df_clients.columns):
+            if '-Day_' in col_name:
+                new_col_order.append(new_col_order.pop(new_col_order.index(col_name)))
+        df_clients = df_clients.reindex(columns=new_col_order)
+
     # Vectorize single-valued categorical features. Keep track of feature names and values.
     print("Vectorizing single-valued categorical features.")
     df_clients, df_ohe_clients, data_info = vec_single_value_cat_features(df_clients, sv_cat_feats, cfg, load_ct)
@@ -708,7 +764,9 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     if include_gt:
         if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
             df_clients = df_clients.join(df_gt)  # Set ground truth for all clients to their saved values
+            df_ohe_clients = df_ohe_clients.join(df_gt)  # Set ground truth for all clients to their saved values
             df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
+            df_ohe_clients['GroundTruth'] = df_ohe_clients['GroundTruth'].fillna(0)
             num_pos = df_clients['GroundTruth'].sum()  # Number of clients with positive ground truth
             num_neg = df_clients.shape[0] - num_pos  # Number of clients with negative ground truth
             print("# time series client records meeting homelessness criteria = ", num_pos)

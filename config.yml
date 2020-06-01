@@ -66,6 +66,7 @@ DATA:
   TIME_SERIES:
     TIME_STEP: 7                          # In days
     T_X: 13                               # Length of time series input sequence
+    YEARS_OF_DATA: 3                      # Years of recent data to create time series records for.
   SPDAT:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false

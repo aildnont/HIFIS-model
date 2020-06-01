@@ -119,17 +119,9 @@ def load_time_series_dataset(cfg):
         :return: A Dataframe with client's current and past T_X time series service features in each row
         '''
         client_ts_df.sort_values(by=['Date'], ascending=False, inplace=True) # Sort records by date
-        #index_cols = client_ts_df[['Date']]
-        #other_cols = client_ts_df[[f for f in client_ts_df.columns if f not in ['ClientID', 'Date']]]
-        #df_prev_time_steps = pd.DataFrame()
         for i in range(1, T_X):
-            cur_time_series_feats = [f for f in df_ts.columns if '(-' + str(i) + ')' in f]
             for f in time_series_feats:
                 client_ts_df['(-' + str(i) + ')' + f] = client_ts_df[f].shift(-i, axis=0)
-            #df_time_step.columns = ['(-' + str(i) + ')' + c for c in df_time_step.columns]
-            #df_prev_time_steps = pd.concat([df_time_step, df_prev_time_steps], axis=1)
-        #client_ts_df = pd.concat([index_cols, df_prev_time_steps, other_cols], axis=1)
-        #client_ts_df = client_ts_df[:-(T_X-1)]
         return client_ts_df
 
     # Load data info generated during preprocessing
@@ -142,18 +134,10 @@ def load_time_series_dataset(cfg):
     T_X = cfg['DATA']['TIME_SERIES']['T_X']
     tqdm.pandas()
 
-    # Load time series and static data. Join them.
+    # Load data (before and after one-hot encoding)
     df_ohe = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
-    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])   # Data prior to one hot encoding
-    df_ts = pd.read_csv(cfg['PATHS']['PROCESSED_TS_DATA'])  # Features that change with time
-    time_series_feats = [f for f in df_ts.columns if '-Day_' in f]
-    for f in time_series_feats:
-        for i in range(1, T_X):
-            df_ts.insert(2, '(-' + str(i) + ')' + f, 0)
-    df_ts = df_ts.groupby('ClientID').progress_apply(client_windows)
-    df_ts.dropna(inplace=True)
-    df_ohe = df_ts.merge(df_ohe, on='ClientID', how='left')
-    df = df_ts.merge(df, on='ClientID', how='left')
+    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])   # Static and dynamic data prior to one hot encoding
+    time_series_feats = [f for f in df.columns if ('-Day_' in f) and (')' not in f)]
 
     # Partition dataset by date
     train_split = cfg['TRAIN']['TRAIN_SPLIT']
@@ -167,6 +151,8 @@ def load_time_series_dataset(cfg):
     test_df_ohe = df_ohe[df_ohe['Date'].isin(test_df_dates)]
     train_df = df[df['Date'].isin(train_df_dates)]
     test_df = df[df['Date'].isin(test_df_dates)]
+    print('Train set size = ' + str(train_df_ohe.shape[0]) + '. Val set size = ' + str(val_df_ohe.shape[0]) +
+          '. Test set size = ' + str(test_df_ohe.shape[0]))
 
     # Save train & test set for LIME
     train_df.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False)

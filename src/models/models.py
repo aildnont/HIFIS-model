@@ -109,7 +109,7 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
     # Define RNN component of model using LSTM cells. LSTM input shape is [batch_size, timesteps, features]
     lstm_input_shape = (metadata['T_X'], metadata['NUM_TS_FEATS'])
     X_dynamic = Reshape(lstm_input_shape)(X_dynamic)
-    X_dynamic = transpose(X_dynamic, perm=[0,2,1])
+    #X_dynamic = transpose(X_dynamic, perm=[0,2,1])
     X_dynamic = LSTM(cfg['LSTM']['UNITS'], activation='tanh')(X_dynamic)
 
     # Define MLP component of model
