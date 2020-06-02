@@ -155,12 +155,13 @@ def plot_horizon_search(results_df, file_path):
     return
 
 
-def visualize_explanation(explanation, client_id, client_gt, file_path=None):
+def visualize_explanation(explanation, client_id, client_gt, date=None, file_path=None):
     '''
     Visualize top LIME contributing features for an example.
     :param explanation: Local explanation of example
     :param client_id: ClientID of example
     :param ground_truth: GroundTruth of example
+    :param date: Date of example
     :param file_path: The path to the directory at which to save the resulting image
     '''
 
@@ -168,8 +169,10 @@ def visualize_explanation(explanation, client_id, client_gt, file_path=None):
     fig = explanation.as_pyplot_figure()
     probs = explanation.predict_proba
     fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
-    fig.text(0.02, 0.96, "Client ID: " + str(client_id))
-    fig.text(0.02, 0.94, "Ground Truth: " + str(client_gt))
+    fig.text(0.02, 0.96, "Ground Truth: " + str(client_gt))
+    fig.text(0.02, 0.94, "Client ID: " + str(client_id))
+    if date is not None:
+        fig.text(0.02, 0.92, "Date: " + date)
     plt.tight_layout()
 
     # Save the image

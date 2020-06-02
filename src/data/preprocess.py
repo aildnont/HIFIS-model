@@ -396,12 +396,13 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
     return df_temp
 
 
-def assemble_time_sequences(cfg, df_clients):
+def assemble_time_sequences(cfg, df_clients, noncat_feats):
     '''
-
-    :param cfg:
-    :param df_clients:
-    :return:
+    Appends most recent values for time series service features to data examples
+    :param cfg: Project config
+    :param df_clients: Dataframe of client data indexed by ClientID and Date
+    :param noncat_feats: list of noncategorical features
+    :return: Dataframe with recent time series service features, updated list of noncategorical features
     '''
 
     def client_windows(client_ts_df):
@@ -421,10 +422,12 @@ def assemble_time_sequences(cfg, df_clients):
     df_ts_idx = list(df_clients.columns).index(time_series_feats[0])    # Get column number of first time series feature
     for i in range(1, T_X):
         for f in reversed(time_series_feats):
-            df_clients.insert(df_ts_idx, '(-' + str(i) + ')' + f, 0)
+            new_ts_feat = '(-' + str(i) + ')' + f
+            df_clients.insert(df_ts_idx, new_ts_feat, 0)
+            noncat_feats.append(new_ts_feat)
     df_clients = df_clients.groupby('ClientID', group_keys=False).progress_apply(client_windows)
     df_clients.dropna(inplace=True)
-    return df_clients
+    return df_clients, noncat_feats
 
 
 def aggregate_df(df, noncat_feats, vec_mv_cat_feats, vec_sv_cat_feats):
@@ -749,7 +752,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     # Create columns for most recent T_X values of time series service features and place at the end of the DataFrame
     if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
         print("Creating columns for recent past values of time series features.")
-        df_clients = assemble_time_sequences(cfg, df_clients)
+        df_clients, noncategorical_feats = assemble_time_sequences(cfg, df_clients)
         new_col_order = list(df_clients.columns).copy()
         for col_name in list(df_clients.columns):
             if '-Day_' in col_name:

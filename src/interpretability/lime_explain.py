@@ -91,8 +91,12 @@ def setup_lime(cfg=None):
     test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 
     # Get client IDs and corresponding ground truths
-    Y_train = pd.concat([train_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
-    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        idx_feats = ['ClientID', 'Date']
+    else:
+        idx_feats = ['ClientID']
+    Y_train = pd.concat([train_df.pop(y) for y in idx_feats + ['GroundTruth']], axis=1).set_index(idx_feats)
+    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in idx_feats + ['GroundTruth']], axis=1).set_index(idx_feats)
 
     # Load data transformers
     lime_dict['SCALER_CT'] = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
@@ -113,7 +117,7 @@ def setup_lime(cfg=None):
     # Get training data stats
     training_data_stats = {'means': {}, 'mins': {}, 'maxs': {}, 'stds': {}, 'feature_values': {}, 'feature_frequencies': {}}
     for i in range(len(feature_names)):
-        training_data_stats['means'][i] = np.mean(lime_dict['X_TRAIN'][:,i])
+        training_data_stats['means'][i] = np.mean(lime_dict['X_TRAIN'][:, i])
         training_data_stats['mins'][i] = np.min(lime_dict['X_TRAIN'][:, i])
         training_data_stats['maxs'][i] = np.max(lime_dict['X_TRAIN'][:, i])
         training_data_stats['stds'][i] = np.std(lime_dict['X_TRAIN'][:, i])
@@ -270,20 +274,25 @@ def submodular_pick(lime_dict, file_path=None):
     return
 
 
-def explain_single_client(lime_dict, client_id):
+def explain_single_client(lime_dict, client_id, date=None):
     '''
     # Make a prediction and explain the rationale
     :param lime_dict: dict containing important information and objects for explanation experiments
     :param client_id: a Client ID (integer) from the test set to predict and explain
+    :param date: Time series only: date string (yyyy-mm-dd) to index time series data for a client
     '''
-    i = lime_dict['Y_TEST'].index.get_loc(client_id)
+    if date is None:
+        idx = client_id
+    else:
+        idx = (client_id, date)
+    i = lime_dict['Y_TEST'].index.get_loc(idx)
     start_time = datetime.datetime.now()
     explanation = predict_and_explain(lime_dict['X_TEST'][i], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
     print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
-    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'],
-                          file_path=lime_dict['IMG_PATH'])
+    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[idx, 'GroundTruth'],
+                          date=date, file_path=lime_dict['IMG_PATH'])
     return
 
 def run_lime_experiment_and_visualize(lime_dict):
@@ -306,5 +315,6 @@ if __name__ == '__main__':
     elif cfg['LIME']['EXPERIMENT'] == 'lime_experiment':
         run_lime_experiment_and_visualize(lime_dict)
     else:
-        client_id = 00000    # <-- Replace with Client ID from a client in test set
-        explain_single_client(lime_dict, client_id)
+        client_id = 70    # <-- Replace with Client ID from a client in test set
+        date = '2019-11-04'
+        explain_single_client(lime_dict, client_id, date=date)
