@@ -151,5 +151,5 @@ if __name__ == '__main__':
     if cfg['PREDICTION']['EXPERIMENT'] == 'trending_prediction':
         trending_prediction(data_path=None)
     else:
-        results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
+        results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=False,
                                              include_feat_values=True)

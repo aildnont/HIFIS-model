@@ -47,6 +47,20 @@ def classify_cat_features(df, cat_features):
     df.groupby('ClientID').progress_apply(classify_features)
     return sv_cat_features, mv_cat_features
 
+
+def get_mv_cat_feature_names(df, mv_cat_features):
+    '''
+    Build list of possible multi-valued categorical features
+    :param df: DataFrame containing HIFIS data
+    :param mv_cat_features: List of multi-valued categorical features
+    :return: List of all individual multi-valued categorical features
+    '''
+    mv_vec_cat_features = []
+    for f in mv_cat_features:
+        mv_vec_cat_features += [(f + '_' + v) for v in list(df[f].unique()) if type(v) == str]
+    return mv_vec_cat_features
+
+
 def vec_multi_value_cat_features(df, mv_cat_features, cfg, load_ct=False, categories=None):
     '''
         Converts multi-valued categorical features to vectorized format and appends to the dataframe
@@ -523,7 +537,6 @@ def calculate_time_series(cfg, cfg_gen, df, categorical_feats, noncategorical_fe
     T_X = cfg['DATA']['TIME_SERIES']['T_X']                         # length of input sequence (in timesteps)
     EARLIEST_TIME_SERIES_DATE = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - \
                                 relativedelta(years=cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'])
-    all_mv_cat_feats = []
     print("Earliest time series date: ", EARLIEST_TIME_SERIES_DATE)     # Corresponds to earliest record for client stay
 
     if not include_gt:
@@ -533,6 +546,7 @@ def calculate_time_series(cfg, cfg_gen, df, categorical_feats, noncategorical_fe
 
     sv_cat_feats = cfg_gen['SV_CAT_FEATURES']
     mv_cat_feats = cfg_gen['MV_CAT_FEATURES']
+    all_mv_cat_feats = get_mv_cat_feature_names(df, mv_cat_feats)
 
     df_gt = pd.DataFrame()
     df_clients_time_series = pd.DataFrame()
@@ -545,9 +559,10 @@ def calculate_time_series(cfg, cfg_gen, df, categorical_feats, noncategorical_fe
     total_prefix = 'Total_'
     ts_timed_service_feats = [timestep_prefix + s for s in timed_service_feats]
     total_timed_service_feats = [total_prefix + s for s in timed_service_feats]
-    ts_numerical_service_feats = [timestep_prefix+ s for s in counted_service_feats]
+    ts_numerical_service_feats = [timestep_prefix + s for s in counted_service_feats]
     total_numerical_service_feats = [total_prefix + s for s in counted_service_feats]
-    for f in ts_timed_service_feats + ts_numerical_service_feats + total_timed_service_feats + total_numerical_service_feats:
+    for f in ts_timed_service_feats + ts_numerical_service_feats + total_timed_service_feats + \
+             total_numerical_service_feats:
         df[f] = 0
         noncategorical_feats.append(f)
     for i in range(num_iterations):
@@ -589,10 +604,13 @@ def calculate_time_series(cfg, cfg_gen, df, categorical_feats, noncategorical_fe
 
         # Encode multi-valued categorical variables and aggregate the DataFrame
         df_temp[mv_cat_feats] = df_temp[mv_cat_feats].fillna("None")
-        df_temp, vec_mv_cat_feats = vec_multi_value_cat_features(df_temp, mv_cat_feats, cfg, False)  ## Just added
-        all_mv_cat_feats += [f for f in vec_mv_cat_feats if f not in all_mv_cat_feats]
+        for f in all_mv_cat_feats:
+            df_temp[f] = 0
+        df_temp_ohe, vec_mv_cat_feats = vec_multi_value_cat_features(df_temp, mv_cat_feats, cfg, False)
+        for f in vec_mv_cat_feats:
+            df_temp[f] = df_temp_ohe[f]
         df_temp.insert(0, 'Date', train_end_date)  # Insert Date column with train end date as index
-        df_clients = aggregate_df(df_temp, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
+        df_clients = aggregate_df(df_temp, noncategorical_feats, all_mv_cat_feats, sv_cat_feats)
         df_clients_time_series = pd.concat([df_clients_time_series, df_clients], axis=0, sort=False)
         df_clients_time_series[all_mv_cat_feats] = df_clients_time_series[all_mv_cat_feats].fillna(0)
 
@@ -752,7 +770,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     # Create columns for most recent T_X values of time series service features and place at the end of the DataFrame
     if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
         print("Creating columns for recent past values of time series features.")
-        df_clients, noncategorical_feats = assemble_time_sequences(cfg, df_clients)
+        df_clients, noncategorical_feats = assemble_time_sequences(cfg, df_clients, noncategorical_feats)
         new_col_order = list(df_clients.columns).copy()
         for col_name in list(df_clients.columns):
             if '-Day_' in col_name:

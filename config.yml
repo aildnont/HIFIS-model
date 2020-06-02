@@ -98,9 +98,9 @@ NN:
 TRAIN:
   EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
-  TRAIN_SPLIT: 0.8
-  VAL_SPLIT: 0.1
-  TEST_SPLIT: 0.1
+  TRAIN_SPLIT: 0.9
+  VAL_SPLIT: 0.05
+  TEST_SPLIT: 0.05
   EPOCHS: 300
   BATCH_SIZE: 32
   POS_WEIGHT: 0.6
