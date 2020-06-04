@@ -174,13 +174,12 @@ def process_timestamps(df):
             df[feature] = pd.to_datetime(df[feature], errors='coerce')
     return df
 
-def remove_n_weeks(df, train_end_date, dated_feats, cat_feats):
+def remove_n_weeks(df, train_end_date, dated_feats):
     '''
     Remove records from the dataframe that have timestamps in the n weeks leading up to the ground truth date
     :param df: Pandas dataframe
     :param train_end_date: the most recent date that should appear in the dataset
     :param dated_feats: list of feature names with dated events
-    :param cat_feats: list of categorical features
     :return: updated dataframe with the relevant rows removed
     '''
     df = df[df['ServiceStartDate'] <= train_end_date]               # Delete rows where service occurred after this date
@@ -203,7 +202,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     Iterate through dataset by client to calculate ground truth
     :param df: a Pandas dataframe
     :param chronic_threshold: Minimum # of days spent in shelter to be considered chronically homeless
-    :param days: Number of days over which to cound # days spent in shelter
+    :param days: Number of days over which to count # days spent in shelter
     :param end_date: The last date of the time period to consider
     :return: a DataSeries mapping ClientID to ground truth
     '''
@@ -223,7 +222,8 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         for row in client_df.itertuples():
             stay_start = getattr(row, 'ServiceStartDate')
             stay_end = min(getattr(row, 'ServiceEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
-            if (stay_start > last_stay_start) and (stay_end > last_stay_end):
+            service_type = getattr(row, 'ServiceType')
+            if (stay_start > last_stay_start) and (stay_end > last_stay_end) and (service_type == 'Stay'):
                 if (stay_start.date() >= start_date.date()) or (stay_end.date() >= start_date.date()):
                     # Account for cases where stay start earlier than start of range, or stays overlapping from previous stay
                     stay_start = max(start_date, stay_start, last_stay_end)
@@ -241,7 +241,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
     df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
     df_temp['GroundTruth'] = 0
-    df_temp = df_temp.loc[(df_temp['ServiceType'] == 'Stay')]
+    #df_temp = df_temp.loc[(df_temp['ServiceType'] == 'Stay')]
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     if df_temp.shape[0] == 0:
         return None
@@ -308,7 +308,8 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
             client_df[feat] = total_services[feat]
 
         # Calculate total monthly income for client
-        client_income_df = client_df.drop_duplicates(subset=['IncomeType'])
+        client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'IncomeStartDate', 'IncomeEndDate']]\
+            .sort_values(by=['IncomeStartDate']).drop_duplicates(subset=['IncomeType'], keep='last')
         client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
         return client_df
 
@@ -393,7 +394,8 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
             client_df[feat] = total_services[feat]
 
         # Calculate total monthly income for client
-        client_income_df = client_df.drop_duplicates(subset=['IncomeType'])
+        client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'IncomeStartDate', 'IncomeEndDate']]\
+            .sort_values(by=['IncomeStartDate']).drop_duplicates(subset=['IncomeType'], keep='last')
         client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
         return client_df
 
@@ -503,7 +505,7 @@ def calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_fe
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", n_weeks, " weeks back. Cutting off at ", train_end_date)
-    df = remove_n_weeks(df, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
+    df = remove_n_weeks(df, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'])
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total service features, monthly income total.")
@@ -537,9 +539,9 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
     T_X = cfg['DATA']['TIME_SERIES']['T_X']                         # length of input sequence (in timesteps)
     DAYS_PER_YEAR = 365.25
     EARLIEST_TIME_SERIES_DATE = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - \
-                                timedelta(days=(n_weeks * 7)) - \
+                                timedelta(days=T_X * TIME_STEP) - \
                                 timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
-    print("Earliest time series date: ", EARLIEST_TIME_SERIES_DATE)     # Corresponds to earliest record for client stay
+    print("Earliest time series ground truth date: ", EARLIEST_TIME_SERIES_DATE)     # Corresponds to earliest record for client stay
 
     if not include_gt:
         num_iterations = T_X
@@ -576,8 +578,8 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
     for i in range(num_iterations):
         end_date = gt_end_date - timedelta(days=(TIME_STEP * i))
 
-        # Go back in time (TIME_STEP * num_iterations / 7) weeks
-        df_temp = remove_n_weeks(df, end_date, cfg['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
+        # Go back in time (TIME_STEP * i / 7) weeks
+        df_temp = remove_n_weeks(df, end_date, cfg['DATA']['TIMED_EVENT_FEATURES'])
 
         train_end_date = end_date - timedelta(days=(n_weeks * 7))  # Maximum for training set records
 
@@ -593,7 +595,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
                 df_gt = pd.concat([df_gt, df_gt_cur], axis=0, sort=False)
 
             # Remove records from the database from n weeks ago and onwards
-            df_temp = remove_n_weeks(df_temp, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'], categorical_feats)
+            df_temp = remove_n_weeks(df_temp, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'])
             cutoff_date = train_end_date
         else:
             cutoff_date = end_date
@@ -602,15 +604,15 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
         print('Calculating client service features at ' + str(train_end_date))
         start_date = cutoff_date - timedelta(days=TIME_STEP)
         df_temp = calculate_ts_client_features(df_temp, cutoff_date, timed_service_feats,
-                                                           counted_service_feats, total_timed_service_feats,
-                                                           total_numerical_service_feats, total_prefix,
-                                                           start_date=None)
+                                               counted_service_feats, total_timed_service_feats,
+                                               total_numerical_service_feats, total_prefix,
+                                               start_date=None)
         if df_temp is None:
             continue
         df_temp_timestep = calculate_ts_client_features(df_temp, cutoff_date, timed_service_feats,
-                                                           counted_service_feats, ts_timed_service_feats,
-                                                           ts_numerical_service_feats, timestep_prefix,
-                                                           start_date=start_date)
+                                                        counted_service_feats, ts_timed_service_feats,
+                                                        ts_numerical_service_feats, timestep_prefix,
+                                                        start_date=start_date)
         df_temp.update(df_temp_timestep)
         df_temp[ts_timed_service_feats + ts_numerical_service_feats + total_timed_service_feats + total_numerical_service_feats]\
             .fillna(0, inplace=True)
