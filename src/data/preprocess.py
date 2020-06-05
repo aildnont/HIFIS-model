@@ -241,7 +241,6 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
     min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
     df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
     df_temp['GroundTruth'] = 0
-    #df_temp = df_temp.loc[(df_temp['ServiceType'] == 'Stay')]
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     if df_temp.shape[0] == 0:
         return None
@@ -362,7 +361,7 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
             client_df['ServiceStartDate'].clip(lower=start_date, inplace=True)
         client_df = client_df[client_df['ServiceStartDate'] <= end_date]
         client_df['ServiceEndDate'].clip(upper=end_date, inplace=True)
-        client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
+        client_df.sort_values(by=['ServiceStartDate', 'SPDAT_Date'], inplace=True) # Sort records by service start date
         total_services = dict.fromkeys(total_timed_service_feats, 0) # Keep track of total days of service prior to training data end date
         last_service_end = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))   # Unix Epoch (1970-01-01 00:00:00)
         last_service_start = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))
@@ -397,6 +396,11 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
         client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'IncomeStartDate', 'IncomeEndDate']]\
             .sort_values(by=['IncomeStartDate']).drop_duplicates(subset=['IncomeType'], keep='last')
         client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
+
+        # If a client has multiple SPDAT records, ensure TotalScore is set to most recent value
+        client_spdat_records = client_df[client_df['SPDAT_Date'] <= end_date]
+        if client_spdat_records.shape[0] > 0:
+            client_df['TotalScore'] = client_spdat_records['TotalScore'].iloc[-1]
         return client_df
 
     if df is None:
@@ -547,7 +551,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
         num_iterations = T_X
     else:
         num_iterations = (gt_end_date - EARLIEST_TIME_SERIES_DATE).days // TIME_STEP
-    print('*****NUM ITERATIONS:', num_iterations)
+    print('# of time series iterations:', num_iterations)
 
     sv_cat_feats = cat_feat_info['SV_CAT_FEATURES']
     mv_cat_feats = cat_feat_info['MV_CAT_FEATURES']
