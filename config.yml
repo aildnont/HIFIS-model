@@ -64,9 +64,9 @@ DATA:
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
   TIME_SERIES:
-    TIME_STEP: 7                          # In days
-    T_X: 26                               # Length of time series input sequence
-    YEARS_OF_DATA: 3                      # Years of recent data to create time series records for.
+    TIME_STEP: 30                        # In days
+    T_X: 6                               # Length of time series input sequence
+    YEARS_OF_DATA: 3                     # Years of recent data to create time series records for.
   SPDAT:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false

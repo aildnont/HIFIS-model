@@ -445,7 +445,16 @@ def assemble_time_sequences(cfg, df_clients, noncat_feats):
             df_clients.insert(df_ts_idx, new_ts_feat, 0)
             noncat_feats.append(new_ts_feat)
     df_clients = df_clients.groupby('ClientID', group_keys=False).progress_apply(client_windows)
-    df_clients.dropna(inplace=True)
+
+    # Records at the beginning of a client's experience should have 0 for past time series feats
+    df_clients.fillna(0, inplace=True)
+
+    # Cut off any trailing records that could have possible false 0's
+    N_WEEKS = cfg['DATA']['N_WEEKS']
+    DAYS_PER_YEAR = 365.25
+    cutoff_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=N_WEEKS * 7) - \
+                                      timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
+    df_clients = df_clients[df_clients.index.get_level_values(1) >= cutoff_date]
     return df_clients, noncat_feats
 
 
@@ -542,15 +551,14 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
     TIME_STEP = cfg['DATA']['TIME_SERIES']['TIME_STEP']             # Size of timestep (in days)
     T_X = cfg['DATA']['TIME_SERIES']['T_X']                         # length of input sequence (in timesteps)
     DAYS_PER_YEAR = 365.25
-    EARLIEST_TIME_SERIES_DATE = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - \
-                                timedelta(days=T_X * TIME_STEP) - \
-                                timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
-    print("Earliest time series ground truth date: ", EARLIEST_TIME_SERIES_DATE)     # Corresponds to earliest record for client stay
+    EARLIEST_GT_DATE = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=T_X * TIME_STEP) - \
+                                      timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
+    print("Earliest time series ground truth date: ", EARLIEST_GT_DATE)     # Corresponds to earliest record for client stay
 
     if not include_gt:
         num_iterations = T_X
     else:
-        num_iterations = (gt_end_date - EARLIEST_TIME_SERIES_DATE).days // TIME_STEP
+        num_iterations = (gt_end_date - EARLIEST_GT_DATE).days // TIME_STEP
     print('# of time series iterations:', num_iterations)
 
     sv_cat_feats = cat_feat_info['SV_CAT_FEATURES']
