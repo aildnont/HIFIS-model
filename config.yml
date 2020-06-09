@@ -96,7 +96,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
+  EXPERIMENT: 'hparam_search'         # One of {'single_train', 'multi_train', 'hparam_search'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
@@ -111,30 +111,37 @@ TRAIN:
   PATIENCE: 15
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
-    COMBINATIONS: 60
+    COMBINATIONS: 180
     REPEATS: 2
     RANGES:
-      NODES0: [80, 120, 160]          # Discrete range
-      NODES1: [60, 80, 100]           # Discrete range
-      LAYERS: [2, 3, 4, 5]            # Discrete range
-      DROPOUT: [0.0, 0.5]             # Real range
-      LR: [-4.5, -2.5]                # Real range on logarithmic scale (10^x)
+      NODES0: [100, 175, 250]          # Discrete range
+      NODES1: [80]           # Discrete range
+      LAYERS: [2, 4, 7]            # Discrete range
+      DROPOUT: [0.3, 0.5]             # Real range
+      LR: [-3.0, -3.0]                # Real range on logarithmic scale (10^x)
       OPTIMIZER: ['adam']             # Discrete range
       BETA_1: [-1.0, -1.0]            # 1st moment for Adam. Real range on log scale (1 - 10^x)
       BETA_2: [-3.0, -3.0]            # 2nd moment for Adam. Real range on log scale (1 - 10^x)
-      L2_LAMBDA: [-6.0, -2.0]         # Real range on log scale (10^x)
-      BATCH_SIZE: [128, 256]          # Discrete range
-      POS_WEIGHT: [0.5, 0.7]          # Weight multiplier for positive class. Real range
+      L2_LAMBDA: [-7.0, -2.0]         # Real range on log scale (10^x)
+      BATCH_SIZE: [128, 512, 1024]          # Discrete range
+      POS_WEIGHT: [0.6, 0.6]          # Weight multiplier for positive class. Real range
       IMB_STRATEGY: ['class_weight']  # Discrete range
-      LSTM_UNITS: [30, 70, 110, 150]  # Discrete range
+      LSTM_UNITS: [128]  # Discrete range
 
 # LIME explanations
 LIME:
-  KERNEL_WIDTH: 14.33
-  FEATURE_SELECTION: 'lasso_path'
-  NUM_FEATURES: 30
-  NUM_SAMPLES: 40000
-  MAX_DISPLAYED_RULES: 30
+  HIFIS_MLP:
+    KERNEL_WIDTH: 2.5
+    FEATURE_SELECTION: 'lasso_path'
+    NUM_FEATURES: 15
+    NUM_SAMPLES: 60000
+    MAX_DISPLAYED_RULES: 15
+  HIFIS_RNN_MLP:
+    KERNEL_WIDTH: 14.33
+    FEATURE_SELECTION: 'lasso_path'
+    NUM_FEATURES: 30
+    NUM_SAMPLES: 40000
+    MAX_DISPLAYED_RULES: 30
   SP:
     SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
