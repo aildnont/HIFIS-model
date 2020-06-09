@@ -473,6 +473,84 @@ steps.
    note that a larger average Silhouette Score implies a more quality
    clustering.
 
+## Time Series Forecasting Model
+Later research involved developing a model that reformulates client
+service usage as time series features. The motivation behind the
+investigation of time series forecasting was to discover if capturing
+service usage changes over time would better reflect the episodic nature
+of homelessness, thereby improving model predictions for clients at
+different times. The hope was that time series service features would
+give further context to a client's story that could be formalized as an
+example. This section will describe the changes in the features,
+dataset, model, and explanations.
+
+### Time Series Data
+Features that describe client service usage (e.g. stays, case
+management, food bank visits) are quantified over time. In the original
+HIFIS MLP model, these features were totalled up to the date of the
+example. Here, we define a _timestep_ (by default, 30 days) and include
+total service usage over a timestep as a feature. The _input sequence
+length_ (i.e. _T_X_) defines how many of the most recent timesteps to
+include in a single client record. For instance, suppose that the
+timestep is 30 days and _T_X_ is 6. A single client record will contain
+total service usage features for that client at a particular timestamp,
+as well as time series service features corresponding to total service
+usage during each of the 6 most recent timesteps.
+
+An additional benefit of formulating time series client records was that
+the aggregate dataset can contain records for clients at different
+dates. Therefore, the dataset is indexed by ClientID and Date. During
+data preprocessing, records are calculated for each client at different
+dates. The result is a significantly larger dataset than was used for
+the MLP model.
+
+Since the dataset contains different records for each client at various
+dates, the training, validation and test sets are partitioned by Date,
+instead of randomly by ClientID. The test and validation sets comprise
+the most recent and second most recent records for all clients. The
+training set is taken to be all records with dates earlier than those in
+the test and validation sets. This way, the model is tested on the most
+recent client data and is likely to perform well on new client data.
+
+### RNN-MLP Hybrid Model
+The time series forecasting model is different than that of the first
+model described. The first iteration of the HIFIS model was a
+multi-layer preceptron (MLP). The time series forecasting model we
+developed has a hybrid recurrent neural network (RNN) and MLP
+architecture. This model, dubbed _"RNN-MLP model"_, captures the state
+of time series features by incorporating an LSTM layer through which the
+time series features are fed. The static features (i.e. non-time-series
+features) are concatenated with the output of the LSTM layer, and fed
+into an MLP, whose output is the model's decision. Examples of static
+features include demographic attributes. Total service features are also
+included in this group, as they capture a client's service usage since
+the beginning of their inclusion in HIFIS.
+
+### Time Series LIME Explanations
+Explanations are computed for the RNN-MLP model in the same way as they
+were for the original MLP model, except that they are computed for
+predictions for a particular client at a particular date. We found that
+time series features (especially those of total stays during different
+timesteps) appeared more often as being important in explanations. The
+time series features are named for their position in the input sequence
+and the duration of the timestep. For example, a feature called
+_"(-2)30-Day_Stay"_ indicates the total number of stays that a client
+had 2 timesteps ago, where the timestep duration is 30 days.
+Additionally, stable explanations take longer to compute for the RNN-MLP
+models.
+
+### Steps to Use
+1. In [config.yml](config.yml), set _MODEL_DEF_ within _TRAIN_ to
+   _'hifis_rnn_mlp'_.
+2. Follow steps 1-4 in
+   _[Train a model and visualize results](#train-a-model-and-visualize-results)_
+   to preprocess the raw data and train a model.
+3. See the steps in _[LIME Explanations](#lime-explanations)_ for
+   instructions on how to run different explainability experiments. If
+   you wish to explain a single client, be sure that you pass a value
+   for the _date_ parameter to _explain_single_client()_ in the
+   _yyyy-mm-dd_ format.
+
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
 any _.gitkeep_ files, as their only purpose is to force Git to track
