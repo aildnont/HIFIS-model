@@ -85,14 +85,14 @@ NN:
     LR: 0.0001
   HIFIS_RNN_MLP:
     LSTM:
-      UNITS: 50
+      UNITS: 128
     DENSE:
-      DENSE0: 80
-      DENSE1: 60
-    LAYERS: 3
-    L2_LAMBDA: 0.01
+      DENSE0: 120
+      DENSE1: 80
+    LAYERS: 4
+    L2_LAMBDA: 0.001
     DROPOUT: 0.35
-    LR: 0.0001
+    LR: 0.001
 
 # Training
 TRAIN:
@@ -102,8 +102,8 @@ TRAIN:
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
   EPOCHS: 300
-  BATCH_SIZE: 32
-  POS_WEIGHT: 0.6
+  BATCH_SIZE: 1024
+  POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
   NUM_RUNS: 150
@@ -114,25 +114,26 @@ TRAIN:
     COMBINATIONS: 60
     REPEATS: 2
     RANGES:
-      NODES0: [80, 100]               # Discrete range
-      NODES1: [60, 80]                # Discrete range
-      LAYERS: [2, 3, 4]               # Discrete range
-      DROPOUT: [0.2, 0.4]             # Real range
-      LR: [-3.0, -3.0]                # Real range on logarithmic scale (10^x)
-      OPTIMIZER: ['adam', 'sgd']      # Discrete range
+      NODES0: [80, 120, 160]          # Discrete range
+      NODES1: [60, 80, 100]           # Discrete range
+      LAYERS: [2, 3, 4, 5]            # Discrete range
+      DROPOUT: [0.0, 0.5]             # Real range
+      LR: [-4.5, -2.5]                # Real range on logarithmic scale (10^x)
+      OPTIMIZER: ['adam']             # Discrete range
       BETA_1: [-1.0, -1.0]            # 1st moment for Adam. Real range on log scale (1 - 10^x)
       BETA_2: [-3.0, -3.0]            # 2nd moment for Adam. Real range on log scale (1 - 10^x)
-      L2_LAMBDA: [-2.0, -2.0]         # Real range on log scale (10^x)
+      L2_LAMBDA: [-6.0, -2.0]         # Real range on log scale (10^x)
       BATCH_SIZE: [128, 256]          # Discrete range
-      POS_WEIGHT: [0.6, 0.7]          # Weight multiplier for positive class. Real range
-      IMB_STRATEGY: ['class_weight', 'smote', 'random_oversample']  # Discrete range
+      POS_WEIGHT: [0.5, 0.7]          # Weight multiplier for positive class. Real range
+      IMB_STRATEGY: ['class_weight']  # Discrete range
+      LSTM_UNITS: [30, 70, 110, 150]  # Discrete range
 
 # LIME explanations
 LIME:
-  KERNEL_WIDTH: 2.5
+  KERNEL_WIDTH: 14.33
   FEATURE_SELECTION: 'lasso_path'
-  NUM_FEATURES: 15
-  NUM_SAMPLES: 60000
+  NUM_FEATURES: 30
+  NUM_SAMPLES: 40000
   MAX_DISPLAYED_RULES: 30
   SP:
     SAMPLE_FRACTION: 1.0
