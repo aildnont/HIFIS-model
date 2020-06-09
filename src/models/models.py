@@ -84,6 +84,7 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
         l2_lambda = cfg['L2_LAMBDA']
         lr = cfg['LR']
         optimizer = Adam(learning_rate=lr)
+        lstm_units = cfg['LSTM']['UNITS']
     else:
         nodes_dense0 = hparams['NODES0']
         nodes_dense1 = hparams['NODES1']
@@ -93,6 +94,8 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
         beta_1 = 1 - 10 ** hparams['BETA_1']
         beta_2 = 1 - 10 ** hparams['BETA_2']
         l2_lambda = 10 ** hparams['L2_LAMBDA']
+        lstm_units = hparams['LSTM_UNITS']
+
         if hparams['OPTIMIZER'] == 'adam':
             optimizer = Adam(learning_rate=lr, beta_1=beta_1, beta_2=beta_2)
         elif hparams['OPTIMIZER'] == 'sgd':
@@ -110,7 +113,7 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
     lstm_input_shape = (metadata['T_X'], metadata['NUM_TS_FEATS'])
     X_dynamic = Reshape(lstm_input_shape)(X_dynamic)
     #X_dynamic = transpose(X_dynamic, perm=[0,2,1])
-    X_dynamic = LSTM(cfg['LSTM']['UNITS'], activation='tanh')(X_dynamic)
+    X_dynamic = LSTM(lstm_units, activation='tanh')(X_dynamic)
 
     # Define MLP component of model
     X = concatenate([X_dynamic, X_static])      # Combine output of LSTM with static features

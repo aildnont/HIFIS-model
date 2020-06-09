@@ -112,18 +112,6 @@ def load_time_series_dataset(cfg):
     :return: A dict of partitioned and normalized datasets, split into examples and labels
     '''
 
-    def client_windows(client_ts_df):
-        '''
-        Helper function to create examples with time series features going back T_X time steps for a client's records
-        :param client_ts_df: A Dataframe of a client's time series service features
-        :return: A Dataframe with client's current and past T_X time series service features in each row
-        '''
-        client_ts_df.sort_values(by=['Date'], ascending=False, inplace=True) # Sort records by date
-        for i in range(1, T_X):
-            for f in time_series_feats:
-                client_ts_df['(-' + str(i) + ')' + f] = client_ts_df[f].shift(-i, axis=0)
-        return client_ts_df
-
     # Load data info generated during preprocessing
     data = {}
     data['METADATA'] = {}
@@ -335,6 +323,8 @@ def random_hparam_search(cfg, data, callbacks, log_dir):
     HPARAMS.append(hp.HParam('BATCH_SIZE', hp.Discrete(hp_ranges['BATCH_SIZE'])))
     HPARAMS.append(hp.HParam('POS_WEIGHT', hp.RealInterval(hp_ranges['POS_WEIGHT'][0], hp_ranges['POS_WEIGHT'][1])))
     HPARAMS.append(hp.HParam('IMB_STRATEGY', hp.Discrete(hp_ranges['IMB_STRATEGY'])))
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        HPARAMS.append(hp.HParam('LSTM_UNITS', hp.Discrete(hp_ranges['LSTM_UNITS'])))
 
     # Define test set metrics that we wish to log to TensorBoard for each training run
     HP_METRICS = [hp.Metric(metric, display_name='Test ' + metric) for metric in cfg['TRAIN']['HP']['METRICS']]

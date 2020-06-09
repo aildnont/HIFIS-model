@@ -131,7 +131,7 @@ def setup_lime(cfg=None):
 
     lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
+                                    kernel_width=None, feature_selection=FEATURE_SELECTION, discretizer='quartile',
                                     discretize_continuous=True)
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
@@ -317,5 +317,4 @@ if __name__ == '__main__':
     else:
         client_id = lime_dict['Y_TEST'].index[0][0]    # <-- Replace with Client ID from a client in test set
         date = lime_dict['Y_TEST'].index[0][1] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else None
-        print(client_id, date)
         explain_single_client(lime_dict, client_id, date=date)
