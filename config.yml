@@ -87,8 +87,8 @@ NN:
     LSTM:
       UNITS: 128
     DENSE:
-      DENSE0: 120
-      DENSE1: 80
+      DENSE0: 240
+      DENSE1: 120
     LAYERS: 4
     L2_LAMBDA: 0.001
     DROPOUT: 0.35
@@ -96,7 +96,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'hparam_search'         # One of {'single_train', 'multi_train', 'hparam_search'}
+  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
@@ -111,22 +111,22 @@ TRAIN:
   PATIENCE: 15
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
-    COMBINATIONS: 180
+    COMBINATIONS: 360
     REPEATS: 2
     RANGES:
-      NODES0: [100, 175, 250]          # Discrete range
-      NODES1: [80]           # Discrete range
-      LAYERS: [2, 4, 7]            # Discrete range
-      DROPOUT: [0.3, 0.5]             # Real range
-      LR: [-3.0, -3.0]                # Real range on logarithmic scale (10^x)
-      OPTIMIZER: ['adam']             # Discrete range
-      BETA_1: [-1.0, -1.0]            # 1st moment for Adam. Real range on log scale (1 - 10^x)
-      BETA_2: [-3.0, -3.0]            # 2nd moment for Adam. Real range on log scale (1 - 10^x)
-      L2_LAMBDA: [-7.0, -2.0]         # Real range on log scale (10^x)
-      BATCH_SIZE: [128, 512, 1024]          # Discrete range
-      POS_WEIGHT: [0.6, 0.6]          # Weight multiplier for positive class. Real range
-      IMB_STRATEGY: ['class_weight']  # Discrete range
-      LSTM_UNITS: [128]  # Discrete range
+      NODES0: [200, 250, 300, 350]          # Discrete range
+      NODES1: [80, 120, 160]                # Discrete range
+      LAYERS: [2, 4, 6]                     # Discrete range
+      DROPOUT: [0.35, 0.35]                 # Real range
+      LR: [-3.5, -3.0]                      # Real range on logarithmic scale (10^x)
+      OPTIMIZER: ['adam']                   # Discrete range
+      BETA_1: [-1.0, -1.0]                  # 1st moment for Adam. Real range on log scale (1 - 10^x)
+      BETA_2: [-3.0, -3.0]                  # 2nd moment for Adam. Real range on log scale (1 - 10^x)
+      L2_LAMBDA: [-7.0, -2.0]               # Real range on log scale (10^x)
+      BATCH_SIZE: [1024]                    # Discrete range
+      POS_WEIGHT: [0.5, 0.7]                # Weight multiplier for positive class. Real range
+      IMB_STRATEGY: ['class_weight']        # Discrete range
+      LSTM_UNITS: [64, 128, 256]            # Discrete range
 
 # LIME explanations
 LIME:

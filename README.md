@@ -105,6 +105,14 @@ was built using data from HIFIS 4.0.57.30.
    ![alt text](documents/readme_images/cm_example.png "Confusion
    Matrix")
 
+The diagram below depicts an overview the model's architecture. We call
+this model _"HIFIS MLP"_, as the model is an example of a multilayer
+perceptron. _NODES0_ and _NODES1_ correspond to hyperparameters
+configurable in [config.yml](config.yml).
+
+![alt text](documents/readme_images/HIFIS_MLP.png "HIFIS MLP
+architecture overview")
+
 ### Train multiple models and save the best one
 Not every model trained will perform at the same level on the test set.
 This procedure enables you to train multiple models and save the one
@@ -524,7 +532,11 @@ features) are concatenated with the output of the LSTM layer, and fed
 into an MLP, whose output is the model's decision. Examples of static
 features include demographic attributes. Total service features are also
 included in this group, as they capture a client's service usage since
-the beginning of their inclusion in HIFIS.
+the beginning of their inclusion in HIFIS. See below for a diagram
+summarizing the RNN-MLP's architecture.
+
+![alt text](documents/readme_images/HIFIS_RNN_MLP.png "HIFIS RNN-MLP
+architecture overview")
 
 ### Time Series LIME Explanations
 Explanations are computed for the RNN-MLP model in the same way as they
