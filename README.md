@@ -690,6 +690,14 @@ below.
   calculated by summing the number of times that the service was
   accessed. Note that the services offered in your locale may be
   different, necessitating modification of this list.
+- **TIME_SERIES**: Parameters associated with time series data
+  - **TIME_STEP**: Length of time step in days
+  - **T_X**: Length of input sequence length to LSTM layer. Also
+    described as the number of past time steps to include with each
+    example
+  - **YEARS_OF_DATA**: Number of recent years over which to construct
+    time series records for. Recall that time series examples are
+    indexed by ClientID and Date.
 - **SPDAT**: Parameters associated with addition of client SPDAT data
   - **INCLUDE_SPDATS**: Boolean variable indicating whether to include
     SPDAT data during preprocessing
@@ -698,13 +706,26 @@ below.
   - **SPDAT_DATA_ONLY**: Boolean variable indicating whether to include
     only answers to SPDAT questions in the preprocessed dataset
 #### NN
-- **MODEL1**: Contains definitions of configurable hyperparameters
-  associated with the model architecture. The values currently in this
-  section were the optimal values for our dataset informed by a random
-  hyperparameter search.
+- **HIFIS_MLP**: Contains definitions of configurable hyperparameters
+  associated with the HIFIS MLP model architecture. The values currently
+  in this section were the optimal values for our dataset informed by a
+  random hyperparameter search.
+- **HIFIS_RNN_MLP**: Contains definitions of configurable
+  hyperparameters associated with the HIFIS RNN-MLP model architecture.
+  This model is to be trained with time series data. The values
+  currently in this section were the optimal values for our dataset
+  informed by a random hyperparameter search.
 #### TRAIN
+- **EXPERIMENT**: The type of training experiment you would like to
+  perform if executing [_train.py_](src/train.py). Choices are
+  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
+- **MODEL_DEF**: The model architecture to train. Set to _'hifis_mlp'_
+  to train the HIFIS MLP model, or set to _'hifis_rnn_mlp'_ to train the
+  HIFIS RNN-MLP hybrid model. Also dictates how the raw HIFIS data will
+  be preprocessed.
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
-  to the training, validation and test sets respectively
+  to the training, validation and test sets respectively. These fields
+  must collectively sum to 1.
 - **EPOCHS**: Number of epochs to train the model for
 - **BATCH_SIZE**: Mini-batch size during training
 - **POS_WEIGHT**: Coefficient to multiply the positive class' weight by
@@ -715,9 +736,6 @@ below.
   dataset, the ratio of positive to negative ground truth was very low,
   prompting the use of these strategies. Set either to _'class_weight'_,
   _'random_oversample'_, _'smote'_, or _'adasyn'_.
-- **EXPERIMENT**: The type of training experiment you would like to
-  perform if executing [_train.py_](src/train.py). Choices are
-  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
 - **METRIC_PREFERENCE**: A list of metrics in order of importance (from
   left to right) to guide selection of the best model after training
   multiple models in series (i.e. the
@@ -742,6 +760,10 @@ below.
     [Random Hyperparameter Search](#random-hyperparameter-search) for an
     example).
 #### LIME
+Note that the following fields have separate values for the
+**HIFIS_MLP** and **HIFIS_RNN_MLP** architectures: **KERNEL_WIDTH**,
+**FEATURE_SELECTION**, **NUM_FEATURES**, **NUM_SAMPLES**, and
+**MAX_DISPLAYED_RULES**.
 - **KERNEL_WIDTH**: Affects size of neighbourhood around which LIME
   samples for a particular example. In our experience, setting this
   within the continuous range of _[1.0, 2.0]_ is large enough to produce
@@ -755,8 +777,8 @@ below.
   include in a LIME explanation
 - **NUM_SAMPLES**: The number of samples
   used to fit a linear model when explaining a prediction using LIME
-- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be included
-  in a global surrogate visualization
+- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be
+  included in a global surrogate visualization
 - **SP**: Parameters associated with submodular pick
   - **SAMPLE_FRACTION**: A float in the range _[0.0, 1.0]_ that
     specifies the fraction of samples from the training and validation
