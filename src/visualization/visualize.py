@@ -221,7 +221,7 @@ def explanations_to_hbar_plot(exp_weights, title='', subtitle=''):
     '''
 
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))    # Load project config
-    half_max_exps = cfg['LIME']['MAX_DISPLAYED_RULES'] // 2
+    half_max_exps = cfg['LIME'][cfg['TRAIN']['MODEL_DEF'].upper()]['MAX_DISPLAYED_RULES'] // 2
 
     # Separate and sort positively and negatively weighted explanations
     pos_exp_weights = [e_w for e_w in exp_weights if e_w[1] >= 0]

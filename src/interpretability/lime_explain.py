@@ -68,17 +68,18 @@ def setup_lime(cfg=None):
     # Load relevant constants from project config file if custsom config object not supplied
     if cfg is None:
         cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    model_def = cfg['TRAIN']['MODEL_DEF'].upper()
     lime_dict = {}
-    lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
-    lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
+    lime_dict['NUM_SAMPLES'] = cfg['LIME'][model_def]['NUM_SAMPLES']
+    lime_dict['NUM_FEATURES'] = cfg['LIME'][model_def]['NUM_FEATURES']
     lime_dict['SAMPLE_FRACTION'] = cfg['LIME']['SP']['SAMPLE_FRACTION']
     lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
     lime_dict['IMG_PATH'] = cfg['PATHS']['IMAGES']
     lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
     lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
     lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
-    KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
-    FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
+    KERNEL_WIDTH = cfg['LIME'][model_def]['KERNEL_WIDTH']
+    FEATURE_SELECTION = cfg['LIME'][model_def]['FEATURE_SELECTION']
 
     # Load feature information
     input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')

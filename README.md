@@ -105,6 +105,14 @@ was built using data from HIFIS 4.0.57.30.
    ![alt text](documents/readme_images/cm_example.png "Confusion
    Matrix")
 
+The diagram below depicts an overview the model's architecture. We call
+this model _"HIFIS MLP"_, as the model is an example of a multilayer
+perceptron. _NODES0_ and _NODES1_ correspond to hyperparameters
+configurable in [config.yml](config.yml).
+
+![alt text](documents/readme_images/HIFIS_MLP.png "HIFIS MLP
+architecture overview")
+
 ### Train multiple models and save the best one
 Not every model trained will perform at the same level on the test set.
 This procedure enables you to train multiple models and save the one
@@ -473,6 +481,88 @@ steps.
    note that a larger average Silhouette Score implies a more quality
    clustering.
 
+## Time Series Forecasting Model
+Later research involved developing a model that reformulates client
+service usage as time series features. The motivation behind the
+investigation of time series forecasting was to discover if capturing
+service usage changes over time would better reflect the episodic nature
+of homelessness, thereby improving model predictions for clients at
+different times. The hope was that time series service features would
+give further context to a client's story that could be formalized as an
+example. This section will describe the changes in the features,
+dataset, model, and explanations.
+
+### Time Series Data
+Features that describe client service usage (e.g. stays, case
+management, food bank visits) are quantified over time. In the original
+HIFIS MLP model, these features were totalled up to the date of the
+example. Here, we define a _timestep_ (by default, 30 days) and include
+total service usage over a timestep as a feature. The _input sequence
+length_ (i.e. _T_X_) defines how many of the most recent timesteps to
+include in a single client record. For instance, suppose that the
+timestep is 30 days and _T_X_ is 6. A single client record will contain
+total service usage features for that client at a particular timestamp,
+as well as time series service features corresponding to total service
+usage during each of the 6 most recent timesteps.
+
+An additional benefit of formulating time series client records was that
+the aggregate dataset can contain records for clients at different
+dates. Therefore, the dataset is indexed by ClientID and Date. During
+data preprocessing, records are calculated for each client at different
+dates. The result is a significantly larger dataset than was used for
+the MLP model.
+
+Since the dataset contains different records for each client at various
+dates, the training, validation and test sets are partitioned by Date,
+instead of randomly by ClientID. The test and validation sets comprise
+the most recent and second most recent records for all clients. The
+training set is taken to be all records with dates earlier than those in
+the test and validation sets. This way, the model is tested on the most
+recent client data and is likely to perform well on new client data.
+
+### RNN-MLP Hybrid Model
+The time series forecasting model is different than that of the first
+model described. The first iteration of the HIFIS model was a
+multi-layer preceptron (MLP). The time series forecasting model we
+developed has a hybrid recurrent neural network (RNN) and MLP
+architecture. This model, dubbed _"RNN-MLP model"_, captures the state
+of time series features by incorporating an LSTM layer through which the
+time series features are fed. The static features (i.e. non-time-series
+features) are concatenated with the output of the LSTM layer, and fed
+into an MLP, whose output is the model's decision. Examples of static
+features include demographic attributes. Total service features are also
+included in this group, as they capture a client's service usage since
+the beginning of their inclusion in HIFIS. See below for a diagram
+summarizing the RNN-MLP's architecture.
+
+![alt text](documents/readme_images/HIFIS_RNN_MLP.png "HIFIS RNN-MLP
+architecture overview")
+
+### Time Series LIME Explanations
+Explanations are computed for the RNN-MLP model in the same way as they
+were for the original MLP model, except that they are computed for
+predictions for a particular client at a particular date. We found that
+time series features (especially those of total stays during different
+timesteps) appeared more often as being important in explanations. The
+time series features are named for their position in the input sequence
+and the duration of the timestep. For example, a feature called
+_"(-2)30-Day_Stay"_ indicates the total number of stays that a client
+had 2 timesteps ago, where the timestep duration is 30 days.
+Additionally, stable explanations take longer to compute for the RNN-MLP
+models.
+
+### Steps to Use
+1. In [config.yml](config.yml), set _MODEL_DEF_ within _TRAIN_ to
+   _'hifis_rnn_mlp'_.
+2. Follow steps 1-4 in
+   _[Train a model and visualize results](#train-a-model-and-visualize-results)_
+   to preprocess the raw data and train a model.
+3. See the steps in _[LIME Explanations](#lime-explanations)_ for
+   instructions on how to run different explainability experiments. If
+   you wish to explain a single client, be sure that you pass a value
+   for the _date_ parameter to _explain_single_client()_ in the
+   _yyyy-mm-dd_ format.
+
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
 any _.gitkeep_ files, as their only purpose is to force Git to track
@@ -600,6 +690,14 @@ below.
   calculated by summing the number of times that the service was
   accessed. Note that the services offered in your locale may be
   different, necessitating modification of this list.
+- **TIME_SERIES**: Parameters associated with time series data
+  - **TIME_STEP**: Length of time step in days
+  - **T_X**: Length of input sequence length to LSTM layer. Also
+    described as the number of past time steps to include with each
+    example
+  - **YEARS_OF_DATA**: Number of recent years over which to construct
+    time series records for. Recall that time series examples are
+    indexed by ClientID and Date.
 - **SPDAT**: Parameters associated with addition of client SPDAT data
   - **INCLUDE_SPDATS**: Boolean variable indicating whether to include
     SPDAT data during preprocessing
@@ -608,13 +706,26 @@ below.
   - **SPDAT_DATA_ONLY**: Boolean variable indicating whether to include
     only answers to SPDAT questions in the preprocessed dataset
 #### NN
-- **MODEL1**: Contains definitions of configurable hyperparameters
-  associated with the model architecture. The values currently in this
-  section were the optimal values for our dataset informed by a random
-  hyperparameter search.
+- **HIFIS_MLP**: Contains definitions of configurable hyperparameters
+  associated with the HIFIS MLP model architecture. The values currently
+  in this section were the optimal values for our dataset informed by a
+  random hyperparameter search.
+- **HIFIS_RNN_MLP**: Contains definitions of configurable
+  hyperparameters associated with the HIFIS RNN-MLP model architecture.
+  This model is to be trained with time series data. The values
+  currently in this section were the optimal values for our dataset
+  informed by a random hyperparameter search.
 #### TRAIN
+- **EXPERIMENT**: The type of training experiment you would like to
+  perform if executing [_train.py_](src/train.py). Choices are
+  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
+- **MODEL_DEF**: The model architecture to train. Set to _'hifis_mlp'_
+  to train the HIFIS MLP model, or set to _'hifis_rnn_mlp'_ to train the
+  HIFIS RNN-MLP hybrid model. Also dictates how the raw HIFIS data will
+  be preprocessed.
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
-  to the training, validation and test sets respectively
+  to the training, validation and test sets respectively. These fields
+  must collectively sum to 1.
 - **EPOCHS**: Number of epochs to train the model for
 - **BATCH_SIZE**: Mini-batch size during training
 - **POS_WEIGHT**: Coefficient to multiply the positive class' weight by
@@ -625,9 +736,6 @@ below.
   dataset, the ratio of positive to negative ground truth was very low,
   prompting the use of these strategies. Set either to _'class_weight'_,
   _'random_oversample'_, _'smote'_, or _'adasyn'_.
-- **EXPERIMENT**: The type of training experiment you would like to
-  perform if executing [_train.py_](src/train.py). Choices are
-  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
 - **METRIC_PREFERENCE**: A list of metrics in order of importance (from
   left to right) to guide selection of the best model after training
   multiple models in series (i.e. the
@@ -652,6 +760,10 @@ below.
     [Random Hyperparameter Search](#random-hyperparameter-search) for an
     example).
 #### LIME
+Note that the following fields have separate values for the
+**HIFIS_MLP** and **HIFIS_RNN_MLP** architectures: **KERNEL_WIDTH**,
+**FEATURE_SELECTION**, **NUM_FEATURES**, **NUM_SAMPLES**, and
+**MAX_DISPLAYED_RULES**.
 - **KERNEL_WIDTH**: Affects size of neighbourhood around which LIME
   samples for a particular example. In our experience, setting this
   within the continuous range of _[1.0, 2.0]_ is large enough to produce
@@ -665,8 +777,8 @@ below.
   include in a LIME explanation
 - **NUM_SAMPLES**: The number of samples
   used to fit a linear model when explaining a prediction using LIME
-- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be included
-  in a global surrogate visualization
+- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be
+  included in a global surrogate visualization
 - **SP**: Parameters associated with submodular pick
   - **SAMPLE_FRACTION**: A float in the range _[0.0, 1.0]_ that
     specifies the fraction of samples from the training and validation

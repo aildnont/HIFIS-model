@@ -1,5 +1,5 @@
 from tensorflow.keras import Sequential, Model
-from tensorflow.keras.layers import Dense, Dropout, Input, LSTM, Reshape, concatenate
+from tensorflow.keras.layers import Dense, Dropout, Input, LSTM, Reshape, concatenate, Flatten
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
@@ -112,8 +112,8 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
     # Define RNN component of model using LSTM cells. LSTM input shape is [batch_size, timesteps, features]
     lstm_input_shape = (metadata['T_X'], metadata['NUM_TS_FEATS'])
     X_dynamic = Reshape(lstm_input_shape)(X_dynamic)
-    #X_dynamic = transpose(X_dynamic, perm=[0,2,1])
-    X_dynamic = LSTM(lstm_units, activation='tanh')(X_dynamic)
+    X_dynamic = LSTM(lstm_units, activation='tanh', return_sequences=True)(X_dynamic)
+    X_dynamic = Flatten()(X_dynamic)
 
     # Define MLP component of model
     X = concatenate([X_dynamic, X_static])      # Combine output of LSTM with static features
