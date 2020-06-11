@@ -85,13 +85,13 @@ NN:
     LR: 0.0001
   HIFIS_RNN_MLP:
     LSTM:
-      UNITS: 128
+      UNITS: 8
     DENSE:
-      DENSE0: 240
-      DENSE1: 120
-    LAYERS: 4
-    L2_LAMBDA: 0.001
-    DROPOUT: 0.35
+      DENSE0: 32
+      DENSE1: 16
+    LAYERS: 3
+    L2_LAMBDA: 0.01
+    DROPOUT: 0.4
     LR: 0.001
 
 # Training
@@ -111,7 +111,7 @@ TRAIN:
   PATIENCE: 15
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
-    COMBINATIONS: 360
+    COMBINATIONS: 50
     REPEATS: 2
     RANGES:
       NODES0: [200, 250, 300, 350]          # Discrete range
@@ -145,7 +145,7 @@ LIME:
   SP:
     SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
-  EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
+  EXPERIMENT: 'explain_client'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:

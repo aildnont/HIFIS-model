@@ -4,6 +4,7 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
 from tensorflow import convert_to_tensor, split, reshape, transpose
+from src.custom.losses import f1_loss
 
 def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None):
     '''
@@ -130,7 +131,7 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
     model = Model(inputs=X_input, outputs=Y, name='HIFIS-rnn-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
 
     # Set model loss function, optimizer, metrics.
-    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
+    model.compile(loss=f1_loss(), optimizer=optimizer, metrics=metrics)
 
     # Print summary of model and return model object
     if hparams is None:
