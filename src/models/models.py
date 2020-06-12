@@ -4,6 +4,7 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
 from tensorflow import convert_to_tensor, split, reshape, transpose
+from src.custom.losses import f1_loss
 
 def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None):
     '''
