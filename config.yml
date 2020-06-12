@@ -85,13 +85,13 @@ NN:
     LR: 0.0001
   HIFIS_RNN_MLP:
     LSTM:
-      UNITS: 8
+      UNITS: 4
     DENSE:
-      DENSE0: 32
-      DENSE1: 16
-    LAYERS: 3
-    L2_LAMBDA: 0.01
-    DROPOUT: 0.4
+      DENSE0: 64
+      DENSE1: 32
+    LAYERS: 6
+    L2_LAMBDA: 0.00178
+    DROPOUT: 0.44
     LR: 0.001
 
 # Training
@@ -111,14 +111,14 @@ TRAIN:
   PATIENCE: 15
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
-    COMBINATIONS: 50
+    COMBINATIONS: 100
     REPEATS: 2
     RANGES:
-      NODES0: [200, 250, 300, 350]          # Discrete range
-      NODES1: [80, 120, 160]                # Discrete range
+      NODES0: [32, 48, 64]          # Discrete range
+      NODES1: [16, 24, 32]                # Discrete range
       LAYERS: [2, 4, 6]                     # Discrete range
-      DROPOUT: [0.35, 0.35]                 # Real range
-      LR: [-3.5, -3.0]                      # Real range on logarithmic scale (10^x)
+      DROPOUT: [0.2, 0.5]                 # Real range
+      LR: [-3.0, -3.0]                      # Real range on logarithmic scale (10^x)
       OPTIMIZER: ['adam']                   # Discrete range
       BETA_1: [-1.0, -1.0]                  # 1st moment for Adam. Real range on log scale (1 - 10^x)
       BETA_2: [-3.0, -3.0]                  # 2nd moment for Adam. Real range on log scale (1 - 10^x)
@@ -126,7 +126,7 @@ TRAIN:
       BATCH_SIZE: [1024]                    # Discrete range
       POS_WEIGHT: [0.5, 0.7]                # Weight multiplier for positive class. Real range
       IMB_STRATEGY: ['class_weight']        # Discrete range
-      LSTM_UNITS: [64, 128, 256]            # Discrete range
+      LSTM_UNITS: [4, 8, 16, 32]            # Discrete range
 
 # LIME explanations
 LIME:
@@ -145,7 +145,7 @@ LIME:
   SP:
     SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
-  EXPERIMENT: 'explain_client'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
+  EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:

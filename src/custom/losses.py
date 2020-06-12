@@ -34,7 +34,6 @@ def f1_loss(recall_factor=1):
         # Calculate coefficients to be applied in denominator of F1 score to weigh precision and recall accordingly.
         recall_weight = 2 / (recall_factor + 1)
         precision_weight = 2 - recall_weight
-        print(precision_weight, recall_weight)
 
         # Calculate weighted F1 score (wF1)
         weighted_f1 = 2 * (precision * recall) / ((precision_weight * precision) + (recall_weight * recall) +
