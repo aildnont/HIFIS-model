@@ -5,7 +5,7 @@ from sklearn.compose import ColumnTransformer
 from joblib import dump
 from tqdm import tqdm
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
-from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
+from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC, MeanAbsoluteError, MeanSquaredError, RootMeanSquaredError
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau
 from tensorboard.plugins.hparams import api as hp
@@ -81,13 +81,25 @@ def load_dataset(cfg):
     val_df_ohe.drop('ClientID', axis=1, inplace=True)
     test_df_ohe.drop('ClientID', axis=1, inplace=True)
 
+    # Keep correct ground truth type
+    if cfg['DATA']['GT_TYPE'] == 'regression':
+        train_df_ohe.drop('GroundTruth', axis=1, inplace=True)
+        val_df_ohe.drop('GroundTruth', axis=1, inplace=True)
+        test_df_ohe.drop('GroundTruth', axis=1, inplace=True)
+        gt_col = 'GT_Stays'
+    else:
+        train_df_ohe.drop('GT_Stays', axis=1, inplace=True)
+        val_df_ohe.drop('GT_Stays', axis=1, inplace=True)
+        test_df_ohe.drop('GT_Stays', axis=1, inplace=True)
+        gt_col = 'GroundTruth'
+
     # Get indices of noncategorical features
     noncat_feat_idxs = [test_df_ohe.columns.get_loc(c) for c in noncat_features if c in test_df_ohe]
 
     # Separate ground truth from dataframe and convert to numpy arrays
-    data['Y_train'] = np.array(train_df_ohe.pop('GroundTruth'))
-    data['Y_val'] = np.array(val_df_ohe.pop('GroundTruth'))
-    data['Y_test'] = np.array(test_df_ohe.pop('GroundTruth'))
+    data['Y_train'] = np.array(train_df_ohe.pop(gt_col))
+    data['Y_val'] = np.array(val_df_ohe.pop(gt_col))
+    data['Y_test'] = np.array(test_df_ohe.pop(gt_col))
 
     # Convert feature dataframes to numpy arrays
     data['X_train'] = np.array(train_df_ohe)
@@ -151,13 +163,25 @@ def load_time_series_dataset(cfg):
     val_df_ohe.drop(['ClientID', 'Date'], axis=1, inplace=True)
     test_df_ohe.drop(['ClientID', 'Date'], axis=1, inplace=True)
 
+    # Keep correct ground truth type
+    if cfg['DATA']['GT_TYPE'] == 'regression':
+        train_df_ohe.drop('GroundTruth', axis=1, inplace=True)
+        val_df_ohe.drop('GroundTruth', axis=1, inplace=True)
+        test_df_ohe.drop('GroundTruth', axis=1, inplace=True)
+        gt_col = 'GT_Stays'
+    else:
+        train_df_ohe.drop('GT_Stays', axis=1, inplace=True)
+        val_df_ohe.drop('GT_Stays', axis=1, inplace=True)
+        test_df_ohe.drop('GT_Stays', axis=1, inplace=True)
+        gt_col = 'GroundTruth'
+
     # Get indices of noncategorical features
     noncat_feat_idxs = [test_df_ohe.columns.get_loc(c) for c in noncat_features if c in test_df_ohe]
 
     # Separate ground truth from dataframe and convert to numpy arrays
-    data['Y_train'] = np.array(train_df_ohe.pop('GroundTruth'))
-    data['Y_val'] = np.array(val_df_ohe.pop('GroundTruth'))
-    data['Y_test'] = np.array(test_df_ohe.pop('GroundTruth'))
+    data['Y_train'] = np.array(train_df_ohe.pop(gt_col))
+    data['Y_val'] = np.array(val_df_ohe.pop(gt_col))
+    data['Y_test'] = np.array(test_df_ohe.pop(gt_col))
 
     # Convert feature dataframes to numpy arrays
     data['X_train'] = np.array(train_df_ohe)
@@ -198,10 +222,15 @@ def train_model(cfg, data, callbacks, verbose=2):
     :return: Trained model and associated performance metrics on the test set
     '''
 
+    # Compute output bias
+    output_bias = None
+    if cfg['DATA']['GT_TYPE'] == 'binary':
+        num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
+        output_bias = np.log([num_pos / num_neg])
+
     # Apply class imbalance strategy
-    num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
     class_weight = None
-    if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight':
+    if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight' and cfg['DATA']['GT_TYPE'] == 'binary':
         class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
     else:
         data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'],
@@ -210,13 +239,12 @@ def train_model(cfg, data, callbacks, verbose=2):
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
 
     # List metrics
-    metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
-               Recall(name='recall', thresholds=thresholds), F1Score(name='f1score', thresholds=thresholds),
-               AUC(name='auc')]
-
-    # Compute output bias
-    num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
-    output_bias = np.log([num_pos / num_neg])
+    if cfg['DATA']['GT_TYPE'] == 'binary':
+        metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
+                   Recall(name='recall', thresholds=thresholds), F1Score(name='f1score', thresholds=thresholds),
+                   AUC(name='auc')]
+    else:
+        metrics = [MeanSquaredError(name='mse'), MeanAbsoluteError(name='mae'), RootMeanSquaredError(name='rmse')]
 
     # Build the model graph.
     if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
@@ -224,7 +252,7 @@ def train_model(cfg, data, callbacks, verbose=2):
     else:
         model_def = hifis_mlp
     model = model_def(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()], (data['X_train'].shape[-1],), metrics,
-                      data['METADATA'], output_bias=output_bias)
+                      data['METADATA'], cfg['DATA']['GT_TYPE'], output_bias=output_bias)
 
     # Train the model.
     history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
@@ -384,10 +412,11 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
-    plt = plot_roc("Test set", data['Y_test'], test_predictions, dir_path=None)
-    roc_img = plot_to_tensor()
-    plt = plot_confusion_matrix(data['Y_test'], test_predictions, dir_path=None)
-    cm_img = plot_to_tensor()
+    if cfg['DATA']['GT_TYPE'] == 'binary':
+        plt = plot_roc("Test set", data['Y_test'], test_predictions, dir_path=None)
+        roc_img = plot_to_tensor()
+        plt = plot_confusion_matrix(data['Y_test'], test_predictions, dir_path=None)
+        cm_img = plot_to_tensor()
 
     # Log test set results and plots in TensorBoard
     writer = tf.summary.create_file_writer(logdir=log_dir)
@@ -413,8 +442,9 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
     with writer.as_default():
         tf.summary.text(name='Metrics - Test Set', data=tf.convert_to_tensor(test_summary_str), step=0)
         tf.summary.text(name='Model Hyperparameters', data=tf.convert_to_tensor(hparam_summary_str), step=0)
-        tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)
-        tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
+        if cfg['DATA']['GT_TYPE'] == 'binary':
+            tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)
+            tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
     return
 
 

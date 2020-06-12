@@ -6,13 +6,14 @@ from tensorflow.keras.initializers import Constant
 from tensorflow import convert_to_tensor, split, reshape, transpose
 from src.custom.losses import f1_loss
 
-def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None):
+def hifis_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, hparams=None):
     '''
     Defines a Keras model for HIFIS multi-layer perceptron model (i.e. HIFIS-v2)
     :param cfg: A dictionary of parameters associated with the model architecture
     :param input_dim: The shape of the model input
     :param metrics: Metrics to track model's performance
     :param metadata: Dict containing prediction horizon
+    :param gt_type: Type of ground truth. Determines output layer activation and loss. One of {'binary', 'regression'}
     :param output_bias: initial bias applied to output layer
     :param hparams: dict of hyperparameters
     :return: a Keras model object with the architecture defined in this method
@@ -44,6 +45,13 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None)
     if output_bias is not None:
         output_bias = Constant(output_bias)
 
+    if gt_type == 'regression':
+        output_activation = 'linear'
+        loss = 'mse'
+    else:
+        output_activation = 'sigmoid'
+        loss = 'binary_crossentropy'
+
     # Define model architecture.
     model = Sequential(name='HIFIS-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
     model.add(Dense(nodes_dense0, input_shape=input_dim, activation='relu', kernel_regularizer=l2(l2_lambda),
@@ -53,10 +61,10 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None)
         model.add(Dense(nodes_dense1, activation='relu', kernel_regularizer=l2(l2_lambda),
                   bias_regularizer=l2(l2_lambda), name='dense%d'%i))
         model.add(Dropout(dropout, name='dropout%d'%i))
-    model.add(Dense(1, activation='sigmoid', name="output", bias_initializer=output_bias))
+    model.add(Dense(1, activation=output_activation, name="output", bias_initializer=output_bias))
 
     # Set model loss function, optimizer, metrics.
-    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
+    model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
 
     # Print summary of model and return model object
     if hparams is None:
@@ -64,13 +72,14 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None)
     return model
 
 
-def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None):
+def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, hparams=None):
     '''
     Defines a Keras model for HIFIS hybrid recurrent neural network and multilayer perceptron model (i.e. HIFIS-v3)
     :param cfg: A dictionary of parameters associated with the model architecture
     :param input_dim: The shape of the model input
     :param metrics: Metrics to track model's performance
     :param metadata: Dict containing prediction horizon, time series feature info
+    :param gt_type: Type of ground truth. Determines output layer activation and loss. One of {'binary', 'regression'}
     :param output_bias: initial bias applied to output layer
     :param hparams: dict of hyperparameters
     :return: a Keras model object with the architecture defined in this method
@@ -96,7 +105,6 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
         beta_2 = 1 - 10 ** hparams['BETA_2']
         l2_lambda = 10 ** hparams['L2_LAMBDA']
         lstm_units = hparams['LSTM_UNITS']
-
         if hparams['OPTIMIZER'] == 'adam':
             optimizer = Adam(learning_rate=lr, beta_1=beta_1, beta_2=beta_2)
         elif hparams['OPTIMIZER'] == 'sgd':
@@ -104,6 +112,13 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
 
     if output_bias is not None:
         output_bias = Constant(output_bias)
+
+    if gt_type == 'regression':
+        output_activation = 'linear'
+        loss = 'mse'
+    else:
+        output_activation = 'sigmoid'
+        loss = 'binary_crossentropy'
 
     # Receive input to model and split into 2 tensors containing dynamic and static features respectively
     X_input = Input(shape=input_dim)
@@ -125,13 +140,13 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
         X = Dense(nodes_dense1, activation='relu', kernel_regularizer=l2(l2_lambda),
                   bias_regularizer=l2(l2_lambda), name='dense%d'%i)(X)
         X = Dropout(dropout, name='dropout%d'%i)(X)
-    Y = Dense(1, activation='sigmoid', name="output", bias_initializer=output_bias)(X)
+    Y = Dense(1, activation=output_activation, name="output", bias_initializer=output_bias)(X)
 
     # Define model with inputs and outputs
     model = Model(inputs=X_input, outputs=Y, name='HIFIS-rnn-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
 
     # Set model loss function, optimizer, metrics.
-    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
+    model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
 
     # Print summary of model and return model object
     if hparams is None:

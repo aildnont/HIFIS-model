@@ -51,6 +51,8 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
     # Ensure DataFrame does not contain ground truth (could happen if custom preprocessed data is passed)
     if 'GroundTruth' in df.columns:
         df.drop('GroundTruth', axis=1, inplace=True)
+    if 'GT_Stays' in df.columns:
+        df.drop('GT_Stays', axis=1, inplace=True)
 
     # Load feature mapping information (from preprocessing)
     data_info = yaml.full_load(open(cfg['PATHS']['DATA_INFO'], 'r'))
@@ -66,8 +68,9 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
     n_weeks = int(model._name.split('_')[1].split('-')[0])
 
     # Load LIME and prediction constants from config
-    NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
-    NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
+    model_def = cfg['TRAIN']['MODEL_DEF'].upper()
+    NUM_SAMPLES = cfg['LIME'][model_def]['NUM_SAMPLES']
+    NUM_FEATURES = cfg['LIME'][model_def]['NUM_FEATURES']
     THRESHOLD = cfg['PREDICTION']['THRESHOLD']
     CLASS_NAMES = cfg['PREDICTION']['CLASS_NAMES']
 

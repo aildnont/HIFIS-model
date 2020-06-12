@@ -29,6 +29,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
+  GT_TYPE: 'regression'        # Set to either 'binary' or 'regression'
   GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
@@ -92,7 +93,7 @@ NN:
     LAYERS: 6
     L2_LAMBDA: 0.00178
     DROPOUT: 0.44
-    LR: 0.001
+    LR: 0.0001
 
 # Training
 TRAIN:
@@ -105,8 +106,9 @@ TRAIN:
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
-  METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 150
+  METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']
+  #METRIC_PREFERENCE: ['loss', 'mae', 'rmse', 'mse']
+  NUM_RUNS: 15
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:

@@ -197,13 +197,14 @@ def remove_n_weeks(df, train_end_date, dated_feats):
     return df.copy()
 
 
-def calculate_ground_truth(df, chronic_threshold, days, end_date):
+def calculate_ground_truth(df, chronic_threshold, days, end_date, train_end_date):
     '''
     Iterate through dataset by client to calculate ground truth
     :param df: a Pandas dataframe
     :param chronic_threshold: Minimum # of days spent in shelter to be considered chronically homeless
     :param days: Number of days over which to count # days spent in shelter
     :param end_date: The last date of the time period to consider
+    :param train_end_date: Date indicating start of prediction horizon
     :return: a DataSeries mapping ClientID to ground truth
     '''
 
@@ -215,6 +216,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         '''
         client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
         gt_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
+        horizon_gt_stays = 0   # Keep track of total stays during prediction horizon
         last_stay_end = pd.to_datetime(0)
         last_stay_start = pd.to_datetime(0)
 
@@ -229,25 +231,32 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
                     stay_start = max(start_date, stay_start, last_stay_end)
                     if (stay_end - stay_start).total_seconds() >= min_stay_seconds:
                         gt_stays += (stay_end.date() - stay_start.date()).days + (stay_start.date() != last_stay_end.date())
+                        if (stay_start.date() >= train_end_date.date()) or (stay_end.date() >= train_end_date.date()):
+                            horizon_stay_start = max(train_end_date, stay_start, last_stay_end)
+                            if (stay_end - horizon_stay_start).total_seconds() >= min_stay_seconds:
+                                horizon_gt_stays += (stay_end.date() - horizon_stay_start.date()).days + (
+                                            horizon_stay_start.date() != last_stay_end.date())
                 last_stay_end = stay_end
                 last_stay_start = stay_start
 
         # Determine if client meets ground truth threshold
         if gt_stays >= chronic_threshold:
             client_df['GroundTruth'] = 1
+        client_df['GT_Stays'] = horizon_gt_stays
         return client_df
 
     start_date = end_date - timedelta(days=days) # Get start of ground truth window
     min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
     df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
     df_temp['GroundTruth'] = 0
+    df_temp['GT_Stays'] = 0
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     if df_temp.shape[0] == 0:
         return None
     if 'ClientID' not in df_temp.index:
         df_temp.set_index(['ClientID'], append=True, inplace=True)
-    df_gt = df_temp['GroundTruth']
-    df_gt = df_gt.groupby(['ClientID']).agg({'GroundTruth': 'max'})
+    df_gt = df_temp[['GroundTruth', 'GT_Stays']]
+    df_gt = df_gt.groupby(['ClientID']).agg({'GroundTruth': 'max', 'GT_Stays': 'max'})
     return df_gt
 
 
@@ -509,7 +518,7 @@ def calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_fe
     if include_gt:
         if calculate_gt:
             print("Calculating ground truth.")
-            ds_gt = calculate_ground_truth(df, cfg['DATA']['CHRONIC_THRESHOLD'], gt_duration, gt_end_date)
+            ds_gt = calculate_ground_truth(df, cfg['DATA']['CHRONIC_THRESHOLD'], gt_duration, gt_end_date, train_end_date)
             ds_gt.to_csv(cfg['PATHS']['GROUND_TRUTH'], sep=',', header=True)  # Save ground truth
         else:
             ds_gt = load_df(cfg['PATHS']['GROUND_TRUTH'])    # Load ground truth from file
@@ -600,7 +609,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
             if calculate_gt:
                 print('Calculating ground truth at ' + str(end_date))
                 df_gt_cur = calculate_ground_truth(df_temp, cfg['DATA']['CHRONIC_THRESHOLD'], gt_duration,
-                                                    end_date)
+                                                    end_date, train_end_date)
                 if df_gt_cur is None:
                     continue
                 df_gt_cur.insert(0, 'Date', train_end_date)     # Insert Date column with train end date as index
