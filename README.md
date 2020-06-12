@@ -589,7 +589,8 @@ packages.
 |
 ├── src
 │   ├── custom                    <- Custom TensorFlow components
-|   |   └── metrics.py            <- Definition of custom TensorFlow metrics
+|   |   ├── losses.py             <- Definitions of custom TensorFlow loss functions
+|   |   └── metrics.py            <- Definitions of custom TensorFlow metrics
 │   ├── data                      <- Data processing
 |   |   ├── queries
 |   |   |   ├── client_export.sql <- SQL query to get raw data from HIFIS database
