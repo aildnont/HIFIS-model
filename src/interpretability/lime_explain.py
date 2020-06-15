@@ -14,22 +14,26 @@ from joblib import load
 from tensorflow.keras.models import load_model
 from src.visualization.visualize import visualize_explanation, visualize_avg_explanations, visualize_submodular_pick
 
-def predict_instance(x, model, ohe_ct_sv, scaler_ct):
+def predict_instance(x, model, ohe_ct_sv, scaler_ct, mode):
     '''
     Helper function for LIME explainer. Runs model prediction on perturbations of the example.
     :param x: List of perturbed examples from an example
     :param model: Keras model
     :param ohe_ct_sv: A column transformer for one hot encoding single-valued categorical features
     :param: scaler_ct: A column transformer for scaling numerical features
+    :param mode: Set to 'classification' or 'regression'
     :return: A numpy array constituting a list of class probabilities for each predicted perturbation
     '''
     x_ohe = ohe_ct_sv.transform(x)      # One hot encode the single-valued categorical features
     x_ohe = scaler_ct.transform(x_ohe)
     y = model.predict(x_ohe)  # Run prediction on the perturbations
-    probs = np.concatenate([1.0 - y, y], axis=1)  # Compute class probabilities from the output of the model
-    return probs
+    if mode == 'regression':
+        pred = y
+    else:
+        pred = np.concatenate([1.0 - y, y], axis=1)  # Compute class probabilities from the output of the model
+    return pred
 
-def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_samples):
+def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_samples, mode):
     '''
     Use the model to predict a single example and apply LIME to generate an explanation.
     :param x: An example (i.e. 1 client row)
@@ -39,6 +43,7 @@ def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_s
     :param scaler_ct: A column transformer for scaling numerical features
     :param num_features: # of features to use in explanation
     :param num_samples: # of times to perturb the example to be explained
+    :param mode: Set to 'classification' or 'regression'
     :return: The LIME explainer for the instance
     '''
 
@@ -50,7 +55,7 @@ def predict_and_explain(x, model, exp, ohe_ct_sv, scaler_ct, num_features, num_s
         '''
         if sp.sparse.issparse(x):
             x = x.toarray()
-        probs = predict_instance(x, model, ohe_ct_sv, scaler_ct)
+        probs = predict_instance(x, model, ohe_ct_sv, scaler_ct, mode)
         return probs
 
     # Generate explanation for the example
@@ -167,9 +172,17 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
     pos_exp_counter = 0     # Keeps track of how many positive examples are explained in a row
     if lime_dict['GT_COL'] == 'GT_Stays':
         all = True
+        mode = 'regression'
+    else:
+        mode = 'classification'
 
     # Define column names of the DataFrame representing the results
-    col_names = ['ClientID', lime_dict['GT_COL'], 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
+    if lime_dict['GT_COL'] == 'GT_Stays':
+        idx_feat = '(ClientID,Date)'
+        col_names = [idx_feat, lime_dict['GT_COL'], 'Prediction']
+    else:
+        idx_feat = 'ClientID'
+        col_names = [idx_feat, lime_dict['GT_COL'], 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
     row_len = len(col_names) + 2 * num_features
     for i in range(num_features):
         col_names.extend(['Exp_' + str(i), 'Weight_' + str(i)])
@@ -177,14 +190,18 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
     # Make predictions on the test set. Explain every positive prediction and some negative predictions
     rows = []
     n_examples = X_test.shape[0]
+    n_examples = 6
     for i in range(n_examples):
         x = X_test[i]
         if sp.sparse.issparse(x):
             x = x.toarray()
-        y = np.squeeze(predict_instance(x, model, ohe_ct, scaler_ct).T, axis=1)     # Predict example
-        pred = 1 if y[1] >= threshold else 0        # Model's classification
-        client_id = Y_test.index[i]
-        gt = Y_test.loc[client_id, lime_dict['GT_COL']]   # Ground truth
+        y = np.squeeze(predict_instance(x, model, ohe_ct, scaler_ct, mode).T, axis=1)     # Predict example
+        if lime_dict['GT_COL'] == 'GT_Stays':
+            pred = y[0]
+        else:
+            pred = 1 if y[1] >= threshold else 0        # Model's classification
+        idx = Y_test.index[i]
+        gt = Y_test.loc[idx, lime_dict['GT_COL']]   # Ground truth
 
         # Determine classification of this example compared to ground truth
         if pred == 1 and gt == 1:
@@ -199,10 +216,13 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
         # Explain this example.
         if (pred == 1) or (gt == 1) or (pos_exp_counter >= NEG_EXP_PERIOD) or all:
             print('Explaining test example ', i, '/', n_examples)
-            row = [client_id, gt, pred, classification, y[0], y[1]]
+            if lime_dict['GT_COL'] == 'GT_Stays':
+                row = [idx, gt, pred]
+            else:
+                row = [idx, gt, pred, classification, y[0], y[1]]
 
             # Explain this prediction
-            explanation = predict_and_explain(X_test[i], model, exp, ohe_ct, scaler_ct, num_features, num_samples)
+            explanation = predict_and_explain(X_test[i], model, exp, ohe_ct, scaler_ct, num_features, num_samples, mode)
             exp_tuples = explanation.as_list()
             for exp_tuple in exp_tuples:
                 row.extend(list(exp_tuple))
@@ -218,7 +238,7 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
                 pos_exp_counter = 0
 
     # Convert results to a Pandas dataframe and save
-    results_df = pd.DataFrame(rows, columns=col_names).set_index('ClientID')
+    results_df = pd.DataFrame(rows, columns=col_names).set_index(idx_feat)
     results_df.to_csv(file_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv')
     print("Runtime = ", ((datetime.datetime.today() - run_start).seconds / 60), " min")  # Print runtime of experiment
     return results_df
@@ -239,10 +259,11 @@ def submodular_pick(lime_dict, file_path=None):
         '''
         if sp.sparse.issparse(x):
             x = x.toarray()
-        probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'])
+        probs = predict_instance(x, lime_dict['MODEL'], lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], mode)
         return probs
 
     start_time = datetime.datetime.now()
+    mode = 'regression' if lime_dict['GT_COL'] == 'GT_Stays' else 'classification'
 
     # Set sample size, ensuring that it isn't larger than size of training set.
     sample_size = int(lime_dict['SAMPLE_FRACTION'] * lime_dict['X_TRAIN'].shape[0])
@@ -296,10 +317,11 @@ def explain_single_client(lime_dict, client_id, date=None):
     else:
         idx = (client_id, date)
     i = lime_dict['Y_TEST'].index.get_loc(idx)
+    mode = 'regression' if lime_dict['GT_COL'] == 'GT_Stays' else 'classification'
     start_time = datetime.datetime.now()
     explanation = predict_and_explain(lime_dict['X_TEST'][i], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
-                                      lime_dict['NUM_SAMPLES'])
+                                      lime_dict['NUM_SAMPLES'], mode)
     print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
     fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[idx, lime_dict['GT_COL']],
                           date=date, file_path=lime_dict['IMG_PATH'])

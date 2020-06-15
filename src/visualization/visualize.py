@@ -371,10 +371,14 @@ def visualize_cluster_explanations(explanations, predictions, cluster_freqs, tit
     for i in range(len(explanations)):
         fig.axes[i].text(0.5, 0.92, 'Cluster ' + str(i + 1) + ' (' + '{:.2f}'.format(cluster_freqs[i + 1] * 100) +
                                       '% of Clients)', fontsize=35, transform=fig.axes[i].transAxes, horizontalalignment='center')
-        fig.axes[i].text(0.02, 0.96, "Probability of chronic homelessness: {:.2f}%".format(predictions[i][1]),
-                         fontsize=15, transform=fig.axes[i].transAxes)
-        fig.axes[i].text(0.02, 0.98, "Prediction: " + str(predictions[i][0]) + " of chronic homelessness", fontsize=15,
-                         transform=fig.axes[i].transAxes)
+        if predictions.shape[1] == 1:
+            fig.axes[i].text(0.02, 0.96, "Predicted # stays: {:.2f}%".format(predictions[i][0]),
+                             fontsize=15, transform=fig.axes[i].transAxes)
+        else:
+            fig.axes[i].text(0.02, 0.96, "Probability of chronic homelessness: {:.2f}%".format(predictions[i][1]),
+                             fontsize=15, transform=fig.axes[i].transAxes)
+            fig.axes[i].text(0.02, 0.98, "Prediction: " + str(predictions[i][0]) + " of chronic homelessness", fontsize=15,
+                             transform=fig.axes[i].transAxes)
 
     # Save the image
     if file_path is not None:

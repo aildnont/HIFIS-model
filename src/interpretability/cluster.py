@@ -32,7 +32,9 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         print("No file found at " + cfg['PATHS']['PROCESSED_DATA'] + ". Run preprocessing script before running this script.")
         return
     client_ids = df.pop('ClientID').tolist()
-    df.drop('GroundTruth', axis=1, inplace=True)
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        dates = df.pop('Date').tolist()
+    df.drop(['GroundTruth', 'GT_Stays'], axis=1, inplace=True)
     X = np.array(df)
 
     # Load feature info
@@ -65,8 +67,12 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         k_prototypes.num_dissim(np.expand_dims(x0[noncat_feat_idxs], axis=0), np.expand_dims(x1[noncat_feat_idxs], axis=0)) + \
             k_prototypes.gamma * k_prototypes.cat_dissim(np.expand_dims(x0[cat_feat_idxs], axis=0), np.expand_dims(x1[cat_feat_idxs], axis=0))
     client_clusters += 1    # Enforce that cluster labels are integer range of [1, K]
-    clusters_df = pd.DataFrame({'ClientID': client_ids, 'Cluster Membership': client_clusters})
-    clusters_df.set_index('ClientID')
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        clusters_df = pd.DataFrame({'ClientID': client_ids, 'Date': dates, 'Cluster Membership': client_clusters})
+        clusters_df.set_index(['ClientID', 'Date'])
+    else:
+        clusters_df = pd.DataFrame({'ClientID': client_ids, 'Cluster Membership': client_clusters})
+        clusters_df.set_index('ClientID')
 
     # Get centroids of clusters
     cluster_centroids = np.concatenate((k_prototypes.cluster_centroids_[0], k_prototypes.cluster_centroids_[1]), axis=1)
@@ -102,19 +108,28 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
               '" was not found. Ensure you have trained a model and run LIME before running this script.')
         return
 
-    # Add model's prediction of centroids (classes and prediction probabilities) to the DataFrame
-    predicted_classes = []
-    prediction_probs = []
-    print("Obtaining model's predictions for cluster centroids.")
-    for i in tqdm(range(len(cluster_centroids))):
-        x = np.expand_dims(cluster_centroids[i], axis=0)
-        y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct).T, axis=1)  # Predict centroid
-        prediction = 1 if y[1] >= cfg['PREDICTION']['THRESHOLD'] else 0  # Model's classification
-        predicted_class = cfg['PREDICTION']['CLASS_NAMES'][prediction]
-        predicted_classes.append(predicted_class)
-        prediction_probs.append(y[1] * 100)     # Include as a percentage
-    centroids_df.insert(centroids_df.shape[1], 'At risk of chronic homelessness', pd.Series(predicted_classes))
-    centroids_df.insert(centroids_df.shape[1], 'Probability of chronic homelessness [%]', pd.Series(prediction_probs))
+    # Add model's prediction of centroids to the DataFrame
+    if cfg['DATA']['GT_TYPE'] == 'regression':
+        stay_predictions = []
+        print("Obtaining model's regression predictions for cluster centroids.")
+        for i in tqdm(range(len(cluster_centroids))):
+            x = np.expand_dims(cluster_centroids[i], axis=0)
+            y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['DATA']['GT_TYPE']).T, axis=1)  # Predict centroid
+            stay_predictions.append(y)
+        centroids_df.insert(centroids_df.shape[1], 'Predicted # stays', pd.Series(stay_predictions))
+    else:
+        predicted_classes = []
+        prediction_probs = []
+        print("Obtaining model's classifications for cluster centroids.")
+        for i in tqdm(range(len(cluster_centroids))):
+            x = np.expand_dims(cluster_centroids[i], axis=0)
+            y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['DATA']['GT_TYPE']).T, axis=1)  # Predict centroid
+            prediction = 1 if y[1] >= cfg['PREDICTION']['THRESHOLD'] else 0  # Model's classification
+            predicted_class = cfg['PREDICTION']['CLASS_NAMES'][prediction]
+            predicted_classes.append(predicted_class)
+            prediction_probs.append(y[1] * 100)     # Include as a percentage
+        centroids_df.insert(centroids_df.shape[1], 'At risk of chronic homelessness', pd.Series(predicted_classes))
+        centroids_df.insert(centroids_df.shape[1], 'Probability of chronic homelessness [%]', pd.Series(prediction_probs))
 
     # Predict and explain the cluster centroids
     if explain_centroids:
@@ -125,7 +140,8 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         print('Creating explanations for cluster centroids.')
         for i in tqdm(range(cluster_centroids.shape[0])):
             row = []
-            exp = predict_and_explain(cluster_centroids[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES)
+            exp = predict_and_explain(cluster_centroids[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES,
+                                      NUM_SAMPLES, cfg['DATA']['GT_TYPE'])
             explanations.append(exp)
             exp_tuples = exp.as_list()
             for exp_tuple in exp_tuples:
@@ -140,7 +156,10 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         centroids_df = pd.concat([centroids_df, exp_df], axis=1, sort=False)    # Concatenate client features and explanations
 
         # Visualize clusters' LIME explanations
-        predictions = centroids_df[['At risk of chronic homelessness', 'Probability of chronic homelessness [%]']].to_numpy()
+        if cfg['DATA']['GT_TYPE'] == 'regression':
+            predictions = centroids_df['Predicted # stays'].to_numpy()
+        else:
+            predictions = centroids_df[['At risk of chronic homelessness', 'Probability of chronic homelessness [%]']].to_numpy()
         visualize_cluster_explanations(explanations, predictions, cluster_freqs, 'Explanations for k-prototypes clusters',
                                         cfg['PATHS']['IMAGES'] + 'centroid_explanations_')
 
