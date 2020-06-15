@@ -167,8 +167,12 @@ def visualize_explanation(explanation, client_id, client_gt, date=None, file_pat
 
     # Create horizontal bar graph for the explanation
     fig = explanation.as_pyplot_figure()
-    probs = explanation.predict_proba
-    fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
+    if explanation.mode == 'classification':
+        probs = explanation.predict_proba
+        fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
+    else:
+        pred = explanation.predicted_value
+        fig.text(0.02, 0.98, "Predicted value: {:.2f}".format(pred))
     fig.text(0.02, 0.96, "Ground Truth: " + str(client_gt))
     fig.text(0.02, 0.94, "Client ID: " + str(client_id))
     if date is not None:

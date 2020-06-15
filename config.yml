@@ -29,7 +29,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
-  GT_TYPE: 'regression'        # Set to either 'binary' or 'regression'
+  GT_TYPE: 'regression'        # Set to either 'classification' or 'regression'
   GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []

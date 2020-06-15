@@ -78,6 +78,7 @@ def setup_lime(cfg=None):
     lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
     lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
     lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
+    lime_dict['GT_COL'] = 'GT_Stays' if cfg['DATA']['GT_TYPE'] == 'regression' else 'GroundTruth'
     KERNEL_WIDTH = cfg['LIME'][model_def]['KERNEL_WIDTH']
     FEATURE_SELECTION = cfg['LIME'][model_def]['FEATURE_SELECTION']
 
@@ -96,8 +97,8 @@ def setup_lime(cfg=None):
         idx_feats = ['ClientID', 'Date']
     else:
         idx_feats = ['ClientID']
-    Y_train = pd.concat([train_df.pop(y) for y in idx_feats + ['GroundTruth']], axis=1).set_index(idx_feats)
-    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in idx_feats + ['GroundTruth']], axis=1).set_index(idx_feats)
+    Y_train = pd.concat([train_df.pop(y) for y in idx_feats + ['GroundTruth', 'GT_Stays']], axis=1).set_index(idx_feats)
+    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in idx_feats + ['GroundTruth', 'GT_Stays']], axis=1).set_index(idx_feats)
 
     # Load data transformers
     lime_dict['SCALER_CT'] = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
@@ -112,7 +113,7 @@ def setup_lime(cfg=None):
     lime_dict['X_TEST'] = np.array(test_df)
 
     # Define the LIME explainer
-    train_labels = Y_train['GroundTruth'].to_numpy()
+    train_labels = Y_train[lime_dict['GT_COL']].to_numpy()
     feature_names = train_df.columns.tolist()
 
     # Get training data stats
@@ -130,10 +131,16 @@ def setup_lime(cfg=None):
     lime_dict['X_TRAIN'] = sp.sparse.csr_matrix(lime_dict['X_TRAIN'])
     lime_dict['X_TEST'] = sp.sparse.csr_matrix(lime_dict['X_TEST'])
 
-    lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['0', '1'],
-                                    categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=None, feature_selection=FEATURE_SELECTION, discretizer='quartile',
-                                    discretize_continuous=True)
+    if cfg['DATA']['GT_TYPE'] == 'regression':
+        lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['Stays'],
+                                        categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
+                                        kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
+                                        discretize_continuous=True, mode='regression')
+    else:
+        lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['0', '1'],
+                                        categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
+                                        kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
+                                        discretize_continuous=True, mode='classification')
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
     # Load trained model's weights
@@ -158,9 +165,11 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
     run_start = datetime.datetime.today()    # Record start time of experiment
     NEG_EXP_PERIOD = 1      # We will explain positive to negative predicted examples at this ratio
     pos_exp_counter = 0     # Keeps track of how many positive examples are explained in a row
+    if lime_dict['GT_COL'] == 'GT_Stays':
+        all = True
 
     # Define column names of the DataFrame representing the results
-    col_names = ['ClientID', 'GroundTruth', 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
+    col_names = ['ClientID', lime_dict['GT_COL'], 'Prediction', 'Classification', 'p(neg)', 'p(pos)']
     row_len = len(col_names) + 2 * num_features
     for i in range(num_features):
         col_names.extend(['Exp_' + str(i), 'Weight_' + str(i)])
@@ -175,7 +184,7 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
         y = np.squeeze(predict_instance(x, model, ohe_ct, scaler_ct).T, axis=1)     # Predict example
         pred = 1 if y[1] >= threshold else 0        # Model's classification
         client_id = Y_test.index[i]
-        gt = Y_test.loc[client_id, 'GroundTruth']   # Ground truth
+        gt = Y_test.loc[client_id, lime_dict['GT_COL']]   # Ground truth
 
         # Determine classification of this example compared to ground truth
         if pred == 1 and gt == 1:
@@ -292,7 +301,7 @@ def explain_single_client(lime_dict, client_id, date=None):
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
     print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
-    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[idx, 'GroundTruth'],
+    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[idx, lime_dict['GT_COL']],
                           date=date, file_path=lime_dict['IMG_PATH'])
     return
 
