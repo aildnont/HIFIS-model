@@ -82,7 +82,7 @@ def load_dataset(cfg):
     test_df_ohe.drop('ClientID', axis=1, inplace=True)
 
     # Keep correct ground truth type
-    if cfg['DATA']['GT_TYPE'] == 'regression':
+    if cfg['TRAIN']['PROBLEM'] == 'regression':
         train_df_ohe.drop('GroundTruth', axis=1, inplace=True)
         val_df_ohe.drop('GroundTruth', axis=1, inplace=True)
         test_df_ohe.drop('GroundTruth', axis=1, inplace=True)
@@ -164,7 +164,7 @@ def load_time_series_dataset(cfg):
     test_df_ohe.drop(['ClientID', 'Date'], axis=1, inplace=True)
 
     # Keep correct ground truth type
-    if cfg['DATA']['GT_TYPE'] == 'regression':
+    if cfg['TRAIN']['PROBLEM'] == 'regression':
         train_df_ohe.drop('GroundTruth', axis=1, inplace=True)
         val_df_ohe.drop('GroundTruth', axis=1, inplace=True)
         test_df_ohe.drop('GroundTruth', axis=1, inplace=True)
@@ -224,13 +224,13 @@ def train_model(cfg, data, callbacks, verbose=2):
 
     # Compute output bias
     output_bias = None
-    if cfg['DATA']['GT_TYPE'] == 'classification':
+    if cfg['TRAIN']['PROBLEM'] == 'classification':
         num_neg, num_pos = np.bincount(data['Y_train'].astype(int))
         output_bias = np.log([num_pos / num_neg])
 
     # Apply class imbalance strategy
     class_weight = None
-    if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight' and cfg['DATA']['GT_TYPE'] == 'classification':
+    if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight' and cfg['TRAIN']['PROBLEM'] == 'classification':
         class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
     else:
         data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'],
@@ -239,7 +239,7 @@ def train_model(cfg, data, callbacks, verbose=2):
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
 
     # List metrics
-    if cfg['DATA']['GT_TYPE'] == 'classification':
+    if cfg['TRAIN']['PROBLEM'] == 'classification':
         metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
                    Recall(name='recall', thresholds=thresholds), F1Score(name='f1score', thresholds=thresholds),
                    AUC(name='auc')]
@@ -252,7 +252,7 @@ def train_model(cfg, data, callbacks, verbose=2):
     else:
         model_def = hifis_mlp
     model = model_def(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()], (data['X_train'].shape[-1],), metrics,
-                      data['METADATA'], cfg['DATA']['GT_TYPE'], output_bias=output_bias)
+                      data['METADATA'], cfg['TRAIN']['PROBLEM'], output_bias=output_bias)
 
     # Train the model.
     history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
@@ -412,7 +412,7 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
 
     # Visualization of test results
     test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
-    if cfg['DATA']['GT_TYPE'] == 'classification':
+    if cfg['TRAIN']['PROBLEM'] == 'classification':
         plt = plot_roc("Test set", data['Y_test'], test_predictions, dir_path=None)
         roc_img = plot_to_tensor()
         plt = plot_confusion_matrix(data['Y_test'], test_predictions, dir_path=None)
@@ -442,7 +442,7 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
     with writer.as_default():
         tf.summary.text(name='Metrics - Test Set', data=tf.convert_to_tensor(test_summary_str), step=0)
         tf.summary.text(name='Model Hyperparameters', data=tf.convert_to_tensor(hparam_summary_str), step=0)
-        if cfg['DATA']['GT_TYPE'] == 'classification':
+        if cfg['TRAIN']['PROBLEM'] == 'classification':
             tf.summary.image(name='ROC Curve (Test Set)', data=roc_img, step=0)
             tf.summary.image(name='Confusion Matrix (Test Set)', data=cm_img, step=0)
     return

@@ -6,14 +6,14 @@ from tensorflow.keras.initializers import Constant
 from tensorflow import convert_to_tensor, split, reshape, transpose
 from src.custom.losses import f1_loss
 
-def hifis_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, hparams=None):
+def hifis_mlp(cfg, input_dim, metrics, metadata, problem_type, output_bias=None, hparams=None):
     '''
     Defines a Keras model for HIFIS multi-layer perceptron model (i.e. HIFIS-v2)
     :param cfg: A dictionary of parameters associated with the model architecture
     :param input_dim: The shape of the model input
     :param metrics: Metrics to track model's performance
     :param metadata: Dict containing prediction horizon
-    :param gt_type: Type of ground truth. Determines output layer activation and loss. One of {'binary', 'regression'}
+    :param problem_type: Type of ground truth. Determines output layer activation and loss. One of {'binary', 'regression'}
     :param output_bias: initial bias applied to output layer
     :param hparams: dict of hyperparameters
     :return: a Keras model object with the architecture defined in this method
@@ -45,7 +45,7 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, hpar
     if output_bias is not None:
         output_bias = Constant(output_bias)
 
-    if gt_type == 'regression':
+    if problem_type == 'regression':
         output_activation = 'linear'
         loss = 'mse'
     else:
@@ -72,14 +72,14 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, hpar
     return model
 
 
-def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, hparams=None):
+def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, problem_type, output_bias=None, hparams=None):
     '''
     Defines a Keras model for HIFIS hybrid recurrent neural network and multilayer perceptron model (i.e. HIFIS-v3)
     :param cfg: A dictionary of parameters associated with the model architecture
     :param input_dim: The shape of the model input
     :param metrics: Metrics to track model's performance
     :param metadata: Dict containing prediction horizon, time series feature info
-    :param gt_type: Type of ground truth. Determines output layer activation and loss. One of {'binary', 'regression'}
+    :param problem_type: Type of ground truth. Determines output layer activation and loss. One of {'binary', 'regression'}
     :param output_bias: initial bias applied to output layer
     :param hparams: dict of hyperparameters
     :return: a Keras model object with the architecture defined in this method
@@ -113,7 +113,7 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, gt_type, output_bias=None, 
     if output_bias is not None:
         output_bias = Constant(output_bias)
 
-    if gt_type == 'regression':
+    if problem_type == 'regression':
         output_activation = 'linear'
         loss = 'mse'
     else:

@@ -109,12 +109,12 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         return
 
     # Add model's prediction of centroids to the DataFrame
-    if cfg['DATA']['GT_TYPE'] == 'regression':
+    if cfg['TRAIN']['PROBLEM'] == 'regression':
         stay_predictions = []
         print("Obtaining model's regression predictions for cluster centroids.")
         for i in tqdm(range(len(cluster_centroids))):
             x = np.expand_dims(cluster_centroids[i], axis=0)
-            y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['DATA']['GT_TYPE']).T, axis=1)  # Predict centroid
+            y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['TRAIN']['PROBLEM']).T, axis=1)  # Predict centroid
             stay_predictions.append(y)
         centroids_df.insert(centroids_df.shape[1], 'Predicted # stays', pd.Series(stay_predictions))
     else:
@@ -123,7 +123,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         print("Obtaining model's classifications for cluster centroids.")
         for i in tqdm(range(len(cluster_centroids))):
             x = np.expand_dims(cluster_centroids[i], axis=0)
-            y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['DATA']['GT_TYPE']).T, axis=1)  # Predict centroid
+            y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['TRAIN']['PROBLEM']).T, axis=1)  # Predict centroid
             prediction = 1 if y[1] >= cfg['PREDICTION']['THRESHOLD'] else 0  # Model's classification
             predicted_class = cfg['PREDICTION']['CLASS_NAMES'][prediction]
             predicted_classes.append(predicted_class)
@@ -141,7 +141,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         for i in tqdm(range(cluster_centroids.shape[0])):
             row = []
             exp = predict_and_explain(cluster_centroids[i], model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES,
-                                      NUM_SAMPLES, cfg['DATA']['GT_TYPE'])
+                                      NUM_SAMPLES, cfg['TRAIN']['PROBLEM'])
             explanations.append(exp)
             exp_tuples = exp.as_list()
             for exp_tuple in exp_tuples:
@@ -156,7 +156,7 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         centroids_df = pd.concat([centroids_df, exp_df], axis=1, sort=False)    # Concatenate client features and explanations
 
         # Visualize clusters' LIME explanations
-        if cfg['DATA']['GT_TYPE'] == 'regression':
+        if cfg['TRAIN']['PROBLEM'] == 'regression':
             predictions = centroids_df['Predicted # stays'].to_numpy()
         else:
             predictions = centroids_df[['At risk of chronic homelessness', 'Probability of chronic homelessness [%]']].to_numpy()

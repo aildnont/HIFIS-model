@@ -94,8 +94,8 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
 
         # Predict this example
         x = np.expand_dims(X[i], axis=0)
-        y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['DATA']['GT_TYPE']).T, axis=1)  # Predict example
-        if cfg['DATA']['GT_TYPE'] == 'regression':
+        y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['TRAIN']['PROBLEM']).T, axis=1)  # Predict example
+        if cfg['TRAIN']['PROBLEM'] == 'regression':
             prediction = 1 if y[1] >= THRESHOLD else 0  # Model's classification
         else:
             prediction = y[0]
@@ -107,7 +107,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
         if give_explanations:
             x = sp.sparse.csr_matrix(X[i])
             explanation = predict_and_explain(x, model, explainer, ohe_ct_sv, scaler_ct, NUM_FEATURES, NUM_SAMPLES,
-                                              cfg['DATA']['GT_TYPE'])
+                                              cfg['TRAIN']['PROBLEM'])
             exp_tuples = explanation.as_list()
             for exp_tuple in exp_tuples:
                 row.extend(list(exp_tuple))

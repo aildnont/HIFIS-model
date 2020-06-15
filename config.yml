@@ -29,7 +29,6 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
-  GT_TYPE: 'regression'        # Set to either 'classification' or 'regression'
   GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
@@ -97,6 +96,7 @@ NN:
 
 # Training
 TRAIN:
+  PROBLEM: 'regression'        # Set to either 'classification' or 'regression'
   EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9

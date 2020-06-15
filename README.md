@@ -563,6 +563,27 @@ models.
    for the _date_ parameter to _explain_single_client()_ in the
    _yyyy-mm-dd_ format.
 
+## Regression of Total Stays
+This repository offers the opportunity to experiment with regression as
+the problem, in addition to classification, which is the default. In
+this case, the model learns to predict the total number of stays within
+the prediction horizon. In the regression scenario, the model learns to
+minimize the Mean Squared Error loss function and is evaluated on
+different metrics than in the default classification problem. Note that
+in this case, there is no predicted probability of chronic homelessness;
+rather, the prediction will be the number of anticipated stays in a
+shelter during the upcoming prediction horizon. To experiment with a
+training a model for regression, make the following changes to
+[config.yml](config.yml) **prior** to running data preprocessing:
+- Set the _PROBLEM_ field of the _TRAIN_ section of
+  [config.yml](/config.yml) to _'regression'_.
+- Set the _METRIC_PREFERENCE_ field of the _TRAIN_ section of
+  [config.yml](config.yml) to a list of metrics that are appropriate for
+  regression. For instance, _['loss', 'mse', 'mae',  'rmse']_ would be a
+  valid value for this list. Please note that listing any
+  classification-specific metrics here (e.g. _'recall', 'precision',
+  'auc', 'f1score'_) will result in an error.
+
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
 any _.gitkeep_ files, as their only purpose is to force Git to track
@@ -717,6 +738,11 @@ below.
   currently in this section were the optimal values for our dataset
   informed by a random hyperparameter search.
 #### TRAIN
+- **PROBLEM**: Determines the type of problem. Setting to
+  _'classification'_ will result in a model that classifies individuals
+  as either at risk or not at risk for chronic homelessness. Setting to
+  _'regression'_ will result in a model that predicts total stays within
+  the prediction horizon.
 - **EXPERIMENT**: The type of training experiment you would like to
   perform if executing [_train.py_](src/train.py). Choices are
   _'single_train'_, _'multi_train'_, or _'hparam_search'_.
@@ -741,7 +767,9 @@ below.
   left to right) to guide selection of the best model after training
   multiple models in series (i.e. the
   [_'multi_train'_](#train-multiple-models-and-save-the-best-one)
-  experiment in [_train.py_](src/train.py))
+  experiment in [_train.py_](src/train.py)). Ensure that you select
+  metrics that may be calculated given the prediction mode (see _TRAIN >
+  PROBLEM_).
 - **NUM_RUNS**: The number of times to train a model in the
   _'multi_train'_ experiment
 - **THRESHOLDS**: A single float or list of floats in range [0, 1]

@@ -83,7 +83,7 @@ def setup_lime(cfg=None):
     lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
     lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
     lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
-    lime_dict['GT_COL'] = 'GT_Stays' if cfg['DATA']['GT_TYPE'] == 'regression' else 'GroundTruth'
+    lime_dict['GT_COL'] = 'GT_Stays' if cfg['TRAIN']['PROBLEM'] == 'regression' else 'GroundTruth'
     KERNEL_WIDTH = cfg['LIME'][model_def]['KERNEL_WIDTH']
     FEATURE_SELECTION = cfg['LIME'][model_def]['FEATURE_SELECTION']
 
@@ -136,7 +136,7 @@ def setup_lime(cfg=None):
     lime_dict['X_TRAIN'] = sp.sparse.csr_matrix(lime_dict['X_TRAIN'])
     lime_dict['X_TEST'] = sp.sparse.csr_matrix(lime_dict['X_TEST'])
 
-    if cfg['DATA']['GT_TYPE'] == 'regression':
+    if cfg['TRAIN']['PROBLEM'] == 'regression':
         lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['Stays'],
                                         categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
                                         kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
