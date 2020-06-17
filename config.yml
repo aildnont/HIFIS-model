@@ -81,9 +81,9 @@ NN:
       DENSE0: 80
       DENSE1: 60
     LAYERS: 3
-    L2_LAMBDA: 0.01
-    DROPOUT: 0.35
-    LR: 0.0001
+    L2_LAMBDA: 0.05
+    DROPOUT: 0.5
+    LR: 0.001
   HIFIS_RNN_MLP:
     LSTM:
       UNITS: 4
@@ -98,13 +98,13 @@ NN:
 # Training
 TRAIN:
   PROBLEM: 'regression'        # Set to either 'classification' or 'regression'
-  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
-  MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
+  EXPERIMENT: 'multi_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
+  MODEL_DEF: 'hifis_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
   EPOCHS: 300
-  BATCH_SIZE: 256
+  BATCH_SIZE: 32
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   #METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']     # An example for the classification problem

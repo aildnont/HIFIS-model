@@ -1,5 +1,5 @@
 from tensorflow.keras import Sequential, Model
-from tensorflow.keras.layers import Dense, Dropout, Input, LSTM, Reshape, concatenate, Flatten
+from tensorflow.keras.layers import Dense, Dropout, Input, LSTM, Reshape, concatenate, Flatten, Multiply
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
@@ -47,21 +47,24 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, problem_type, output_bias=None,
 
     if problem_type == 'regression':
         output_activation = 'linear'
-        loss = 'mse'
+        loss = 'mae'
     else:
         output_activation = 'sigmoid'
         loss = 'binary_crossentropy'
 
     # Define model architecture.
-    model = Sequential(name='HIFIS-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
-    model.add(Dense(nodes_dense0, input_shape=input_dim, activation='relu', kernel_regularizer=l2(l2_lambda),
-              bias_regularizer=l2(l2_lambda), name="dense0"))
-    model.add(Dropout(dropout, name='dropout0'))
+    X_input = Input(shape=input_dim)
+    X = Dense(nodes_dense0, activation='relu', kernel_regularizer=l2(l2_lambda),
+              bias_regularizer=l2(l2_lambda), name="dense0")(X_input)
+    X = Dropout(dropout, name='dropout0')(X)
     for i in range(1, layers):
-        model.add(Dense(nodes_dense1, activation='relu', kernel_regularizer=l2(l2_lambda),
-                  bias_regularizer=l2(l2_lambda), name='dense%d'%i))
-        model.add(Dropout(dropout, name='dropout%d'%i))
-    model.add(Dense(1, activation=output_activation, name="output", bias_initializer=output_bias))
+        X = Dense(nodes_dense1, activation='relu', kernel_regularizer=l2(l2_lambda),
+                  bias_regularizer=l2(l2_lambda), name='dense%d'%i)(X)
+        X = Dropout(dropout, name='dropout%d'%i)(X)
+    Y = Dense(1, activation=output_activation, name="output", bias_initializer=output_bias)(X)
+    #Y = multiply(Y, metadata['N_WEEKS'] * 7)
+
+    model = Model(inputs=X_input, outputs=Y, name='HIFIS-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
 
     # Set model loss function, optimizer, metrics.
     model.compile(loss=loss, optimizer=optimizer, metrics=metrics)

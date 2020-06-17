@@ -777,7 +777,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
 
         # Vectorize the multi-valued categorical features
         print("Vectorizing multi-valued categorical features.")
-        df, vec_mv_cat_feats, mv_cat_values = vec_multi_value_cat_features(df, mv_cat_feats, cfg, load_ct)
+        df, vec_mv_cat_feats = vec_multi_value_cat_features(df, mv_cat_feats, cfg, load_ct)
 
         # Amalgamate rows to have one entry per client
         print("Aggregating the dataframe.")

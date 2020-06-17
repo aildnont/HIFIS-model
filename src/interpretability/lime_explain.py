@@ -135,16 +135,17 @@ def setup_lime(cfg=None):
     # Convert to sparse matrices
     lime_dict['X_TRAIN'] = sp.sparse.csr_matrix(lime_dict['X_TRAIN'])
     lime_dict['X_TEST'] = sp.sparse.csr_matrix(lime_dict['X_TEST'])
+    discretizer = 'quartile' if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else 'decile'
 
     if cfg['TRAIN']['PROBLEM'] == 'regression':
         lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['Stays'],
                                         categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                        kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
+                                        kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer=discretizer,
                                         discretize_continuous=True, mode='regression')
     else:
         lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['0', '1'],
                                         categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                        kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
+                                        kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer=discretizer,
                                         discretize_continuous=True, mode='classification')
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
@@ -346,6 +347,6 @@ if __name__ == '__main__':
     elif cfg['LIME']['EXPERIMENT'] == 'lime_experiment':
         run_lime_experiment_and_visualize(lime_dict)
     else:
-        client_id = lime_dict['Y_TEST'].index[0][0]    # <-- Replace with Client ID from a client in test set
+        client_id = lime_dict['Y_TEST'].index[0][0] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else lime_dict['Y_TEST'].index[0]
         date = lime_dict['Y_TEST'].index[0][1] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else None
-        explain_single_client(lime_dict, client_id, date=date)
+        explain_single_client(lime_dict, client_id, date=date)     # <-- Replace with Client ID / Date from test set

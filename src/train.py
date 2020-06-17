@@ -36,6 +36,7 @@ def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     '''
     '''
     y_rep = np.bincount(Y_train)
+    y_rep = y_rep[np.where(y_rep != 0)]
     y_strategy = np.copy(y_rep)
     bins = 10
     y_rep_hist, bin_edges = np.histogram(y_rep[1:], bins=bins)
@@ -45,6 +46,7 @@ def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     y_unique = np.unique(Y_train)
     strategy = {y_unique[i]:y_strategy[i] for i in range(len(y_unique)) if i != 0}
     '''
+
     if algorithm == 'random_oversample':
         sampler = RandomOverSampler(random_state=np.random.randint(0, high=1000))
     elif algorithm == 'smote':
