@@ -189,8 +189,7 @@ def lime_experiment(X_test, Y_test, model, exp, threshold, ohe_ct, scaler_ct, nu
 
     # Make predictions on the test set. Explain every positive prediction and some negative predictions
     rows = []
-    n_examples = X_test.shape[0]
-    n_examples = 6
+    n_examples = int(X_test.shape[0] * 0.03)
     for i in range(n_examples):
         x = X_test[i]
         if sp.sparse.issparse(x):

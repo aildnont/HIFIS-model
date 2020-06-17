@@ -3,7 +3,7 @@ from tensorflow.keras.layers import Dense, Dropout, Input, LSTM, Reshape, concat
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
-from tensorflow import convert_to_tensor, split, reshape, transpose
+from tensorflow import convert_to_tensor, split, reshape, transpose, multiply
 from src.custom.losses import f1_loss
 
 def hifis_mlp(cfg, input_dim, metrics, metadata, problem_type, output_bias=None, hparams=None):
@@ -114,8 +114,8 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, problem_type, output_bias=N
         output_bias = Constant(output_bias)
 
     if problem_type == 'regression':
-        output_activation = 'linear'
-        loss = 'mse'
+        output_activation = 'sigmoid'
+        loss = 'mae'
     else:
         output_activation = 'sigmoid'
         loss = 'binary_crossentropy'
@@ -141,6 +141,7 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, problem_type, output_bias=N
                   bias_regularizer=l2(l2_lambda), name='dense%d'%i)(X)
         X = Dropout(dropout, name='dropout%d'%i)(X)
     Y = Dense(1, activation=output_activation, name="output", bias_initializer=output_bias)(X)
+    Y = multiply(Y, metadata['N_WEEKS'] * 7)
 
     # Define model with inputs and outputs
     model = Model(inputs=X_input, outputs=Y, name='HIFIS-rnn-mlp_' + str(metadata['N_WEEKS']) + '-weeks')

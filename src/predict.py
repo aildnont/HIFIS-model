@@ -95,7 +95,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
         # Predict this example
         x = np.expand_dims(X[i], axis=0)
         y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct, cfg['TRAIN']['PROBLEM']).T, axis=1)  # Predict example
-        if cfg['TRAIN']['PROBLEM'] == 'regression':
+        if cfg['TRAIN']['PROBLEM'] == 'classification':
             prediction = 1 if y[1] >= THRESHOLD else 0  # Model's classification
         else:
             prediction = y[0]
@@ -162,5 +162,5 @@ if __name__ == '__main__':
     if cfg['PREDICTION']['EXPERIMENT'] == 'trending_prediction':
         trending_prediction(data_path=None)
     else:
-        results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=False,
+        results_df = predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_explanations=True,
                                              include_feat_values=True)

@@ -34,6 +34,17 @@ def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     :param algorithm: The oversampling algorithm to use. One of {"random_oversample", "smote", "adasyn"}
     :return: A new training set containing oversampled examples
     '''
+    '''
+    y_rep = np.bincount(Y_train)
+    y_strategy = np.copy(y_rep)
+    bins = 10
+    y_rep_hist, bin_edges = np.histogram(y_rep[1:], bins=bins)
+    for i in range(len(bin_edges) - 1):
+        inds = np.where((y_rep >= bin_edges[i]) & (y_rep < bin_edges[i+1]))
+        y_strategy[inds] = y_rep[0] / y_rep_hist[i]
+    y_unique = np.unique(Y_train)
+    strategy = {y_unique[i]:y_strategy[i] for i in range(len(y_unique)) if i != 0}
+    '''
     if algorithm == 'random_oversample':
         sampler = RandomOverSampler(random_state=np.random.randint(0, high=1000))
     elif algorithm == 'smote':
@@ -43,6 +54,7 @@ def minority_oversample(X_train, Y_train, algorithm='random_oversample'):
     else:
         sampler = RandomOverSampler(random_state=np.random.randint(0, high=1000))
     X_resampled, Y_resampled = sampler.fit_resample(X_train, Y_train)
+    print(np.bincount(Y_resampled))
     print("Train set shape before oversampling: ", X_train.shape, " Train set shape after resampling: ", X_resampled.shape)
     return X_resampled, Y_resampled
 
@@ -142,7 +154,7 @@ def load_time_series_dataset(cfg):
     # Partition dataset by date
     train_split = cfg['TRAIN']['TRAIN_SPLIT']
     val_split = cfg['TRAIN']['VAL_SPLIT']
-    unique_dates = df['Date'].unique()
+    unique_dates = df['Date'].unique()  # Ordered starting with most recent
     train_df_dates = unique_dates[-int(train_split*unique_dates.shape[0]):]
     val_df_dates = unique_dates[-int((train_split + val_split)*unique_dates.shape[0]):-int(train_split*unique_dates.shape[0])]
     test_df_dates = unique_dates[0:-int((train_split + val_split)*unique_dates.shape[0])]
@@ -230,11 +242,12 @@ def train_model(cfg, data, callbacks, verbose=2):
 
     # Apply class imbalance strategy
     class_weight = None
-    if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight' and cfg['TRAIN']['PROBLEM'] == 'classification':
-        class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
-    else:
-        data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'],
-                                                               algorithm=cfg['TRAIN']['IMB_STRATEGY'])
+    if cfg['TRAIN']['PROBLEM'] == 'classification':
+        if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight' and cfg['TRAIN']['PROBLEM'] == 'classification':
+            class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
+        else:
+            data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'],
+                                                                   algorithm=cfg['TRAIN']['IMB_STRATEGY'])
 
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
 

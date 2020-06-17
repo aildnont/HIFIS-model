@@ -16,6 +16,7 @@ PATHS:
   TRAIN_SET: 'data/processed/Train_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
+  SCALER_GT_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
   ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
@@ -87,12 +88,12 @@ NN:
     LSTM:
       UNITS: 4
     DENSE:
-      DENSE0: 64
-      DENSE1: 32
-    LAYERS: 6
+      DENSE0: 256
+      DENSE1: 128
+    LAYERS: 4
     L2_LAMBDA: 0.00178
     DROPOUT: 0.44
-    LR: 0.0001
+    LR: 0.001
 
 # Training
 TRAIN:
@@ -103,11 +104,11 @@ TRAIN:
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
   EPOCHS: 300
-  BATCH_SIZE: 1024
+  BATCH_SIZE: 256
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
-  METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']
-  #METRIC_PREFERENCE: ['loss', 'mae', 'rmse', 'mse']
+  #METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']     # An example for the classification problem
+  METRIC_PREFERENCE: ['loss', 'mae', 'rmse', 'mse']                         # An example for the regression problem
   NUM_RUNS: 15
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
@@ -116,10 +117,10 @@ TRAIN:
     COMBINATIONS: 100
     REPEATS: 2
     RANGES:
-      NODES0: [32, 48, 64]          # Discrete range
-      NODES1: [16, 24, 32]                # Discrete range
+      NODES0: [32, 48, 64]                  # Discrete range
+      NODES1: [16, 24, 32]                  # Discrete range
       LAYERS: [2, 4, 6]                     # Discrete range
-      DROPOUT: [0.2, 0.5]                 # Real range
+      DROPOUT: [0.2, 0.5]                   # Real range
       LR: [-3.0, -3.0]                      # Real range on logarithmic scale (10^x)
       OPTIMIZER: ['adam']                   # Discrete range
       BETA_1: [-1.0, -1.0]                  # 1st moment for Adam. Real range on log scale (1 - 10^x)
@@ -147,7 +148,7 @@ LIME:
   SP:
     SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
-  EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
+  EXPERIMENT: 'explain_client'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:
