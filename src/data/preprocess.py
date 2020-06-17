@@ -289,6 +289,8 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
         last_service_end = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))   # Unix Epoch (1970-01-01 00:00:00)
         last_service_start = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))
         last_service = ''
+        stays_last_year = 0
+        year_ago = end_date - timedelta(days=365)
 
         # Iterate over all of client's records. Note: itertuples() is faster than iterrows().
         for row in client_df.itertuples():
@@ -302,6 +304,10 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
                         continue    # Don't count a stay if it's less than 15 minutes
                     total_services['Total_' + service] += (service_end.date() - service_start.date()).days + \
                                                                (service_start.date() != last_service_end[service].date())
+                    if (service == 'Stay') and (service_end >= year_ago):
+                            service_start = max(service_start, year_ago)
+                            stays_last_year += (service_end.date() - service_start.date()).days + \
+                                                                  (service_start.date() != last_service_end[service].date())
                     last_service_end[service] = service_end
                     last_service_start[service] = service_start
             elif (service in counted_services) and \
@@ -314,6 +320,7 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
         # Set total length of timed service features in client's records
         for feat in total_services:
             client_df[feat] = total_services[feat]
+        client_df['Stays_last_year'] = stays_last_year
 
         # Calculate total monthly income for client
         client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'IncomeStartDate', 'IncomeEndDate']]\
@@ -324,6 +331,8 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
     total_timed_service_feats = ['Total_' + s for s in timed_services]
     for feat in total_timed_service_feats:
         df[feat] = 0
+    df['Stays_last_year'] = 0
+    total_timed_service_feats.append('Stays_last_year')
     df['IncomeTotal'] = 0
     df['MonthlyAmount'] = pd.to_numeric(df['MonthlyAmount'])
     min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
