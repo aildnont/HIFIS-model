@@ -197,13 +197,14 @@ def remove_n_weeks(df, train_end_date, dated_feats):
     return df.copy()
 
 
-def calculate_ground_truth(df, chronic_threshold, days, end_date):
+def calculate_ground_truth(df, chronic_threshold, days, end_date, train_end_date):
     '''
     Iterate through dataset by client to calculate ground truth
     :param df: a Pandas dataframe
     :param chronic_threshold: Minimum # of days spent in shelter to be considered chronically homeless
     :param days: Number of days over which to count # days spent in shelter
     :param end_date: The last date of the time period to consider
+    :param train_end_date: Date indicating start of prediction horizon
     :return: a DataSeries mapping ClientID to ground truth
     '''
 
@@ -215,6 +216,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         '''
         client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
         gt_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
+        horizon_gt_stays = 0   # Keep track of total stays during prediction horizon
         last_stay_end = pd.to_datetime(0)
         last_stay_start = pd.to_datetime(0)
 
@@ -229,25 +231,32 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
                     stay_start = max(start_date, stay_start, last_stay_end)
                     if (stay_end - stay_start).total_seconds() >= min_stay_seconds:
                         gt_stays += (stay_end.date() - stay_start.date()).days + (stay_start.date() != last_stay_end.date())
+                        if (stay_start.date() >= train_end_date.date()) or (stay_end.date() >= train_end_date.date()):
+                            horizon_stay_start = max(train_end_date, stay_start, last_stay_end)
+                            if (stay_end - horizon_stay_start).total_seconds() >= min_stay_seconds:
+                                horizon_gt_stays += (stay_end.date() - horizon_stay_start.date()).days + (
+                                            horizon_stay_start.date() != last_stay_end.date())
                 last_stay_end = stay_end
                 last_stay_start = stay_start
 
         # Determine if client meets ground truth threshold
         if gt_stays >= chronic_threshold:
             client_df['GroundTruth'] = 1
+        client_df['GT_Stays'] = horizon_gt_stays
         return client_df
 
     start_date = end_date - timedelta(days=days) # Get start of ground truth window
     min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
     df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
     df_temp['GroundTruth'] = 0
+    df_temp['GT_Stays'] = 0
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     if df_temp.shape[0] == 0:
         return None
     if 'ClientID' not in df_temp.index:
         df_temp.set_index(['ClientID'], append=True, inplace=True)
-    df_gt = df_temp['GroundTruth']
-    df_gt = df_gt.groupby(['ClientID']).agg({'GroundTruth': 'max'})
+    df_gt = df_temp[['GroundTruth', 'GT_Stays']]
+    df_gt = df_gt.groupby(['ClientID']).agg({'GroundTruth': 'max', 'GT_Stays': 'max'})
     return df_gt
 
 
@@ -861,6 +870,194 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
     return df_clients
 
+
+def calculate_systemwide_ts_client_features(df, end_date, timed_services, counted_services, total_timed_service_feats,
+                                      numerical_service_feats, feat_prefix, start_date=None):
+    '''
+    Iterate through dataset by client to calculate features for total service usage system-wide over each timestep
+    :param df: a Pandas dataframe
+    :param end_date: The latest date of the time period to consider
+    :param timed_services: Service features for which we wish to count total time received and create a feature for
+    :param counted_services: Service features for which we wish to count occurrences and create a feature for
+    :param total_timed_service_feats: Names of features to represent totals for timed service features
+    :param numerical_service_feats: Names of features to represent totals for numerical service features
+    :param feat_prefix: Prefix for total or timestep features
+    :param start_date: The earliest date of the time period to consider
+    :return: the dataframe with the sum of all service features included
+    '''
+
+    def client_services(client_df):
+        '''
+        Helper function for total time series feature calculation. Calculate for one client.
+        :param client_df: A dataframe containing all rows for a client
+        :return: the client dataframe with total service usage appended
+        '''
+        if start_date is not None:
+            client_df = client_df[client_df['ServiceEndDate'] >= start_date]
+            client_df['ServiceStartDate'].clip(lower=start_date, inplace=True)
+        client_df = client_df[client_df['ServiceStartDate'] <= end_date]
+        client_df['ServiceEndDate'].clip(upper=end_date, inplace=True)
+        client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
+        total_services = dict.fromkeys(total_timed_service_feats, 0) # Keep track of total days of service prior to training data end date
+        last_service_end = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))   # Unix Epoch (1970-01-01 00:00:00)
+        last_service_start = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))
+        last_service = ''
+
+        # Iterate over all of client's records. Note: itertuples() is faster than iterrows().
+        for row in client_df.itertuples():
+            service_start = getattr(row, 'ServiceStartDate')
+            service_end = getattr(row, 'ServiceEndDate')
+            service = getattr(row, 'ServiceType')
+            if (service in timed_services):
+                if (service_start > last_service_start[service]) and (service_end > last_service_end[service]):
+                    service_start = max(service_start, last_service_end[service])   # Don't count any service overlapping from previous service
+                    if (service == 'Stay') and ((service_end - service_start).total_seconds() < min_stay_seconds):
+                        continue    # Don't count a stay if it's less than 15 minutes
+                    total_services[feat_prefix + service] += (service_end.date() - service_start.date()).days + \
+                                                             (service_start.date() != last_service_end[service].date())
+                    last_service_end[service] = service_end
+                    last_service_start[service] = service_start
+            elif (service in counted_services) and \
+                    ((service_end != last_service_end[service]) or (getattr(row, 'ServiceType') != last_service)):
+                service = getattr(row, 'ServiceType')
+                client_df[feat_prefix + service] += 1    # Increment # of times this service was accessed by this client
+                last_service_end[service] = service_end
+                last_service = service
+
+        # Set total length of timed service features in client's records
+        for feat in total_services:
+            client_df[feat] = total_services[feat]
+
+        return client_df
+
+    if df is None:
+        return df
+    df_temp = df.copy()
+    min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
+    end_date -= timedelta(seconds=1)    # To make calculations easier
+    df_temp = df_temp.groupby('ClientID').progress_apply(client_services)
+    if df_temp.shape[0] == 0:
+        return None
+    df_temp = df_temp.droplevel('ClientID', axis='index')
+    ts_feats = [f for f in df_temp.columns if feat_prefix in f]
+    df_temp = df_temp.groupby(['ClientID']).agg({f:'max' for f in ts_feats})
+    sums = df_temp[ts_feats].sum(axis=0)
+    return sums
+
+
+def preprocess_systemwide_stays_model(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, data_path=None):
+    '''
+    Load results of the HIFIS SQL query and process the data into total time series service features for model training
+    or prediction.
+    :param cfg: Custom config object
+    :param n_weeks: Prediction horizon [weeks]
+    :param include_gt: Boolean describing whether to include ground truth in preprocessed data. Set False if using data to predict.
+    :param calculate_gt: Boolean describing whether to compute ground truth or load from disk. Set True to compute ground truth.
+    :param data_path: Path to load raw data from
+    :return: dict containing preprocessed time series data
+    '''
+    run_start = datetime.today()
+    tqdm.pandas()
+    if cfg is None:
+        cfg = yaml.full_load(open("./config.yml", 'r'))       # Load project config data
+
+    # Set prediction horizon
+    if n_weeks is None:
+        N_WEEKS = cfg['DATA']['N_WEEKS']
+    else:
+        N_WEEKS = n_weeks
+        cfg['DATA']['N_WEEKS'] = N_WEEKS
+
+    # Load service features from HIFIS database into Pandas dataframe
+    print("Loading HIFIS data.")
+    if data_path == None:
+        data_path = cfg['PATHS']['RAW_DATA']
+    df = load_df(data_path)
+
+    # Exclude clients who did not provide consent to use their information for this project
+    df.drop(df[df['ClientID'].isin(cfg['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
+
+    df = df[['ClientID','ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
+
+    # Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
+    df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
+
+    # Convert all timestamps to datetime objects
+    print("Converting timestamps to datetimes.")
+    df = process_timestamps(df)
+
+    TIME_STEP = cfg['DATA']['TIME_SERIES']['TIME_STEP']
+    T_X = cfg['DATA']['TIME_SERIES']['T_X']                         # length of input sequence (in timesteps)
+    DAYS_PER_YEAR = 365.25
+    GROUND_TRUTH_DURATION = 365
+    EARLIEST_GT_DATE = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=T_X * TIME_STEP) - \
+                                      timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
+
+    timestep_prefix = str(TIME_STEP) + '-Day_'
+    timed_service_feats = cfg['DATA']['TIMED_SERVICE_FEATURES']
+    counted_service_feats = cfg['DATA']['COUNTED_SERVICE_FEATURES']
+    ts_timed_service_feats = [timestep_prefix + s for s in timed_service_feats]
+    ts_numerical_service_feats = [timestep_prefix + s for s in counted_service_feats]
+    for f in ts_timed_service_feats + ts_numerical_service_feats:
+        df[f] = 0
+    gt_end_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE'])
+    TIME_STEP = cfg['DATA']['TIME_SERIES']['TIME_STEP']             # Size of timestep (in days)
+    print("Earliest time series ground truth date: ", EARLIEST_GT_DATE)     # Corresponds to earliest record for client stay
+
+    if not include_gt:
+        num_iterations = T_X
+    else:
+        num_iterations = (gt_end_date - EARLIEST_GT_DATE).days // TIME_STEP
+
+    processed_df = pd.DataFrame(np.zeros((num_iterations, len(timed_service_feats) + len(counted_service_feats))),
+                                columns=ts_timed_service_feats + ts_numerical_service_feats)
+
+    dates_list = [None] * num_iterations
+    ground_truths = [0] * num_iterations
+    for i in range(num_iterations):
+        end_date = gt_end_date - timedelta(days=(TIME_STEP * i))
+        df_temp = remove_n_weeks(df, end_date, [])         # Go back in time (TIME_STEP * i / 7) weeks
+        train_end_date = end_date - timedelta(days=(N_WEEKS * 7))  # Maximum for training set records
+
+        # Calculate ground truth
+        if include_gt:
+            if calculate_gt:
+                print('Calculating ground truth at ' + str(end_date))
+                df_gt_cur = calculate_ground_truth(df_temp, cfg['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION,
+                                                   end_date, train_end_date)
+                if df_gt_cur is None:
+                    continue
+                ground_truths[i] = df_gt_cur['GT_Stays'].sum()  # Ground truth is total stays across system
+            # Remove records from the database from n weeks ago and onwards
+            df_temp = remove_n_weeks(df_temp, train_end_date, [])
+            cutoff_date = train_end_date
+        else:
+            cutoff_date = end_date
+
+        dates_list[i] = cutoff_date
+        start_date = cutoff_date - timedelta(days=TIME_STEP)
+
+        processed_df.iloc[i] = calculate_systemwide_ts_client_features(df_temp, cutoff_date, timed_service_feats,
+                                                        counted_service_feats, ts_timed_service_feats,
+                                                        ts_numerical_service_feats, timestep_prefix,
+                                                        start_date=start_date)
+    processed_df.insert(0, 'Date', dates_list)
+    processed_df['GroundTruth'] = ground_truths
+    processed_df.dropna(inplace=True)
+
+    # Shift time series features to create examples with historical data
+    time_series_feats = [f for f in processed_df.columns if '-Day_' in f]
+    for i in range(1, T_X):
+        for f in reversed(time_series_feats):
+            processed_df.insert(1, '(-' + str(i) + ')' + f, processed_df[f].shift(-i, axis=0))
+    processed_df.fillna(0, inplace=True)
+
+    if include_gt:
+        processed_df.to_csv(cfg['PATHS']['PROCESSED_DATA'], sep=',', header=True)
+    print("Data saved. Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
+    return processed_df
+
 if __name__ == '__main__':
-    preprocessed_data = preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True,
-                                   classify_cat_feats=True, load_ct=False)
+    #preprocessed_data = preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True,
+    #                               classify_cat_feats=True, load_ct=False)
+    preprocessed_data = preprocess_systemwide_stays_model(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True)
