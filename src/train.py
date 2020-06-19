@@ -5,7 +5,7 @@ from sklearn.compose import ColumnTransformer
 from joblib import dump
 from tqdm import tqdm
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
-from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC
+from tensorflow.keras.metrics import BinaryAccuracy, Precision, Recall, AUC, MeanAbsoluteError, MeanSquaredError, RootMeanSquaredError
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau
 from tensorboard.plugins.hparams import api as hp
@@ -118,7 +118,6 @@ def load_time_series_dataset(cfg):
     input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
     data_info = yaml.full_load(input_stream)
     data['METADATA']['N_WEEKS'] = data_info['N_WEEKS']
-    noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
     T_X = cfg['DATA']['TIME_SERIES']['T_X']
     tqdm.pandas()
 
@@ -126,6 +125,7 @@ def load_time_series_dataset(cfg):
     df_ohe = pd.read_csv(cfg['PATHS']['PROCESSED_OHE_DATA'])
     df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])   # Static and dynamic data prior to one hot encoding
     time_series_feats = [f for f in df.columns if ('-Day_' in f) and (')' not in f)]
+    noncat_features = data_info['NON_CAT_FEATURES']   # Noncategorical features to be scaled
 
     # Partition dataset by date
     train_split = cfg['TRAIN']['TRAIN_SPLIT']
@@ -184,7 +184,8 @@ def define_callbacks(cfg):
     :return: a list of Keras callbacks
     '''
     early_stopping = EarlyStopping(monitor='val_loss', verbose=1, patience=cfg['TRAIN']['PATIENCE'], mode='min', restore_best_weights=True)
-    callbacks = [early_stopping]
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=cfg['TRAIN']['PATIENCE'] // 2, mode='min', min_lr=0.00001)
+    callbacks = [early_stopping, reduce_lr]
     return callbacks
 
 
@@ -470,7 +471,117 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
 
     return
 
+def train_systemwide_model(cfg):
+    data = {}
+    data['METADATA'] = {}
+    input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
+    data_info = yaml.full_load(input_stream)
+    data['METADATA']['N_WEEKS'] = data_info['N_WEEKS']
+    T_X = cfg['DATA']['TIME_SERIES']['T_X']
+    tqdm.pandas()
+
+    # Load data (before and after one-hot encoding)
+    df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])  # Static and dynamic data prior to one hot encoding
+    df.drop(['Unnamed: 0'], axis=1, inplace=True)
+    time_series_feats = [f for f in df.columns if ('-Day_' in f) and (')' not in f)]
+    noncat_features = data_info['NON_CAT_FEATURES']  # Noncategorical features to be scaled
+
+    # Partition dataset by date
+    train_split = cfg['TRAIN']['TRAIN_SPLIT']
+    val_split = cfg['TRAIN']['VAL_SPLIT']
+    unique_dates = df['Date'].unique()
+    train_df_dates = unique_dates[-int(train_split * unique_dates.shape[0]):]
+    val_df_dates = unique_dates[
+                   -int((train_split + val_split) * unique_dates.shape[0]):-int(train_split * unique_dates.shape[0])]
+    test_df_dates = unique_dates[0:-int((train_split + val_split) * unique_dates.shape[0])]
+    train_df = df[df['Date'].isin(train_df_dates)]
+    val_df = df[df['Date'].isin(val_df_dates)]
+    test_df = df[df['Date'].isin(test_df_dates)]
+    print('Train set size = ' + str(train_df.shape[0]) + '. Val set size = ' + str(val_df.shape[0]) +
+          '. Test set size = ' + str(test_df.shape[0]))
+
+    # Save train & test set for LIME
+    train_df.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False)
+    test_df.to_csv(cfg['PATHS']['TEST_SET'], sep=',', header=True, index=False)
+
+    # Anonymize clients
+    train_df.drop(['Date'], axis=1, inplace=True)
+    val_df.drop(['Date'], axis=1, inplace=True)
+    test_set_dates = test_df['Date']
+    test_df.drop(['Date'], axis=1, inplace=True)
+
+    data['METADATA']['NUM_TS_FEATS'] = len(time_series_feats)  # Number of different time series features
+    data['METADATA']['T_X'] = T_X
+    num_ts_feats = data['METADATA']['NUM_TS_FEATS']
+
+    # Separate ground truth from dataframe and convert to numpy arrays
+    data['Y_train'] = np.array(train_df[train_df.columns[-num_ts_feats:]])
+    data['Y_val'] = np.array(val_df[val_df.columns[-num_ts_feats:]])
+    data['Y_test'] = np.array(test_df[test_df.columns[-num_ts_feats:]])
+
+    # Convert feature dataframes to numpy arrays
+    data['X_train'] = np.array(train_df[train_df.columns[:-num_ts_feats]])
+    data['X_val'] = np.array(val_df[val_df.columns[:-num_ts_feats]])
+    data['X_test'] = np.array(test_df[test_df.columns[:-num_ts_feats]])
+
+    # Normalize numerical data and save the scaler for prediction.
+    scaler = StandardScaler()
+    data['X_train'] = scaler.fit_transform(data['X_train'])  # Only fit train data to prevent data leakage
+    data['X_val'] = scaler.transform(data['X_val'])
+    data['X_test'] = scaler.transform(data['X_test'])
+    dump(scaler, cfg['PATHS']['SCALER'], compress=True)
+
+    metrics = [MeanSquaredError(name='mse'), MeanAbsoluteError(name='mae'), RootMeanSquaredError(name='rmse')]
+    callbacks = define_callbacks(cfg)
+    output_bias = np.mean(data['Y_train'], axis=0)
+
+    model = hifis_systemwide_rnn(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()], (data['X_train'].shape[-1],), metrics,
+                      data['METADATA'], output_bias=output_bias)
+
+    # Train the model.
+    history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
+                        epochs=cfg['TRAIN']['EPOCHS'], validation_data=(data['X_val'], data['Y_val']),
+                        callbacks=callbacks, verbose=1)
+
+    # Get and save predictions on test set
+    test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
+    test_preds_df = pd.DataFrame(test_predictions, columns=time_series_feats)
+    test_preds_df.insert(0, 'Date', test_df_dates)
+    test_preds_df.to_csv('results/experiments/test_set_predictions.csv', columns=test_preds_df.columns, index_label=False, index=False)
+
+    # Predict next year using prediction outputs as inputs to next prediction
+    x = data['X_test'][0] # Get most recent example
+    x = scaler.inverse_transform(x)
+    date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE'])
+    dates = []
+    preds = np.zeros((52, num_ts_feats))
+    for i in range(52):
+        x_scaled = scaler.transform(np.expand_dims(x, axis=0))
+        y = model.predict(x_scaled)
+        x = np.roll(x, -num_ts_feats)  # Shift data 1 time step backwards
+        x[-num_ts_feats:] = y           # Most
+        preds[i] = y
+        dates.append(date + datetime.timedelta(days=i*cfg['DATA']['TIME_SERIES']['TIME_STEP']))
+    forecast_df = pd.DataFrame(preds, columns=time_series_feats)
+    forecast_df.insert(0, 'Date', dates)
+    forecast_df.to_csv('results/experiments/future_predictions.csv', columns=forecast_df.columns, index_label=False, index=False)
+
+    # Run the model on the test set and print the resulting performance metrics.
+    test_results = model.evaluate(data['X_test'], data['Y_test'])
+    test_metrics = {}
+    test_summary_str = [['**Metric**', '**Value**']]
+    for metric, value in zip(model.metrics_names, test_results):
+        test_metrics[metric] = value
+        print(metric, ' = ', value)
+        test_summary_str.append([metric, str(value)])
+    cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    model_path = cfg['PATHS']['MODEL_WEIGHTS'] + 'model' + cur_date + '.h5'
+    save_model(model, model_path)  # Save the model's weights
+    return
+
+
 if __name__ == '__main__':
     cfg = yaml.full_load(open("./config.yml", 'r'))
-    train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT'], save_weights=True, write_logs=True)
+    #train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT'], save_weights=True, write_logs=True)
+    train_systemwide_model(cfg)
 

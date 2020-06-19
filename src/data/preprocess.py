@@ -1017,22 +1017,7 @@ def preprocess_systemwide_stays_model(cfg=None, n_weeks=None, include_gt=True, c
     for i in range(num_iterations):
         end_date = gt_end_date - timedelta(days=(TIME_STEP * i))
         df_temp = remove_n_weeks(df, end_date, [])         # Go back in time (TIME_STEP * i / 7) weeks
-        train_end_date = end_date - timedelta(days=(N_WEEKS * 7))  # Maximum for training set records
-
-        # Calculate ground truth
-        if include_gt:
-            if calculate_gt:
-                print('Calculating ground truth at ' + str(end_date))
-                df_gt_cur = calculate_ground_truth(df_temp, cfg['DATA']['CHRONIC_THRESHOLD'], GROUND_TRUTH_DURATION,
-                                                   end_date, train_end_date)
-                if df_gt_cur is None:
-                    continue
-                ground_truths[i] = df_gt_cur['GT_Stays'].sum()  # Ground truth is total stays across system
-            # Remove records from the database from n weeks ago and onwards
-            df_temp = remove_n_weeks(df_temp, train_end_date, [])
-            cutoff_date = train_end_date
-        else:
-            cutoff_date = end_date
+        cutoff_date = end_date
 
         dates_list[i] = cutoff_date
         start_date = cutoff_date - timedelta(days=TIME_STEP)
@@ -1042,7 +1027,7 @@ def preprocess_systemwide_stays_model(cfg=None, n_weeks=None, include_gt=True, c
                                                         ts_numerical_service_feats, timestep_prefix,
                                                         start_date=start_date)
     processed_df.insert(0, 'Date', dates_list)
-    processed_df['GroundTruth'] = ground_truths
+    #processed_df['GroundTruth'] = ground_truths
     processed_df.dropna(inplace=True)
 
     # Shift time series features to create examples with historical data

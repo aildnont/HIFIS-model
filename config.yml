@@ -25,6 +25,7 @@ PATHS:
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
   K-PROTOTYPES_CENTROIDS: 'results/experiments/cluster_centroids_'
   K-PROTOTYPES_CLUSTERS: 'results/experiments/client_clusters_'
+  SCALER: 'data/transformers/scaler.bin'
 
 # Constants pertaining to data structure
 DATA:
@@ -65,8 +66,8 @@ DATA:
       END: 'ServiceEndDate'
   TIME_SERIES:
     TIME_STEP: 7                        # In days
-    T_X: 6                               # Length of time series input sequence
-    YEARS_OF_DATA: 3                     # Years of recent data to create time series records for.
+    T_X: 26                               # Length of time series input sequence
+    YEARS_OF_DATA: 2.5                     # Years of recent data to create time series records for.
   SPDAT:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false
@@ -85,14 +86,14 @@ NN:
     LR: 0.0001
   HIFIS_RNN_MLP:
     LSTM:
-      UNITS: 4
+      UNITS: 16
     DENSE:
-      DENSE0: 64
+      DENSE0: 128
       DENSE1: 32
-    LAYERS: 6
+    LAYERS: 1
     L2_LAMBDA: 0.00178
     DROPOUT: 0.44
-    LR: 0.001
+    LR: 0.05
 
 # Training
 TRAIN:
@@ -101,8 +102,8 @@ TRAIN:
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
-  EPOCHS: 300
-  BATCH_SIZE: 1024
+  EPOCHS: 500
+  BATCH_SIZE: 16
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
