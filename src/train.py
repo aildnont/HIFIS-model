@@ -104,11 +104,12 @@ def load_dataset(cfg):
     return data
 
 
-def load_time_series_dataset(cfg):
+def load_time_series_dataset(cfg, slide=None):
     '''
     Load the static and time series data from disk and join them. Create time series examples to form large dataset with
     time series and static features. Partition into train/val/test sets. Normalize numerical data.
     :param cfg: Project config (from config.yml)
+    :param slide: Int that controls how many recent dates to cut off from the dataset
     :return: A dict of partitioned and normalized datasets, split into examples and labels
     '''
 
@@ -128,12 +129,24 @@ def load_time_series_dataset(cfg):
     time_series_feats = [f for f in df.columns if ('-Day_' in f) and (')' not in f)]
 
     # Partition dataset by date
-    train_split = cfg['TRAIN']['TRAIN_SPLIT']
+    unique_dates = np.flip(df['Date'].unique()).flatten()
     val_split = cfg['TRAIN']['VAL_SPLIT']
-    unique_dates = df['Date'].unique()
-    train_df_dates = unique_dates[-int(train_split*unique_dates.shape[0]):]
-    val_df_dates = unique_dates[-int((train_split + val_split)*unique_dates.shape[0]):-int(train_split*unique_dates.shape[0])]
-    test_df_dates = unique_dates[0:-int((train_split + val_split)*unique_dates.shape[0])]
+    test_split = cfg['TRAIN']['VAL_SPLIT']
+    if slide is None:
+        test_df_dates = unique_dates[-int(test_split*unique_dates.shape[0]):]
+        val_df_dates = unique_dates[-int((test_split + val_split)*unique_dates.shape[0]):-int(test_split*unique_dates.shape[0])]
+        train_df_dates = unique_dates[0:-int((test_split + val_split)*unique_dates.shape[0])]
+    else:
+        test_split_size = int((test_split) * unique_dates.shape[0])
+        val_split_size = int((val_split) * unique_dates.shape[0])
+        offset = slide * test_split_size
+        if offset == 0:
+            test_df_dates = unique_dates[-(test_split_size):]
+        else:
+            test_df_dates = unique_dates[-(test_split_size + offset):-offset]
+        val_df_dates = unique_dates[-(val_split_size + test_split_size + offset):-(test_split_size + offset)]
+        train_df_dates = unique_dates[0:-(val_split_size + test_split_size + offset)]
+
     train_df_ohe = df_ohe[df_ohe['Date'].isin(train_df_dates)]
     val_df_ohe = df_ohe[df_ohe['Date'].isin(val_df_dates)]
     test_df_ohe = df_ohe[df_ohe['Date'].isin(test_df_dates)]
@@ -372,6 +385,43 @@ def random_hparam_search(cfg, data, callbacks, log_dir):
     return
 
 
+def nested_cross_validation(cfg, callbacks, base_log_dir):
+
+    assert(cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp')    # Enforce time series data only
+    num_folds = cfg['DATA']['TIME_SERIES']['FOLDS']     # i.e. "k" for nested cross validation
+    metrics_list = cfg['TRAIN']['METRIC_PREFERENCE']
+    metrics_df = pd.DataFrame(np.zeros((num_folds + 1, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
+    metrics_df['Fold'] = list(range(num_folds)) + ['mean']
+
+    # Train a model k times with different folds
+    for i in range(num_folds):
+        data = load_time_series_dataset(cfg, slide=i)
+        cur_callbacks = callbacks.copy()
+        cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        if base_log_dir is not None:
+            log_dir = base_log_dir + cur_date
+            cur_callbacks.append(TensorBoard(log_dir=log_dir, histogram_freq=1))
+
+        # Train the model and evaluate performance on test set
+        new_model, test_metrics = train_model(cfg, data, cur_callbacks)
+        for metric in test_metrics:
+            if metric in metrics_df.columns:
+                metrics_df[metric][i] = test_metrics[metric]
+
+        # Log test set results and images
+        if base_log_dir is not None:
+            log_test_results(cfg, new_model, data, test_metrics, log_dir)
+
+    # Record mean test set results
+    #for metric in metrics_list:
+    #    metrics_df[metric][-1] = metrics_df[metric].mean()
+
+    # Save results
+    experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'nestedCV' + cur_date + '.csv'
+    metrics_df.to_csv(experiment_path, columns=metrics_df.columns, index_label=False, index=False)
+    return
+
+
 def log_test_results(cfg, model, data, test_metrics, log_dir):
     '''
     Visualize performance of a trained model on the test set. Optionally save the model.
@@ -451,6 +501,9 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
     if experiment == 'hparam_search':
         log_dir = cfg['PATHS']['LOGS'] + "hparam_search\\" + cur_date
         random_hparam_search(cfg, data, callbacks, log_dir)
+    elif experiment == 'nested_cross_validation':
+        base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
+        nested_cross_validation(cfg, callbacks, base_log_dir)
     else:
         if experiment == 'multi_train':
             base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None

@@ -10,6 +10,7 @@ PATHS:
   MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
+  EXPERIMENTS: 'results/experiments/'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
   LIME_SUBMODULAR_PICK: 'results/experiments/lime_submodular_pick.csv'
@@ -67,6 +68,7 @@ DATA:
     TIME_STEP: 30                        # In days
     T_X: 6                               # Length of time series input sequence
     YEARS_OF_DATA: 3                     # Years of recent data to create time series records for.
+    FOLDS: 2
   SPDAT:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false
@@ -96,7 +98,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
+  EXPERIMENT: 'nested_cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'nested_cross_validation'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
