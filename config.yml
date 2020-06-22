@@ -64,6 +64,7 @@ DATA:
       NAME: 'Service'
       START: 'ServiceStartDate'
       END: 'ServiceEndDate'
+  KFOLDS: 10
   TIME_SERIES:
     TIME_STEP: 30                        # In days
     T_X: 6                               # Length of time series input sequence
@@ -103,7 +104,7 @@ TRAIN:
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
-  EPOCHS: 1
+  EPOCHS: 300
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
