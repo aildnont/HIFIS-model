@@ -386,8 +386,14 @@ def random_hparam_search(cfg, data, callbacks, log_dir):
 
 
 def nested_cross_validation(cfg, callbacks, base_log_dir):
+    '''
+    Perform nested cross-validation with day-forward chaining on time series data. Data is saved in CSV format to the
+    results/experiments/ folder.
+    :param cfg: Project config dict
+    :param callbacks: List of Keras callbacks
+    :param base_log_dir: base log directory for TensorBoard logs
+    '''
 
-    assert(cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp')    # Enforce time series data only
     num_folds = cfg['DATA']['TIME_SERIES']['FOLDS']     # i.e. "k" for nested cross validation
     metrics_list = cfg['TRAIN']['METRIC_PREFERENCE']
     metrics_df = pd.DataFrame(np.zeros((num_folds + 1, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
@@ -413,8 +419,9 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
             log_test_results(cfg, new_model, data, test_metrics, log_dir)
 
     # Record mean test set results
-    #for metric in metrics_list:
-    #    metrics_df[metric][-1] = metrics_df[metric].mean()
+    for metric in metrics_list:
+        h = metrics_df[metric].mean()
+        metrics_df[metric][num_folds] = h
 
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'nestedCV' + cur_date + '.csv'
@@ -501,9 +508,10 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
     if experiment == 'hparam_search':
         log_dir = cfg['PATHS']['LOGS'] + "hparam_search\\" + cur_date
         random_hparam_search(cfg, data, callbacks, log_dir)
-    elif experiment == 'nested_cross_validation':
+    elif experiment == 'cross_validation':
         base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
-        nested_cross_validation(cfg, callbacks, base_log_dir)
+        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+            nested_cross_validation(cfg, callbacks, base_log_dir)   # If time series data, do nested CV
     else:
         if experiment == 'multi_train':
             base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
