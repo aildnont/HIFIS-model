@@ -42,9 +42,6 @@ DATA:
                            'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
                            'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
                            'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
-  TIMED_EVENT_FEATURES: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN', 'IncomeType', 'MonthlyAmount', 'HealthIssue',
-                         'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN', 'ContributingFactor',
-                         'BehavioralFactor', 'Severity', 'LifeEvent', 'TotalScore', 'SPDAT_Type', 'PreScreenPeriod']
   TIMED_EVENTS: ['Behavioral Risk Factor', 'Contributing Factor', 'Diet', 'Education', 'Expenses', 'HealthIssues', 'Income', 'Life Events',
                  'Medications', 'Service Restriction', 'VAT', 'VISPDAT']
   TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']
@@ -56,11 +53,6 @@ DATA:
                          'InHousing', 'IncomeType', 'ExpenseType', 'ExpenseFrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
                          'SelfReportedYN', 'SuspectedYN', 'OtherMedications', 'ContributingFactor', 'BehavioralFactor',
                          'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'PreScreenPeriod', 'Reason']
-  TIME_PAIRED_FEATURES:
-    -
-      NAME: 'Service'
-      START: 'ServiceStartDate'
-      END: 'ServiceEndDate'
   KFOLDS: 10
   TIME_SERIES:
     TIME_STEP: 30                        # In days
@@ -71,7 +63,6 @@ DATA:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false
     SPDAT_DATA_ONLY: false
-
 
 # Neural network models
 NN:
