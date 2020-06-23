@@ -33,32 +33,29 @@ DATA:
   GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
-  FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
+  FEATURES_TO_DROP_FIRST: ['MovedInDate','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
-                           'ServiceProvider']
+                           'IntakeID', 'clientContributingFactorID', 'ClientBehaviouralFactorID', 'PeopleLifeEventID',
+                            'ClientDietID', 'ClientBarredPeriodID', 'Modules', 'ServiceRestricitonOrganizationName', 'PersonID']
   IDENTIFYING_FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','MonthlyAmount','DOB']
-  TIMED_FEATURES_TO_DROP_LAST: ['ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
+  TIMED_FEATURES_TO_DROP_LAST: ['DateEnd','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
                            'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
                            'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
                            'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
-  TIMED_EVENT_FEATURES:
-    ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
-    IncomeStartDate: ['IncomeType', 'MonthlyAmount']
-    HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
-    ContributingFactorDateStart: ['ContributingFactor']
-    BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
-    LifeEventStartDate: ['LifeEvent']
-    SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-    WatchConcernDateStart: ['WatchConcern']
+  TIMED_EVENT_FEATURES: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN', 'IncomeType', 'MonthlyAmount', 'HealthIssue',
+                         'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN', 'ContributingFactor',
+                         'BehavioralFactor', 'Severity', 'LifeEvent', 'TotalScore', 'SPDAT_Type', 'PreScreenPeriod']
+  TIMED_EVENTS: ['Behavioral Risk Factor', 'Contributing Factor', 'Diet', 'Education', 'Expenses', 'HealthIssues', 'Income', 'Life Events',
+                 'Medications', 'Service Restriction', 'VAT', 'VISPDAT']
   TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']
   COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services']
-  NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
-    'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','SPDAT_Date','TotalScore']
+  NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','DateStart', 'DateEnd','CurrentAge','ClientHeightCM',
+                            'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','TotalScore']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
-    'ProvinceOfBirth', 'CityOfBirth', 'GeoRegion', 'HairColour', 'EyeColour', 'ServiceType', 'OrganizationName', 'ReasonForService',
-    'CurrentlyHoused', 'IncomeType', 'ExpenseType', 'Expensefrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
-    'SelfReportedYN', 'SuspectedYN', 'HealthIssueMedicationName', 'OtherMedications', 'WatchConcern', 'ContributingFactor', 'BehavioralFactor',
-    'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'AvoidInDiet', 'SPDAT_Type', 'ServiceProvider', 'PreScreenPeriod']
+                         'ProvinceOfBirth', 'CityOfBirth', 'HairColour', 'EyeColour', 'ServiceType', 'OrganizationName', 'ReasonForService',
+                         'InHousing', 'IncomeType', 'ExpenseType', 'ExpenseFrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
+                         'SelfReportedYN', 'SuspectedYN', 'OtherMedications', 'ContributingFactor', 'BehavioralFactor',
+                         'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'PreScreenPeriod', 'Reason']
   TIME_PAIRED_FEATURES:
     -
       NAME: 'Service'
@@ -99,8 +96,8 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
-  MODEL_DEF: 'hifis_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
+  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
+  MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
@@ -108,8 +105,8 @@ TRAIN:
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
-  METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 150
+  METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']
+  NUM_RUNS: 10
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:
@@ -148,7 +145,7 @@ LIME:
   SP:
     SAMPLE_FRACTION: 1.0
     NUM_EXPLANATIONS: 15
-  EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
+  EXPERIMENT: 'explain_client'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:

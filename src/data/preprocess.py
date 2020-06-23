@@ -182,15 +182,16 @@ def remove_n_weeks(df, train_end_date, dated_feats):
     :param dated_feats: list of feature names with dated events
     :return: updated dataframe with the relevant rows removed
     '''
-    df = df[df['ServiceStartDate'] <= train_end_date]               # Delete rows where service occurred after this date
-    df['ServiceEndDate'] = df['ServiceEndDate'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
+    df = df[df['DateStart'] <= train_end_date]               # Delete rows where service occurred after this date
+    df['DateEnd'] = df['DateEnd'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
 
     # Set features with dated events occurring after the maximum training set date to null
+    '''
     for feat in dated_feats:
         idxs_to_update = df[df[feat] > train_end_date].index.tolist()
         dated_feats[feat] = [f for f in dated_feats[feat] if f in df.columns]
         df.loc[idxs_to_update, dated_feats[feat]] = np.nan
-
+    '''
     # Update client age
     if 'DOB' in df.columns:
         df['CurrentAge'] = (train_end_date - df['DOB']).astype('<m8[Y]')
@@ -213,15 +214,15 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
         :param client_df: A dataframe containing all rows for a client
         :return: the client dataframe ground truth calculated correctly
         '''
-        client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
+        client_df.sort_values(by=['DateStart'], inplace=True) # Sort records by service start date
         gt_stays = 0 # Keep track of total stays, as well as # stays during ground truth time range
         last_stay_end = pd.to_datetime(0)
         last_stay_start = pd.to_datetime(0)
 
         # Iterate over all of client's records. Note itertuples() is faster than iterrows().
         for row in client_df.itertuples():
-            stay_start = getattr(row, 'ServiceStartDate')
-            stay_end = min(getattr(row, 'ServiceEndDate'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
+            stay_start = getattr(row, 'DateStart')
+            stay_end = min(getattr(row, 'DateEnd'), end_date) # If stay is ongoing through end_date, set end of stay as end_date
             service_type = getattr(row, 'ServiceType')
             if (stay_start > last_stay_start) and (stay_end > last_stay_end) and (service_type == 'Stay'):
                 if (stay_start.date() >= start_date.date()) or (stay_end.date() >= start_date.date()):
@@ -239,7 +240,7 @@ def calculate_ground_truth(df, chronic_threshold, days, end_date):
 
     start_date = end_date - timedelta(days=days) # Get start of ground truth window
     min_stay_seconds = 60 * 15  # Stays must be at least 15 minutes
-    df_temp = df[['ClientID', 'ServiceType', 'ServiceStartDate', 'ServiceEndDate']]
+    df_temp = df[['ClientID', 'ServiceType', 'DateStart', 'DateEnd']]
     df_temp['GroundTruth'] = 0
     df_temp = df_temp.groupby('ClientID').progress_apply(client_gt)
     if df_temp.shape[0] == 0:
@@ -271,11 +272,11 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
         :return: the client dataframe with total stays and ground truth columns appended
         '''
         if start_date is not None:
-            client_df = client_df[client_df['ServiceEndDate'] >= start_date]
-            client_df['ServiceStartDate'].clip(lower=start_date, inplace=True)
-        client_df = client_df[client_df['ServiceStartDate'] <= end_date]
-        client_df['ServiceEndDate'].clip(upper=end_date, inplace=True) # If ongoing through end_date, set end as end_date
-        client_df.sort_values(by=['ServiceStartDate'], inplace=True) # Sort records by service start date
+            client_df = client_df[client_df['DateEnd'] >= start_date]
+            client_df['DateStart'].clip(lower=start_date, inplace=True)
+        client_df = client_df[client_df['DateStart'] <= end_date]
+        client_df['DateEnd'].clip(upper=end_date, inplace=True) # If ongoing through end_date, set end as end_date
+        client_df.sort_values(by=['DateStart'], inplace=True) # Sort records by service start date
         total_services = dict.fromkeys(total_timed_service_feats, 0) # Keep track of total days of service prior to training data end date
         last_service_end = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))   # Unix Epoch (1970-01-01 00:00:00)
         last_service_start = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))
@@ -283,8 +284,8 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
 
         # Iterate over all of client's records. Note: itertuples() is faster than iterrows().
         for row in client_df.itertuples():
-            service_start = getattr(row, 'ServiceStartDate')
-            service_end = getattr(row, 'ServiceEndDate')
+            service_start = getattr(row, 'DateStart')
+            service_end = getattr(row, 'DateEnd')
             service = getattr(row, 'ServiceType')
             if (service in timed_services):
                 if (service_start > last_service_start[service]) and (service_end > last_service_end[service]):
@@ -307,8 +308,8 @@ def calculate_client_features(df, end_date, noncat_feats, counted_services, time
             client_df[feat] = total_services[feat]
 
         # Calculate total monthly income for client
-        client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'IncomeStartDate', 'IncomeEndDate']]\
-            .sort_values(by=['IncomeStartDate']).drop_duplicates(subset=['IncomeType'], keep='last')
+        client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'DateStart', 'DateEnd']]\
+            .sort_values(by=['DateStart']).drop_duplicates(subset=['IncomeType'], keep='last')
         client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
         return client_df
 
@@ -357,11 +358,11 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
         :return: the client dataframe with total stays and ground truth columns appended
         '''
         if start_date is not None:
-            client_df = client_df[client_df['ServiceEndDate'] >= start_date]
-            client_df['ServiceStartDate'].clip(lower=start_date, inplace=True)
-        client_df = client_df[client_df['ServiceStartDate'] <= end_date]
-        client_df['ServiceEndDate'].clip(upper=end_date, inplace=True)
-        client_df.sort_values(by=['ServiceStartDate', 'SPDAT_Date'], inplace=True) # Sort records by service start date
+            client_df = client_df[client_df['DateEnd'] >= start_date]
+            client_df['DateStart'].clip(lower=start_date, inplace=True)
+        client_df = client_df[client_df['DateStart'] <= end_date]
+        client_df['DateEnd'].clip(upper=end_date, inplace=True)
+        client_df.sort_values(by=['DateStart'], inplace=True) # Sort records by service start date
         total_services = dict.fromkeys(total_timed_service_feats, 0) # Keep track of total days of service prior to training data end date
         last_service_end = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))   # Unix Epoch (1970-01-01 00:00:00)
         last_service_start = dict.fromkeys(timed_services + counted_services, pd.to_datetime(0))
@@ -369,8 +370,8 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
 
         # Iterate over all of client's records. Note: itertuples() is faster than iterrows().
         for row in client_df.itertuples():
-            service_start = getattr(row, 'ServiceStartDate')
-            service_end = getattr(row, 'ServiceEndDate')
+            service_start = getattr(row, 'DateStart')
+            service_end = getattr(row, 'DateEnd')
             service = getattr(row, 'ServiceType')
             if (service in timed_services):
                 if (service_start > last_service_start[service]) and (service_end > last_service_end[service]):
@@ -393,14 +394,9 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
             client_df[feat] = total_services[feat]
 
         # Calculate total monthly income for client
-        client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'IncomeStartDate', 'IncomeEndDate']]\
-            .sort_values(by=['IncomeStartDate']).drop_duplicates(subset=['IncomeType'], keep='last')
+        client_income_df = client_df[['IncomeType', 'MonthlyAmount', 'DateStart', 'DateEnd']]\
+            .sort_values(by=['DateStart']).drop_duplicates(subset=['IncomeType'], keep='last')
         client_df['IncomeTotal'] = client_income_df['MonthlyAmount'].sum()
-
-        # If a client has multiple SPDAT records, ensure TotalScore is set to most recent value
-        client_spdat_records = client_df[client_df['SPDAT_Date'] <= end_date]
-        if client_spdat_records.shape[0] > 0:
-            client_df['TotalScore'] = client_spdat_records['TotalScore'].iloc[-1]
         return client_df
 
     if df is None:
@@ -469,15 +465,18 @@ def aggregate_df(df, noncat_feats, vec_mv_cat_feats, vec_sv_cat_feats):
     '''
     grouping_dictionary = {}
     temp_dict = {}
-    if 'ServiceStartDate' in noncat_feats:
-        noncat_feats.remove('ServiceStartDate')
+    if 'DateStart' in noncat_feats:
+        noncat_feats.remove('DateStart')
     if 'ClientID' in noncat_feats:
         noncat_feats.remove('ClientID')
 
     # Create a dictionary of column names and function names to pass into the groupby function
     for i in range(len(noncat_feats)):
         if noncat_feats[i] in df.columns:
-            grouping_dictionary[noncat_feats[i]] = 'max'  # Group noncategorical features by max value
+            if noncat_feats[i] == 'ExpenseAmount':
+                grouping_dictionary[noncat_feats[i]] = 'sum'
+            else:
+                grouping_dictionary[noncat_feats[i]] = 'first'  # Group noncategorical features by max value
     for i in range(len(vec_sv_cat_feats)):
         if vec_sv_cat_feats[i] in df.columns:
             temp_dict[vec_sv_cat_feats[i]] = 'first'  # Group single-valued categorical features by first occurrence
@@ -518,7 +517,7 @@ def calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_fe
 
     # Remove records from the database from n weeks ago and onwards
     print("Removing records ", n_weeks, " weeks back. Cutting off at ", train_end_date)
-    df = remove_n_weeks(df, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'])
+    df = remove_n_weeks(df, train_end_date, cfg['DATA']['TIMED_EVENTS'])
 
     # Compute total stays, total monthly income, total # services accessed for each client.
     print("Calculating total service features, monthly income total.")
@@ -591,7 +590,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
         end_date = gt_end_date - timedelta(days=(TIME_STEP * i))
 
         # Go back in time (TIME_STEP * i / 7) weeks
-        df_temp = remove_n_weeks(df, end_date, cfg['DATA']['TIMED_EVENT_FEATURES'])
+        df_temp = remove_n_weeks(df, end_date, cfg['DATA']['TIMED_EVENTS'])
 
         train_end_date = end_date - timedelta(days=(n_weeks * 7))  # Maximum for training set records
 
@@ -607,7 +606,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
                 df_gt = pd.concat([df_gt, df_gt_cur], axis=0, sort=False)
 
             # Remove records from the database from n weeks ago and onwards
-            df_temp = remove_n_weeks(df_temp, train_end_date, cfg['DATA']['TIMED_EVENT_FEATURES'])
+            df_temp = remove_n_weeks(df_temp, train_end_date, cfg['DATA']['TIMED_EVENTS'])
             cutoff_date = train_end_date
         else:
             cutoff_date = end_date
@@ -628,7 +627,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
         df_temp.update(df_temp_timestep)
         df_temp[ts_timed_service_feats + ts_numerical_service_feats + total_timed_service_feats + total_numerical_service_feats]\
             .fillna(0, inplace=True)
-        df_temp = df_temp.set_index('ServiceStartDate')
+        df_temp = df_temp.sort_values(by='DateStart', ascending=False).set_index('DateStart')
 
         # Encode multi-valued categorical variables and aggregate the DataFrame
         df_temp[mv_cat_feats] = df_temp[mv_cat_feats].fillna("None")
@@ -671,13 +670,6 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     if cfg is None:
         cfg = yaml.full_load(open("./config.yml", 'r'))       # Load project config data
 
-    # Load lists of features in raw data
-    categorical_feats = cfg['DATA']['CATEGORICAL_FEATURES']
-    noncategorical_feats = cfg['DATA']['NONCATEGORICAL_FEATURES']
-    identifying_feats_to_drop_last = cfg['DATA']['IDENTIFYING_FEATURES_TO_DROP_LAST']
-    timed_feats_to_drop_last = cfg['DATA']['TIMED_FEATURES_TO_DROP_LAST']
-    GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
-
     # Set prediction horizon
     if n_weeks is None:
         N_WEEKS = cfg['DATA']['N_WEEKS']
@@ -690,6 +682,15 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     if data_path == None:
         data_path = cfg['PATHS']['RAW_DATA']
     df = load_df(data_path)
+
+    # Load lists of features in raw data
+    categorical_feats = cfg['DATA']['CATEGORICAL_FEATURES']
+    categorical_feats = [f for f in categorical_feats if f in df.columns]
+    noncategorical_feats = cfg['DATA']['NONCATEGORICAL_FEATURES']
+    noncategorical_feats = [f for f in noncategorical_feats if f in df.columns]
+    identifying_feats_to_drop_last = cfg['DATA']['IDENTIFYING_FEATURES_TO_DROP_LAST']
+    timed_feats_to_drop_last = cfg['DATA']['TIMED_FEATURES_TO_DROP_LAST']
+    GROUND_TRUTH_DURATION = 365     # In days. Set to 1 year.
 
     # Exclude clients who did not provide consent to use their information for this project
     df.drop(df[df['ClientID'].isin(cfg['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
@@ -708,8 +709,8 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     categorical_feats.append('HasFamily')
     noncategorical_feats.remove('FamilyID')
 
-    # Replace null ServiceEndDate entries with today's date. Assumes client is receiving ongoing services.
-    df['ServiceEndDate'] = np.where(df['ServiceEndDate'].isnull(), pd.to_datetime('today'), df['ServiceEndDate'])
+    # Replace null DateEnd entries with today's date. Assumes client is receiving ongoing services.
+    df['DateEnd'] = np.where(df['DateEnd'].isnull(), pd.to_datetime('today'), df['DateEnd'])
 
     # Convert all timestamps to datetime objects
     print("Converting timestamps to datetimes.")
@@ -741,7 +742,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
         categorical_feats.remove('ServiceType')
 
         # Index dataframe by the service start column
-        df = df.set_index('ServiceStartDate')
+        df = df.sort_values(by='DateStart', ascending=False).set_index('DateStart')
 
         print("Separating multi and single-valued categorical features.")
         if classify_cat_feats:

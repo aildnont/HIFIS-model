@@ -37,8 +37,8 @@ else:
     raw_data_info = {'N_ROWS': raw_df.shape[0], 'N_COLS': raw_df.shape[1]}
 
 check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # 1 week ago from today
-raw_df['ServiceStartDate'] = pd.to_datetime(raw_df['ServiceStartDate'], errors='coerce')
-recent_df = raw_df[raw_df['ServiceStartDate'] > check_date]               # Get rows with service occurring in last week
+raw_df['DateStart'] = pd.to_datetime(raw_df['DateStart'], errors='coerce')
+recent_df = raw_df[raw_df['DateStart'] > check_date]               # Get rows with service occurring in last week
 failure_msg = ''
 if recent_df.shape[0] == 0:
     failure_msg += 'HIFIS_Clients.csv did not contain any service entries with start dates within the last week.\n'

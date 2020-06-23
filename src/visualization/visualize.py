@@ -168,11 +168,11 @@ def visualize_explanation(explanation, client_id, client_gt, date=None, file_pat
     # Create horizontal bar graph for the explanation
     fig = explanation.as_pyplot_figure()
     probs = explanation.predict_proba
-    fig.text(0.02, 0.98, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
-    fig.text(0.02, 0.96, "Ground Truth: " + str(client_gt))
-    fig.text(0.02, 0.94, "Client ID: " + str(client_id))
+    fig.text(0.02, 0.97, "Prediction probabilities: ['0': {:.2f}, '1': {:.2f}]".format(probs[0], probs[1]))
+    fig.text(0.02, 0.95, "Ground Truth: " + str(client_gt))
+    fig.text(0.02, 0.93, "Client ID: " + str(client_id))
     if date is not None:
-        fig.text(0.02, 0.92, "Date: " + date)
+        fig.text(0.02, 0.91, "Date: " + date)
     plt.tight_layout()
 
     # Save the image
