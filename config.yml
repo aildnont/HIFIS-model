@@ -96,7 +96,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'multi_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
+  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
