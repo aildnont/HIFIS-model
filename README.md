@@ -397,6 +397,40 @@ for all clients, given raw data from HIFIS and a trained model.
       particular clients over time.
 5.  Execute [predict.py](src/predict.py).
 
+### Cross Validation
+Cross validation helps us select a model that is as unbiased as possible
+towards any particular dataset. By using cross validation, we can be
+increasingly confident in the external validity of our results. This
+repository offers a means to run cross validation for both models
+defined. We include cross validation as a training experiment.
+
+Note that the cross validation experiment differs for the HIFIS-MLP
+model and the HIFIS-RNN-MLP. K-fold cross validation is used in the case
+of HIFIS-MLP, whereas nested cross-validation with day-forward chaining
+is used for HIFIS-RNN-MLP. The difference in our cross validation
+algorithms is a result of the different types of data used for both
+scenarios. In HIFIS-MLP, data is randomly partitioned by ClientID into
+training/validation/test sets. Since HIFIS-RNN-MLP learns from time
+series data, the validation and test sets are taken to be the
+second-most and most recent partitions of data respectively (and are
+therefore not random). Nested cross validation is a commonly used
+strategy for time series data.
+
+To run cross validation, see the steps below:
+1. Follow steps 1 and 2 in
+   [Train a model and visualize results](#train-a-model-and-visualize-results).
+2. In [config.yml](config.yml), set _EXPERIMENT_ within _TRAIN_ to
+   _'cross_validation'_.
+3. Execute [train.py](src/train.py). A model will be trained for each
+   train/test fold. A CSV will be generated that reports the performance
+   metrics on the test sets for each fold, along with the average
+   metrics for all folds. The file will be located in
+   _results/experiments/_, and its filename will resemble the following
+   structure: _kFoldCVyyyymmdd-hhmmss.csv_, if you are training the
+   HIFIS-MLP model (which is the default). If you are training the
+   HIFIS-RNN-MLP model, the file will be called
+   _nestedCVyyyymmdd-hhmmss.csv_.
+
 ### Exclusion of sensitive features
 Depending on your organization's circumstances, you may wish to exclude
 specific HIFIS features that you consider sensitive due to legal,
@@ -518,7 +552,11 @@ instead of randomly by ClientID. The test and validation sets comprise
 the most recent and second most recent records for all clients. The
 training set is taken to be all records with dates earlier than those in
 the test and validation sets. This way, the model is tested on the most
-recent client data and is likely to perform well on new client data.
+recent client data and is likely to perform well on new client data. Due
+to the non-random partitions of training, validation and test sets, the
+cross validation experiment used in this repository for time series data
+is nested cross validation with day-forward chaining (see [Cross
+Validation](#cross-validation) for more info).
 
 ### RNN-MLP Hybrid Model
 The time series forecasting model is different than that of the first
@@ -680,6 +718,9 @@ below.
   dictionary for associated features. For example, you need to include
   only one of _'LifeEventStartDate'_ and _'LifeEventEndDate'_ as a key,
   along with _['LifeEvent']_ as the associated value.
+- **TIMED_EVENTS**: A list of columns that correspond to significant
+  events in a client's history (e.g. health issues, life events, service
+  restrictions)
 - **TIMED_SERVICE_FEATURES**: Services received by a client over a
   period of time to include as features. The feature value is calculated
   by summing the days over which the service is received. Note that the
@@ -690,6 +731,7 @@ below.
   calculated by summing the number of times that the service was
   accessed. Note that the services offered in your locale may be
   different, necessitating modification of this list.
+- **KFOLDS**: Number of folds for k-fold cross validation
 - **TIME_SERIES**: Parameters associated with time series data
   - **TIME_STEP**: Length of time step in days
   - **T_X**: Length of input sequence length to LSTM layer. Also
@@ -698,6 +740,8 @@ below.
   - **YEARS_OF_DATA**: Number of recent years over which to construct
     time series records for. Recall that time series examples are
     indexed by ClientID and Date.
+  - **FOLDS**: Number of folds for nested cross validation with
+    day-forward chaining
 - **SPDAT**: Parameters associated with addition of client SPDAT data
   - **INCLUDE_SPDATS**: Boolean variable indicating whether to include
     SPDAT data during preprocessing
