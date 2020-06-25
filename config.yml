@@ -1,6 +1,6 @@
 # Relevant file/directory paths
 PATHS:
-  RAW_DATA: 'data/raw/HIFIS_Clients.csv'
+  RAW_DATA: 'data/raw/HIFIS_Clients_test.csv'
   RAW_SPDAT_DATA: 'data/raw/SPDATS.json'
   PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
   PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
@@ -30,7 +30,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
-  GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
+  GROUND_TRUTH_DATE: '2020-06-22'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
   FEATURES_TO_DROP_FIRST: ['MovedInDate','OtherMedications','DietCatetory','FoodType',
@@ -38,10 +38,7 @@ DATA:
                            'IntakeID', 'clientContributingFactorID', 'ClientBehaviouralFactorID', 'PeopleLifeEventID',
                             'ClientDietID', 'ClientBarredPeriodID', 'Modules', 'ServiceRestricitonOrganizationName', 'PersonID']
   IDENTIFYING_FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','MonthlyAmount','DOB']
-  TIMED_FEATURES_TO_DROP_LAST: ['DateEnd','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
-                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
-                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                           'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
+  TIMED_FEATURES_TO_DROP_LAST: ['DateEnd']
   TIMED_EVENTS: ['Behavioral Risk Factor', 'Contributing Factor', 'Diet', 'Education', 'Expenses', 'HealthIssues', 'Income', 'Life Events',
                  'Medications', 'Service Restriction', 'VAT', 'VISPDAT']
   TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']

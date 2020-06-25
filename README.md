@@ -888,8 +888,8 @@ _src/_ folder. If you plan on using the Azure machine learning pipelines
 defined in the _azure/_ folder, there are a few steps you will need to
 follow first:
 1. Obtain an active Azure subscription.
-2. Ensure you have installed the _azureml-sdk_ and _azureml_widgets_ pip
-   packages.
+2. Ensure you have installed the _azureml-sdk_, _azureml_widgets_, and
+   _sendgrid_ pip packages.
 3. In the [Azure portal](http://portal.azure.com/), create a resource
    group.
 4. In the [Azure portal](http://portal.azure.com/), create a machine
