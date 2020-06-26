@@ -411,6 +411,8 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
     if df_temp.shape[0] == 0:
         return None
     df_temp = df_temp.droplevel('ClientID', axis='index')
+    if start_date is not None:
+        df_temp.drop(['DateStart', 'DateEnd'], axis=1, inplace=True)      # Don't want to keep the clipped dates
     return df_temp
 
 
@@ -482,8 +484,10 @@ def aggregate_df(df, noncat_feats, vec_mv_cat_feats, vec_sv_cat_feats):
         if noncat_feats[i] in df.columns:
             if noncat_feats[i] == 'ExpenseAmount':
                 grouping_dictionary[noncat_feats[i]] = 'sum'
+            elif noncat_feats[i] == 'TotalScore':
+                grouping_dictionary[noncat_feats[i]] = 'first'
             else:
-                grouping_dictionary[noncat_feats[i]] = 'first'  # Group noncategorical features by max value
+                grouping_dictionary[noncat_feats[i]] = 'max'
     for i in range(len(vec_sv_cat_feats)):
         if vec_sv_cat_feats[i] in df.columns:
             temp_dict[vec_sv_cat_feats[i]] = 'first'  # Group single-valued categorical features by first occurrence
