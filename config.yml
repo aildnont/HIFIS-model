@@ -42,7 +42,7 @@ DATA:
   TIMED_EVENTS: ['Behavioral Risk Factor', 'Contributing Factor', 'Diet', 'Education', 'Expenses', 'HealthIssues', 'Income', 'Life Events',
                  'Medications', 'Service Restriction', 'VAT', 'VISPDAT']
   TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']
-  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services']
+  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services', 'SPDAT']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','DateStart', 'DateEnd','CurrentAge','ClientHeightCM',
                             'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','TotalScore']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
