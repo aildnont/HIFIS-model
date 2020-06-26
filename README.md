@@ -812,7 +812,8 @@ Note that the following fields have separate values for the
   samples for a particular example. In our experience, setting this
   within the continuous range of _[1.0, 2.0]_ is large enough to produce
   stable explanations, but small enough to avoid producing explanations
-  that approach a global surrogate model.
+  that approach a global surrogate model. This field is numeric;
+  however, it will be set to a default kernel width if a string is set.
 - **FEATURE_SELECTION**: The strategy to select features for LIME
   explanations. Read the LIME creators'
   [documentation](https://lime-ml.readthedocs.io/en/latest/lime.html)

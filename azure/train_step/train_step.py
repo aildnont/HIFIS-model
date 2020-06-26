@@ -77,9 +77,9 @@ run.log_image("Confusion matrix", plot=cm_plt)
 
 # Log test set performance of all models and save to CSV
 for i in range(len(test_metrics_dict['loss'])):
-    run.log_row("Test set metrics", model=(i+1), recall=test_metrics_dict['recall'][i],
-                precision=test_metrics_dict['precision'][i], auc=test_metrics_dict['auc'][i],
-                loss=test_metrics_dict['loss'][i])
+    run.log_row("Test set metrics", model=(i+1), f1score=test_metrics_dict['f1score'][i],
+                recall=test_metrics_dict['recall'][i], precision=test_metrics_dict['precision'][i],
+                auc=test_metrics_dict['auc'][i], loss=test_metrics_dict['loss'][i])
 test_set_metrics_df = pd.DataFrame(test_metrics_dict)
 test_set_metrics_df.to_csv(cfg['PATHS']['MULTI_TRAIN_TEST_METRICS'])
 

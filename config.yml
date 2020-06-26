@@ -125,13 +125,13 @@ LIME:
     NUM_SAMPLES: 60000
     MAX_DISPLAYED_RULES: 15
   HIFIS_RNN_MLP:
-    KERNEL_WIDTH: 14.33
+    KERNEL_WIDTH: 'default'
     FEATURE_SELECTION: 'lasso_path'
     NUM_FEATURES: 30
     NUM_SAMPLES: 40000
     MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_FRACTION: 1.0
+    SAMPLE_FRACTION: 0.3
     NUM_EXPLANATIONS: 15
   EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
