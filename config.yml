@@ -7,7 +7,7 @@ PATHS:
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: 'data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/'
-  MODEL_TO_LOAD: 'results/models/model_test.h5'
+  MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
   EXPERIMENTS: 'results/experiments/'
@@ -84,7 +84,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
+  EXPERIMENT: 'multi_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
@@ -94,7 +94,7 @@ TRAIN:
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 10
+  NUM_RUNS: 100
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:
@@ -102,10 +102,10 @@ TRAIN:
     COMBINATIONS: 100
     REPEATS: 2
     RANGES:
-      NODES0: [32, 48, 64]          # Discrete range
-      NODES1: [16, 24, 32]                # Discrete range
+      NODES0: [32, 48, 64]                  # Discrete range
+      NODES1: [16, 24, 32]                  # Discrete range
       LAYERS: [2, 4, 6]                     # Discrete range
-      DROPOUT: [0.2, 0.5]                 # Real range
+      DROPOUT: [0.2, 0.5]                   # Real range
       LR: [-3.0, -3.0]                      # Real range on logarithmic scale (10^x)
       OPTIMIZER: ['adam']                   # Discrete range
       BETA_1: [-1.0, -1.0]                  # 1st moment for Adam. Real range on log scale (1 - 10^x)

@@ -8,7 +8,7 @@ from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, Callback
 import tensorflow as tf
 import pandas as pd
 from azureml.core import Run
-from src.train import multi_train, load_dataset
+from src.train import multi_train, load_dataset, load_time_series_dataset
 from src.visualization.visualize import plot_roc, plot_confusion_matrix
 
 parser = argparse.ArgumentParser()
@@ -37,7 +37,10 @@ if not os.path.exists(args.trainoutputdir):
     os.makedirs(args.trainoutputdir)
 
 # Load dataset file paths and labels
-data = load_dataset(cfg)
+if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+    data = load_time_series_dataset(cfg)
+else:
+    data = load_dataset(cfg)
 
 # Custom Keras callback that logs all training and validation metrics after each epoch to the current Azure run
 class LogRunMetrics(Callback):
