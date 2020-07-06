@@ -360,6 +360,9 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
         if start_date is not None:
             client_df = client_df[client_df['DateEnd'] >= start_date]
             client_df['DateStart'].clip(lower=start_date, inplace=True)
+        else:
+            if not (client_df['ServiceType'].isin(timed_services + counted_services)).any():
+                return pd.DataFrame()
         client_df = client_df[client_df['DateStart'] <= end_date]
         client_df['DateEnd'].clip(upper=end_date, inplace=True)
         client_df.sort_values(by=['DateStart'], inplace=True) # Sort records by service start date
@@ -408,15 +411,18 @@ def calculate_ts_client_features(df, end_date, timed_services, counted_services,
     if df_temp.shape[0] == 0:
         return None
     df_temp = df_temp.droplevel('ClientID', axis='index')
+    if start_date is not None:
+        df_temp.drop(['DateStart', 'DateEnd'], axis=1, inplace=True)      # Don't want to keep the clipped dates
     return df_temp
 
 
-def assemble_time_sequences(cfg, df_clients, noncat_feats):
+def assemble_time_sequences(cfg, df_clients, noncat_feats, include_gt):
     '''
     Appends most recent values for time series service features to data examples
     :param cfg: Project config
     :param df_clients: Dataframe of client data indexed by ClientID and Date
     :param noncat_feats: list of noncategorical features
+    :param include_gt: Boolean indicating whether ground truth is included in data (False if in prediction mode)
     :return: Dataframe with recent time series service features, updated list of noncategorical features
     '''
 
@@ -443,7 +449,10 @@ def assemble_time_sequences(cfg, df_clients, noncat_feats):
     df_clients = df_clients.groupby('ClientID', group_keys=False).progress_apply(client_windows)
 
     # Records at the beginning of a client's experience should have 0 for past time series feats
-    df_clients.fillna(0, inplace=True)
+    if not include_gt:
+        df_clients.dropna(0, inplace=True)
+    else:
+        df_clients.fillna(0, inplace=True)
 
     # Cut off any trailing records that could have possible false 0's
     N_WEEKS = cfg['DATA']['N_WEEKS']
@@ -475,8 +484,10 @@ def aggregate_df(df, noncat_feats, vec_mv_cat_feats, vec_sv_cat_feats):
         if noncat_feats[i] in df.columns:
             if noncat_feats[i] == 'ExpenseAmount':
                 grouping_dictionary[noncat_feats[i]] = 'sum'
+            elif noncat_feats[i] == 'TotalScore':
+                grouping_dictionary[noncat_feats[i]] = 'first'
             else:
-                grouping_dictionary[noncat_feats[i]] = 'first'  # Group noncategorical features by max value
+                grouping_dictionary[noncat_feats[i]] = 'max'
     for i in range(len(vec_sv_cat_feats)):
         if vec_sv_cat_feats[i] in df.columns:
             temp_dict[vec_sv_cat_feats[i]] = 'first'  # Group single-valued categorical features by first occurrence
@@ -554,6 +565,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
                                       timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
     print("Earliest time series ground truth date: ", EARLIEST_GT_DATE)     # Corresponds to earliest record for client stay
 
+    # Determine number of timesteps to calculate data records for
     if not include_gt:
         num_iterations = T_X
     else:
@@ -804,7 +816,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     # Create columns for most recent T_X values of time series service features and place at the end of the DataFrame
     if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
         print("Creating columns for recent past values of time series features.")
-        df_clients, noncategorical_feats = assemble_time_sequences(cfg, df_clients, noncategorical_feats)
+        df_clients, noncategorical_feats = assemble_time_sequences(cfg, df_clients, noncategorical_feats, include_gt)
         new_col_order = list(df_clients.columns).copy()
         for col_name in list(df_clients.columns):
             if '-Day_' in col_name:

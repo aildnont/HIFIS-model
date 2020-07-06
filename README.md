@@ -812,7 +812,8 @@ Note that the following fields have separate values for the
   samples for a particular example. In our experience, setting this
   within the continuous range of _[1.0, 2.0]_ is large enough to produce
   stable explanations, but small enough to avoid producing explanations
-  that approach a global surrogate model.
+  that approach a global surrogate model. This field is numeric;
+  however, it will be set to a default kernel width if a string is set.
 - **FEATURE_SELECTION**: The strategy to select features for LIME
   explanations. Read the LIME creators'
   [documentation](https://lime-ml.readthedocs.io/en/latest/lime.html)
@@ -888,8 +889,8 @@ _src/_ folder. If you plan on using the Azure machine learning pipelines
 defined in the _azure/_ folder, there are a few steps you will need to
 follow first:
 1. Obtain an active Azure subscription.
-2. Ensure you have installed the _azureml-sdk_ and _azureml_widgets_ pip
-   packages.
+2. Ensure you have installed the _azureml-sdk_, _azureml_widgets_, and
+   _sendgrid_ pip packages.
 3. In the [Azure portal](http://portal.azure.com/), create a resource
    group.
 4. In the [Azure portal](http://portal.azure.com/), create a machine

@@ -79,14 +79,14 @@ if os.getenv("AML_PARAMETER_PIPELINE") == 'train':
     cfg['PATHS']['ORDINAL_COL_TRANSFORMER'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['ORDINAL_COL_TRANSFORMER'].split('/')[-1]
     cfg['PATHS']['OHE_COL_TRANSFORMER_MV'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['OHE_COL_TRANSFORMER_MV'].split('/')[-1]
     cfg['PATHS']['OHE_COL_TRANSFORMER_SV'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['OHE_COL_TRANSFORMER_SV'].split('/')[-1]
-    preprocessed_data = preprocess(config=cfg, n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True,
+    preprocessed_data = preprocess(cfg=cfg, n_weeks=None, include_gt=True, calculate_gt=True, classify_cat_feats=True,
                                    load_ct=False)   # Preprocessing for training
 else:
     cfg['PATHS']['DATA_INFO'] = args.inferencedir + cfg['PATHS']['DATA_INFO'].split('/')[-1]
     cfg['PATHS']['OHE_COL_TRANSFORMER_SV'] = args.inferencedir + cfg['PATHS']['OHE_COL_TRANSFORMER_SV'].split('/')[-1]
     cfg['PATHS']['ORDINAL_COL_TRANSFORMER'] = args.inferencedir + cfg['PATHS']['ORDINAL_COL_TRANSFORMER'].split('/')[-1]
     cfg['PATHS']['OHE_COL_TRANSFORMER_MV'] = args.inferencedir + cfg['PATHS']['OHE_COL_TRANSFORMER_MV'].split('/')[-1]
-    preprocessed_data = preprocess(config=cfg, n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False,
+    preprocessed_data = preprocess(cfg=cfg, n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False,
                                    load_ct=True)    # Preprocessing for inference
     print("SHAPE", preprocessed_data.shape)
     preprocessed_data.to_csv(cfg['PATHS']['PROCESSED_DATA'], sep=',', header=True)

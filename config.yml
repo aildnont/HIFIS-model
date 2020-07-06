@@ -38,14 +38,11 @@ DATA:
                            'IntakeID', 'clientContributingFactorID', 'ClientBehaviouralFactorID', 'PeopleLifeEventID',
                             'ClientDietID', 'ClientBarredPeriodID', 'Modules', 'ServiceRestricitonOrganizationName', 'PersonID']
   IDENTIFYING_FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','MonthlyAmount','DOB']
-  TIMED_FEATURES_TO_DROP_LAST: ['DateEnd','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
-                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
-                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                           'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
+  TIMED_FEATURES_TO_DROP_LAST: ['DateEnd']
   TIMED_EVENTS: ['Behavioral Risk Factor', 'Contributing Factor', 'Diet', 'Education', 'Expenses', 'HealthIssues', 'Income', 'Life Events',
                  'Medications', 'Service Restriction', 'VAT', 'VISPDAT']
   TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']
-  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services']
+  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services', 'SPDAT']
   NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','DateStart', 'DateEnd','CurrentAge','ClientHeightCM',
                             'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','TotalScore']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
@@ -87,7 +84,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
+  EXPERIMENT: 'multi_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
@@ -97,7 +94,7 @@ TRAIN:
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
   METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 10
+  NUM_RUNS: 100
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:
@@ -105,10 +102,10 @@ TRAIN:
     COMBINATIONS: 100
     REPEATS: 2
     RANGES:
-      NODES0: [32, 48, 64]          # Discrete range
-      NODES1: [16, 24, 32]                # Discrete range
+      NODES0: [32, 48, 64]                  # Discrete range
+      NODES1: [16, 24, 32]                  # Discrete range
       LAYERS: [2, 4, 6]                     # Discrete range
-      DROPOUT: [0.2, 0.5]                 # Real range
+      DROPOUT: [0.2, 0.5]                   # Real range
       LR: [-3.0, -3.0]                      # Real range on logarithmic scale (10^x)
       OPTIMIZER: ['adam']                   # Discrete range
       BETA_1: [-1.0, -1.0]                  # 1st moment for Adam. Real range on log scale (1 - 10^x)
@@ -128,15 +125,15 @@ LIME:
     NUM_SAMPLES: 60000
     MAX_DISPLAYED_RULES: 15
   HIFIS_RNN_MLP:
-    KERNEL_WIDTH: 14.33
+    KERNEL_WIDTH: 'default'
     FEATURE_SELECTION: 'lasso_path'
     NUM_FEATURES: 30
     NUM_SAMPLES: 40000
     MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_FRACTION: 1.0
+    SAMPLE_FRACTION: 0.3
     NUM_EXPLANATIONS: 15
-  EXPERIMENT: 'explain_client'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
+  EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:
