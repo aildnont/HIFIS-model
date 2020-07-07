@@ -49,11 +49,12 @@ was built using data from HIFIS 4.0.57.30.
    iii)
    [_Time series LIME explanations_](#time-series-lime-explanations)  
    iv) [_Steps to use_](#steps-to-use)
-4. [**_Project Structure_**](#project-structure)
-5. [**_Project Config_**](#project-config)
-6. [**_Azure Machine Learning Pipelines_**](#azure-machine-learning-pipelines)  
+4. [**_Troubleshooting_**](#troubleshooting)
+5. [**_Project Structure_**](#project-structure)
+6. [**_Project Config_**](#project-config)
+7. [**_Azure Machine Learning Pipelines_**](#azure-machine-learning-pipelines)  
    i) [_Additional steps for Azure_](#additional-steps-for-azure)
-7. [**_Contact_**](#contact)
+8. [**_Contact_**](#contact)
 
 ## Getting Started
 1. Clone this repository (for help see this
@@ -633,6 +634,76 @@ models.
    you wish to explain a single client, be sure that you pass a value
    for the _date_ parameter to _explain_single_client()_ in the
    _yyyy-mm-dd_ format.
+
+## Troubleshooting
+
+Below are some common error scenarios that you may experience if you
+apply this repository to your municipality's HIFIS database, along with
+possible solutions.
+- **_KeyError: "['MyFeature'] not found in axis"_**  
+  Commonly occurs if you have specified a feature in one of the lists of
+  the _DATA_ seection of [config.yml](config.yml) that does not exist as
+  a column in the CSV of raw data extracted from the HIFIS database.
+  This could occur if one of the default features in those lists does
+  not exist in your HIFIS database. To fix this, remove the feature (in
+  this case called 'MyFeature') from the appropriate list in
+  [config.yml](config.yml).
+- **A feature in your database is missing in the preprocessed data CSV**  
+  All features are either classified as noncategorical or categorical.
+  You must ensure that the lists defined at _DATA >
+  NONCATEGORICAL_FEATURES_ and _DATA > CATEGORICAL_FEATURES_ (in
+  [config.yml](config.yml)) include the column names in your raw data
+  that you wish to use as features for the model.
+- **Incorrect designation of feature as noncategorical vs. categorical**  
+  The lists defined in [config.yml](config.yml) at _DATA >
+  NONCATEGORICAL_FEATURES_ and _DATA > CATEGORICAL_FEATURES_ must
+  correctly classify features as noncategorical or categorical. Strange
+  errors may be encountered during execution of
+  _vec_multi_value_cat_features()_ during preprocessing if these are set
+  incorrectly. Remember that categorical features can take on one of a
+  finite amoount of possible values; whereas, noncategorical features
+  are numeric variables whose domains exist within the real numbers. For
+  example, _'Citizenship'_ is a categorical feature and
+  _'CurrentWeightKG'_ is a noncategorical feature.
+- **Your preprocessed dataset is too small**  
+  If preprocessing causes your resultant dataset to be too small, you
+  may encounter poor results when training a model. It is important to
+  ensure that the sum of the prediction horizon and the length of time
+  covered by each time series example is less than the total time over
+  which raw data was collected. For example, if the prediction horizon
+  is 26 weeks (found at _DATA > N_WEEKS_ in [config.yml](config.yml)],
+  time step length is 30 days (found at _DATA > TIME_SERIES >
+  TIME_STEP_), and input sequence length is 6 (found at _DATA >
+  TIME_SERIES > _T_X_), then you should have at least _26×7 + 30×6 =
+  362_ days of raw HIFIS data. Note that this is the very minimum - you
+  should have significantly more days of HIFIS data than this value in
+  order to train an effective model.
+- **_OSError: SavedModel file does not exist at:
+  results/models/model.h5/{saved_model.pbtxt|saved_model.pb}_**  
+  This common error, experienced when attempting to load model weights
+  from disk from a non-existent file path, may can occur in either
+  [lime_explain.py](src/interpretability/lime_explain.py),
+  [predict.py](src/predict.py), or
+  [cluster.py](src/interpretability/cluster.py). The model weights' path
+  is set at the _PATHS > MODEL_TO_LOAD_ field of
+  [config.yml](config.yml). You must change its default value from
+  _'model.h5'_ to the filename of a model weights file that exists in
+  _results/models/_. Note that trained models are automatically saved
+  with a filename following the convention _'modelyyyymmdd-hhmmss.h5'_,
+  where _yyyymmdd-hhmmss_ is a datetime.
+- **Out-of-memory error during LIME submodular pick**  
+  Submodular pick involves generating LIME explanations for a large
+  number of examples in the training set. The LIME package used in this
+  repository tends to use larger amounts of memory than is required to
+  temporarily store the list of explanations accumulated during a
+  submodular pick experiment. Generating too high of a number of
+  explanations during this experiment can cause out-of-memory errors,
+  depending on available RAM. The only known fix is to decrease the
+  fraction of training set examples to use during submodular pick. This
+  value may be found at the _LIME > SP > SAMPLE_FRACTION_ field of
+  [config.yml](config.yml). To illustrate this issue, we had to set this
+  value to 0.2 when running submodular pick on a training set of
+  approximately 90000 records on a virtual machine with 56 GiB of RAM.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
