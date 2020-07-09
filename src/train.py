@@ -131,14 +131,20 @@ def load_time_series_dataset(cfg, slide=None):
     # Partition dataset by date
     unique_dates = np.flip(df['Date'].unique()).flatten()
     val_split = cfg['TRAIN']['VAL_SPLIT']
-    test_split = cfg['TRAIN']['VAL_SPLIT']
+    if val_split*unique_dates.shape[0] < 1:
+        val_split = 1.0 / unique_dates.shape[0]     # Ensure validation set contains records from at least 1 time step
+        print("Val set split in config.yml is too small. Increased to " + str(val_split))
+    test_split = cfg['TRAIN']['TEST_SPLIT']
+    if test_split*unique_dates.shape[0] < 1:
+        test_split = 1.0 / unique_dates.shape[0]    # Ensure test set contains records from at least 1 time step
+        print("Test set split in config.yml is too small. Increased to " + str(test_split))
     if slide is None:
         test_df_dates = unique_dates[-int(test_split*unique_dates.shape[0]):]
         val_df_dates = unique_dates[-int((test_split + val_split)*unique_dates.shape[0]):-int(test_split*unique_dates.shape[0])]
         train_df_dates = unique_dates[0:-int((test_split + val_split)*unique_dates.shape[0])]
     else:
-        test_split_size = int((test_split) * unique_dates.shape[0])
-        val_split_size = int((val_split) * unique_dates.shape[0])
+        test_split_size = max(int((test_split) * unique_dates.shape[0]), 1)
+        val_split_size = max(int((val_split) * unique_dates.shape[0]), 1)
         offset = slide * test_split_size
         if offset == 0:
             test_df_dates = unique_dates[-(test_split_size):]
