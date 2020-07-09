@@ -269,12 +269,14 @@ explain the model's predictions on examples in the test set.
       passed to the function. You will have to set the Client ID of a
       client who is in the test set in the main function of
       [lime_explain.py](src/interpretability/lime_explain.py) (it
-      currently reads ```client_id = 00000```). An image will be
-      generated that depicts the top explainable features that the model
-      used to make its prediction. The image will be automatically saved
-      in _documents/generated_images/_, and its filename will resemble
-      the following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See
-      below for an example of this graphic.
+      currently reads ```client_id = lime_dict['Y_TEST'].index[0][0]```,
+      which selects the first ClientID in the test set). An image will
+      be generated that depicts the top explainable features that the
+      model used to make its prediction. The image will be automatically
+      saved in _documents/generated_images/_, and its filename will
+      resemble the following:
+      _Client_client_id_exp_yyyymmdd-hhmmss.png_. See below for an
+      example of this graphic.
 4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
@@ -665,19 +667,24 @@ possible solutions.
   are numeric variables whose domains exist within the real numbers. For
   example, _'Citizenship'_ is a categorical feature and
   _'CurrentWeightKG'_ is a noncategorical feature.
-- **Your preprocessed dataset is too small**  
-  If preprocessing causes your resultant dataset to be too small, you
-  may encounter poor results when training a model. It is important to
-  ensure that the sum of the prediction horizon and the length of time
-  covered by each time series example is less than the total time over
-  which raw data was collected. For example, if the prediction horizon
-  is 26 weeks (found at _DATA > N_WEEKS_ in [config.yml](config.yml)],
-  time step length is 30 days (found at _DATA > TIME_SERIES >
-  TIME_STEP_), and input sequence length is 6 (found at _DATA >
-  TIME_SERIES > _T_X_), then you should have at least _26×7 + 30×6 =
-  362_ days of raw HIFIS data. Note that this is the very minimum - you
-  should have significantly more days of HIFIS data than this value in
-  order to train an effective model.
+- **File "preprocess.py", line 443, in assemble_time_sequences
+  IndexError: list index out of range**  
+  This error can indicate that your raw data does not go as far back in
+  time as needed to produce preprocessed data, given the parameters that
+  you set. It is important to ensure that the sum of the prediction
+  horizon and the length of time covered by each time series example is
+  less than the total time over which raw data was collected. For
+  example, if the prediction horizon is 26 weeks (found at _DATA >
+  N_WEEKS_ in [config.yml](config.yml)], time step length is 30 days
+  (found at _DATA > TIME_SERIES > TIME_STEP_), and input sequence length
+  is 6 (found at _DATA > TIME_SERIES > _T_X_), then you should have at
+  least _26×7 + 30×6 = 362_ days of raw HIFIS data. Note that this is
+  the very minimum - you should have significantly more days of HIFIS
+  data than this value in order to train an effective model. Finally, If
+  preprocessing causes your resultant dataset to be small, you may
+  encounter poor results when training a model; therefore, consider that
+  the absence of this error does not guarantee that you have enough raw
+  data.
 - **_OSError: SavedModel file does not exist at:
   results/models/model.h5/{saved_model.pbtxt|saved_model.pb}_**  
   This common error, experienced when attempting to load model weights
