@@ -35,7 +35,10 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
     # Get preprocessed data
     if processed_df is not None:
         df = processed_df
-        client_ids = np.array(df.pop('ClientID'))
+        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+            indexes = np.array(pd.concat([df.pop('ClientID'), df.pop('Date')], 1))
+        else:
+            indexes = np.array(df.pop('ClientID'))
     else:
         if data_path is None:
             data_path = cfg['PATHS']['RAW_DATA']
@@ -43,7 +46,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
         # Preprocess the data, using pre-existing sklearn transformers and classification of categorical features.
         df = preprocess(n_weeks=0, include_gt=False, calculate_gt=False, classify_cat_feats=False, load_ct=True,
                           data_path=data_path)
-        client_ids = np.array(df.index)
+        indexes = np.array(df.index)
 
     # Ensure DataFrame does not contain ground truth (could happen if custom preprocessed data is passed)
     if 'GroundTruth' in df.columns:
@@ -63,8 +66,9 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
     n_weeks = int(model._name.split('_')[1].split('-')[0])
 
     # Load LIME and prediction constants from config
-    NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
-    NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
+    model_def = cfg['TRAIN']['MODEL_DEF'].upper()
+    NUM_SAMPLES = cfg['LIME'][model_def]['NUM_SAMPLES']
+    NUM_FEATURES = cfg['LIME'][model_def]['NUM_FEATURES']
     THRESHOLD = cfg['PREDICTION']['THRESHOLD']
     CLASS_NAMES = cfg['PREDICTION']['CLASS_NAMES']
 
@@ -91,7 +95,8 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
         y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct).T, axis=1)  # Predict example
         prediction = 1 if y[1] >= THRESHOLD else 0  # Model's classification
         predicted_class = CLASS_NAMES[prediction]
-        row = [client_ids[i], n_weeks, predicted_class, y[1] * 100]
+        client_id = indexes[i][0] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else indexes[i]
+        row = [client_id, n_weeks, predicted_class, y[1] * 100]
 
         # Explain this prediction
         if give_explanations:
@@ -105,7 +110,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
 
         # Add client's feature values
         if include_feat_values:
-            client_vals = list(df.loc[client_ids[i], :])
+            client_vals = list(df.loc[indexes[i], :])
             for idx in data_info['SV_CAT_FEATURE_IDXS']:
                 ordinal_encoded_val = int(client_vals[idx])
                 client_vals[idx] = data_info['SV_CAT_VALUES'][idx][ordinal_encoded_val]

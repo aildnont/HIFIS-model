@@ -25,6 +25,37 @@ using the HIFIS application and HIFIS database schema who wish to
 explore the application of this model in their own locales. This model
 was built using data from HIFIS 4.0.57.30.
 
+## Table of Contents
+1. [**_Getting Started_**](#getting-started)
+2. [**_Use Cases_**](#use-cases)  
+   i)
+   [_Train a model and visualize results_](#train-a-model-and-visualize-results)  
+   ii)
+   [_Train multiple models and save the best one_](#train-multiple-models-and-save-the-best-one)  
+   iii)
+   [_Prediction horizon search experiment_](#prediction-horizon-search-experiment)  
+   iv) [_LIME explanations_](#lime-explanations)  
+   v) [_Random hyperparameter search_](#random-hyperparameter-search)  
+   vi)
+   [_Batch predictions from raw data_](#batch-predictions-from-raw-data)  
+   vii) [_Cross validation_](#cross-validation)  
+   viii)
+   [_Exclusion of sensitive features_](#exclusion-of-sensitive-features)  
+   ix)
+   [_Client clustering experiment (using K-Prototypes)_](#client-clustering-experiment-using-k-prototypes)
+3. [**_Time Series Forecasting Model_**](#time-series-forecasting-model)  
+   i) [_Time series data_](#time-series-data)  
+   ii) [_RNN-MLP Hybrid Model_](#rnn-mlp-hybrid-model)  
+   iii)
+   [_Time series LIME explanations_](#time-series-lime-explanations)  
+   iv) [_Steps to use_](#steps-to-use)
+4. [**_Troubleshooting_**](#troubleshooting)
+5. [**_Project Structure_**](#project-structure)
+6. [**_Project Config_**](#project-config)
+7. [**_Azure Machine Learning Pipelines_**](#azure-machine-learning-pipelines)  
+   i) [_Additional steps for Azure_](#additional-steps-for-azure)
+8. [**_Contact_**](#contact)
+
 ## Getting Started
 1. Clone this repository (for help see this
    [tutorial](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository)).
@@ -66,6 +97,9 @@ was built using data from HIFIS 4.0.57.30.
    the test set. A spreadsheet of predictions and explanations will be
    saved within _results/experiments/_.
 
+![alt text](documents/readme_images/workflow_summary.png "Flow Chart of
+HIFIS Model Workflow Summary")
+
 ## Use Cases
 
 ### Train a model and visualize results
@@ -105,6 +139,14 @@ was built using data from HIFIS 4.0.57.30.
    ![alt text](documents/readme_images/cm_example.png "Confusion
    Matrix")
 
+The diagram below depicts an overview the model's architecture. We call
+this model _"HIFIS MLP"_, as the model is an example of a multilayer
+perceptron. _NODES0_ and _NODES1_ correspond to hyperparameters
+configurable in [config.yml](config.yml).
+
+![alt text](documents/readme_images/HIFIS_MLP.png "HIFIS MLP
+architecture overview")
+
 ### Train multiple models and save the best one
 Not every model trained will perform at the same level on the test set.
 This procedure enables you to train multiple models and save the one
@@ -131,7 +173,7 @@ you care about optimizing.
    _results/logs/training/_, and its directory name will be the current
    time in the same format.
 
-### Prediction Horizon Search Experiment
+### Prediction horizon search experiment
 The prediction horizon (_N_) is defined as the amount of time from now
 that the model makes its predictions for. In our case, the prediction
 horizon is how far in the future (in weeks) the model is predicting risk
@@ -160,9 +202,9 @@ for instructions on how to run a Prediction Horizon Search Experiment.
    this visualization.
 
 ![alt text](documents/readme_images/horizon_experiment_example.png
-"Prediction Horizon Search Experiment")
+"Prediction horizon search experiment")
 
-### LIME Explanations
+### LIME explanations
 Since the predictions made by this model are to be used by a government
 institution to benefit vulnerable members of society, it is imperative
 that the model's predictions may be explained so as to facilitate
@@ -227,12 +269,14 @@ explain the model's predictions on examples in the test set.
       passed to the function. You will have to set the Client ID of a
       client who is in the test set in the main function of
       [lime_explain.py](src/interpretability/lime_explain.py) (it
-      currently reads ```client_id = 00000```). An image will be
-      generated that depicts the top explainable features that the model
-      used to make its prediction. The image will be automatically saved
-      in _documents/generated_images/_, and its filename will resemble
-      the following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See
-      below for an example of this graphic.
+      currently reads ```client_id = lime_dict['Y_TEST'].index[0][0]```,
+      which selects the first ClientID in the test set). An image will
+      be generated that depicts the top explainable features that the
+      model used to make its prediction. The image will be automatically
+      saved in _documents/generated_images/_, and its filename will
+      resemble the following:
+      _Client_client_id_exp_yyyymmdd-hhmmss.png_. See below for an
+      example of this graphic.
 4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
@@ -258,7 +302,7 @@ explain the model's predictions on examples in the test set.
 ![alt text](documents/readme_images/LIME_example.PNG "A sample LIME
 explanation")
 
-### Random Hyperparameter Search
+### Random hyperparameter search
 Hyperparameter tuning is an important part of the standard machine
 learning workflow. We chose to conduct a series of random hyperparameter
 searches. The results of one search informed the next, leading us to
@@ -389,6 +433,40 @@ for all clients, given raw data from HIFIS and a trained model.
       particular clients over time.
 5.  Execute [predict.py](src/predict.py).
 
+### Cross validation
+Cross validation helps us select a model that is as unbiased as possible
+towards any particular dataset. By using cross validation, we can be
+increasingly confident in the external validity of our results. This
+repository offers a means to run cross validation for both models
+defined. We include cross validation as a training experiment.
+
+Note that the cross validation experiment differs for the HIFIS-MLP
+model and the HIFIS-RNN-MLP. K-fold cross validation is used in the case
+of HIFIS-MLP, whereas nested cross-validation with day-forward chaining
+is used for HIFIS-RNN-MLP. The difference in our cross validation
+algorithms is a result of the different types of data used for both
+scenarios. In HIFIS-MLP, data is randomly partitioned by ClientID into
+training/validation/test sets. Since HIFIS-RNN-MLP learns from time
+series data, the validation and test sets are taken to be the
+second-most and most recent partitions of data respectively (and are
+therefore not random). Nested cross validation is a commonly used
+strategy for time series data.
+
+To run cross validation, see the steps below:
+1. Follow steps 1 and 2 in
+   [Train a model and visualize results](#train-a-model-and-visualize-results).
+2. In [config.yml](config.yml), set _EXPERIMENT_ within _TRAIN_ to
+   _'cross_validation'_.
+3. Execute [train.py](src/train.py). A model will be trained for each
+   train/test fold. A CSV will be generated that reports the performance
+   metrics on the test sets for each fold, along with the average
+   metrics for all folds. The file will be located in
+   _results/experiments/_, and its filename will resemble the following
+   structure: _kFoldCVyyyymmdd-hhmmss.csv_, if you are training the
+   HIFIS-MLP model (which is the default). If you are training the
+   HIFIS-RNN-MLP model, the file will be called
+   _nestedCVyyyymmdd-hhmmss.csv_.
+
 ### Exclusion of sensitive features
 Depending on your organization's circumstances, you may wish to exclude
 specific HIFIS features that you consider sensitive due to legal,
@@ -408,7 +486,7 @@ for details on how to accomplish this:
    _FEATURES_TO_DROP_FIRST_ field of the _DATA_ section of
    [config.yml](config.yml) (for more info see [Project Config](#data)).
 
-### Client Clustering Experiment (Using K-Prototypes)
+### Client clustering experiment (using K-Prototypes)
 We were interested in investigating whether HIFIS client data could be
 clustered. Since HIFIS consists of numerical and categorical data, and
 in the spirit of minimizing time complexity,
@@ -472,6 +550,167 @@ steps.
    _silhouette_plot_yyyymmdd-hhmmss.png_. Upon visualizing this graph,
    note that a larger average Silhouette Score implies a more quality
    clustering.
+
+## Time Series Forecasting Model
+Later research involved developing a model that reformulates client
+service usage as time series features. The motivation behind the
+investigation of time series forecasting was to discover if capturing
+service usage changes over time would better reflect the episodic nature
+of homelessness, thereby improving model predictions for clients at
+different times. The hope was that time series service features would
+give further context to a client's story that could be formalized as an
+example. This section will describe the changes in the features,
+dataset, model, and explanations.
+
+### Time series data
+Features that describe client service usage (e.g. stays, case
+management, food bank visits) are quantified over time. In the original
+HIFIS MLP model, these features were totalled up to the date of the
+example. Here, we define a _timestep_ (by default, 30 days) and include
+total service usage over a timestep as a feature. The _input sequence
+length_ (i.e. _T_X_) defines how many of the most recent timesteps to
+include in a single client record. For instance, suppose that the
+timestep is 30 days and _T_X_ is 6. A single client record will contain
+total service usage features for that client at a particular timestamp,
+as well as time series service features corresponding to total service
+usage during each of the 6 most recent timesteps.
+
+An additional benefit of formulating time series client records was that
+the aggregate dataset can contain records for clients at different
+dates. Therefore, the dataset is indexed by ClientID and Date. During
+data preprocessing, records are calculated for each client at different
+dates. The result is a significantly larger dataset than was used for
+the MLP model.
+
+Since the dataset contains different records for each client at various
+dates, the training, validation and test sets are partitioned by Date,
+instead of randomly by ClientID. The test and validation sets comprise
+the most recent and second most recent records for all clients. The
+training set is taken to be all records with dates earlier than those in
+the test and validation sets. This way, the model is tested on the most
+recent client data and is likely to perform well on new client data. Due
+to the non-random partitions of training, validation and test sets, the
+cross validation experiment used in this repository for time series data
+is nested cross validation with day-forward chaining (see [Cross
+Validation](#cross-validation) for more info).
+
+### RNN-MLP hybrid model
+The time series forecasting model is different than that of the first
+model described. The first iteration of the HIFIS model was a
+multi-layer preceptron (MLP). The time series forecasting model we
+developed has a hybrid recurrent neural network (RNN) and MLP
+architecture. This model, dubbed _"RNN-MLP model"_, captures the state
+of time series features by incorporating an LSTM layer through which the
+time series features are fed. The static features (i.e. non-time-series
+features) are concatenated with the output of the LSTM layer, and fed
+into an MLP, whose output is the model's decision. Examples of static
+features include demographic attributes. Total service features are also
+included in this group, as they capture a client's service usage since
+the beginning of their inclusion in HIFIS. See below for a diagram
+summarizing the RNN-MLP's architecture.
+
+![alt text](documents/readme_images/HIFIS_RNN_MLP.png "HIFIS RNN-MLP
+architecture overview")
+
+### Time series LIME explanations
+Explanations are computed for the RNN-MLP model in the same way as they
+were for the original MLP model, except that they are computed for
+predictions for a particular client at a particular date. We found that
+time series features (especially those of total stays during different
+timesteps) appeared more often as being important in explanations. The
+time series features are named for their position in the input sequence
+and the duration of the timestep. For example, a feature called
+_"(-2)30-Day_Stay"_ indicates the total number of stays that a client
+had 2 timesteps ago, where the timestep duration is 30 days.
+Additionally, stable explanations take longer to compute for the RNN-MLP
+models.
+
+### Steps to use
+1. In [config.yml](config.yml), set _MODEL_DEF_ within _TRAIN_ to
+   _'hifis_rnn_mlp'_.
+2. Follow steps 1-4 in
+   _[Train a model and visualize results](#train-a-model-and-visualize-results)_
+   to preprocess the raw data and train a model.
+3. See the steps in _[LIME Explanations](#lime-explanations)_ for
+   instructions on how to run different explainability experiments. If
+   you wish to explain a single client, be sure that you pass a value
+   for the _date_ parameter to _explain_single_client()_ in the
+   _yyyy-mm-dd_ format.
+
+## Troubleshooting
+
+Below are some common error scenarios that you may experience if you
+apply this repository to your municipality's HIFIS database, along with
+possible solutions.
+- **_KeyError: "['MyFeature'] not found in axis"_**  
+  Commonly occurs if you have specified a feature in one of the lists of
+  the _DATA_ seection of [config.yml](config.yml) that does not exist as
+  a column in the CSV of raw data extracted from the HIFIS database.
+  This could occur if one of the default features in those lists does
+  not exist in your HIFIS database. To fix this, remove the feature (in
+  this case called 'MyFeature') from the appropriate list in
+  [config.yml](config.yml).
+- **A feature in your database is missing in the preprocessed data CSV**  
+  All features are either classified as noncategorical or categorical.
+  You must ensure that the lists defined at _DATA >
+  NONCATEGORICAL_FEATURES_ and _DATA > CATEGORICAL_FEATURES_ (in
+  [config.yml](config.yml)) include the column names in your raw data
+  that you wish to use as features for the model.
+- **Incorrect designation of feature as noncategorical vs. categorical**  
+  The lists defined in [config.yml](config.yml) at _DATA >
+  NONCATEGORICAL_FEATURES_ and _DATA > CATEGORICAL_FEATURES_ must
+  correctly classify features as noncategorical or categorical. Strange
+  errors may be encountered during execution of
+  _vec_multi_value_cat_features()_ during preprocessing if these are set
+  incorrectly. Remember that categorical features can take on one of a
+  finite amoount of possible values; whereas, noncategorical features
+  are numeric variables whose domains exist within the real numbers. For
+  example, _'Citizenship'_ is a categorical feature and
+  _'CurrentWeightKG'_ is a noncategorical feature.
+- **File "preprocess.py", line 443, in assemble_time_sequences
+  IndexError: list index out of range**  
+  This error can indicate that your raw data does not go as far back in
+  time as needed to produce preprocessed data, given the parameters that
+  you set. It is important to ensure that the sum of the prediction
+  horizon and the length of time covered by each time series example is
+  less than the total time over which raw data was collected. For
+  example, if the prediction horizon is 26 weeks (found at _DATA >
+  N_WEEKS_ in [config.yml](config.yml)], time step length is 30 days
+  (found at _DATA > TIME_SERIES > TIME_STEP_), and input sequence length
+  is 6 (found at _DATA > TIME_SERIES > _T_X_), then you should have at
+  least _26×7 + 30×6 = 362_ days of raw HIFIS data. Note that this is
+  the very minimum - you should have significantly more days of HIFIS
+  data than this value in order to train an effective model. Finally, If
+  preprocessing causes your resultant dataset to be small, you may
+  encounter poor results when training a model; therefore, consider that
+  the absence of this error does not guarantee that you have enough raw
+  data.
+- **_OSError: SavedModel file does not exist at:
+  results/models/model.h5/{saved_model.pbtxt|saved_model.pb}_**  
+  This common error, experienced when attempting to load model weights
+  from disk from a non-existent file path, may can occur in either
+  [lime_explain.py](src/interpretability/lime_explain.py),
+  [predict.py](src/predict.py), or
+  [cluster.py](src/interpretability/cluster.py). The model weights' path
+  is set at the _PATHS > MODEL_TO_LOAD_ field of
+  [config.yml](config.yml). You must change its default value from
+  _'model.h5'_ to the filename of a model weights file that exists in
+  _results/models/_. Note that trained models are automatically saved
+  with a filename following the convention _'modelyyyymmdd-hhmmss.h5'_,
+  where _yyyymmdd-hhmmss_ is a datetime.
+- **Out-of-memory error during LIME submodular pick**  
+  Submodular pick involves generating LIME explanations for a large
+  number of examples in the training set. The LIME package used in this
+  repository tends to use larger amounts of memory than is required to
+  temporarily store the list of explanations accumulated during a
+  submodular pick experiment. Generating too high of a number of
+  explanations during this experiment can cause out-of-memory errors,
+  depending on available RAM. The only known fix is to decrease the
+  fraction of training set examples to use during submodular pick. This
+  value may be found at the _LIME > SP > SAMPLE_FRACTION_ field of
+  [config.yml](config.yml). To illustrate this issue, we had to set this
+  value to 0.2 when running submodular pick on a training set of
+  approximately 90000 records on a virtual machine with 56 GiB of RAM.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard
@@ -590,6 +829,9 @@ below.
   dictionary for associated features. For example, you need to include
   only one of _'LifeEventStartDate'_ and _'LifeEventEndDate'_ as a key,
   along with _['LifeEvent']_ as the associated value.
+- **TIMED_EVENTS**: A list of columns that correspond to significant
+  events in a client's history (e.g. health issues, life events, service
+  restrictions)
 - **TIMED_SERVICE_FEATURES**: Services received by a client over a
   period of time to include as features. The feature value is calculated
   by summing the days over which the service is received. Note that the
@@ -600,6 +842,17 @@ below.
   calculated by summing the number of times that the service was
   accessed. Note that the services offered in your locale may be
   different, necessitating modification of this list.
+- **KFOLDS**: Number of folds for k-fold cross validation
+- **TIME_SERIES**: Parameters associated with time series data
+  - **TIME_STEP**: Length of time step in days
+  - **T_X**: Length of input sequence length to LSTM layer. Also
+    described as the number of past time steps to include with each
+    example
+  - **YEARS_OF_DATA**: Number of recent years over which to construct
+    time series records for. Recall that time series examples are
+    indexed by ClientID and Date.
+  - **FOLDS**: Number of folds for nested cross validation with
+    day-forward chaining
 - **SPDAT**: Parameters associated with addition of client SPDAT data
   - **INCLUDE_SPDATS**: Boolean variable indicating whether to include
     SPDAT data during preprocessing
@@ -608,13 +861,26 @@ below.
   - **SPDAT_DATA_ONLY**: Boolean variable indicating whether to include
     only answers to SPDAT questions in the preprocessed dataset
 #### NN
-- **MODEL1**: Contains definitions of configurable hyperparameters
-  associated with the model architecture. The values currently in this
-  section were the optimal values for our dataset informed by a random
-  hyperparameter search.
+- **HIFIS_MLP**: Contains definitions of configurable hyperparameters
+  associated with the HIFIS MLP model architecture. The values currently
+  in this section were the optimal values for our dataset informed by a
+  random hyperparameter search.
+- **HIFIS_RNN_MLP**: Contains definitions of configurable
+  hyperparameters associated with the HIFIS RNN-MLP model architecture.
+  This model is to be trained with time series data. The values
+  currently in this section were the optimal values for our dataset
+  informed by a random hyperparameter search.
 #### TRAIN
+- **EXPERIMENT**: The type of training experiment you would like to
+  perform if executing [_train.py_](src/train.py). Choices are
+  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
+- **MODEL_DEF**: The model architecture to train. Set to _'hifis_mlp'_
+  to train the HIFIS MLP model, or set to _'hifis_rnn_mlp'_ to train the
+  HIFIS RNN-MLP hybrid model. Also dictates how the raw HIFIS data will
+  be preprocessed.
 - **TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT**: Fraction of the data allocated
-  to the training, validation and test sets respectively
+  to the training, validation and test sets respectively. These fields
+  must collectively sum to 1.
 - **EPOCHS**: Number of epochs to train the model for
 - **BATCH_SIZE**: Mini-batch size during training
 - **POS_WEIGHT**: Coefficient to multiply the positive class' weight by
@@ -625,9 +891,6 @@ below.
   dataset, the ratio of positive to negative ground truth was very low,
   prompting the use of these strategies. Set either to _'class_weight'_,
   _'random_oversample'_, _'smote'_, or _'adasyn'_.
-- **EXPERIMENT**: The type of training experiment you would like to
-  perform if executing [_train.py_](src/train.py). Choices are
-  _'single_train'_, _'multi_train'_, or _'hparam_search'_.
 - **METRIC_PREFERENCE**: A list of metrics in order of importance (from
   left to right) to guide selection of the best model after training
   multiple models in series (i.e. the
@@ -652,11 +915,16 @@ below.
     [Random Hyperparameter Search](#random-hyperparameter-search) for an
     example).
 #### LIME
+Note that the following fields have separate values for the
+**HIFIS_MLP** and **HIFIS_RNN_MLP** architectures: **KERNEL_WIDTH**,
+**FEATURE_SELECTION**, **NUM_FEATURES**, **NUM_SAMPLES**, and
+**MAX_DISPLAYED_RULES**.
 - **KERNEL_WIDTH**: Affects size of neighbourhood around which LIME
   samples for a particular example. In our experience, setting this
   within the continuous range of _[1.0, 2.0]_ is large enough to produce
   stable explanations, but small enough to avoid producing explanations
-  that approach a global surrogate model.
+  that approach a global surrogate model. This field is numeric;
+  however, it will be set to a default kernel width if a string is set.
 - **FEATURE_SELECTION**: The strategy to select features for LIME
   explanations. Read the LIME creators'
   [documentation](https://lime-ml.readthedocs.io/en/latest/lime.html)
@@ -665,8 +933,8 @@ below.
   include in a LIME explanation
 - **NUM_SAMPLES**: The number of samples
   used to fit a linear model when explaining a prediction using LIME
-- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be included
-  in a global surrogate visualization
+- **MAX_DISPLAYED_RULES**: The maximum number of explanations to be
+  included in a global surrogate visualization
 - **SP**: Parameters associated with submodular pick
   - **SAMPLE_FRACTION**: A float in the range _[0.0, 1.0]_ that
     specifies the fraction of samples from the training and validation
@@ -732,8 +1000,8 @@ _src/_ folder. If you plan on using the Azure machine learning pipelines
 defined in the _azure/_ folder, there are a few steps you will need to
 follow first:
 1. Obtain an active Azure subscription.
-2. Ensure you have installed the _azureml-sdk_ and _azureml_widgets_ pip
-   packages.
+2. Ensure you have installed the _azureml-sdk_, _azureml_widgets_, and
+   _sendgrid_ pip packages.
 3. In the [Azure portal](http://portal.azure.com/), create a resource
    group.
 4. In the [Azure portal](http://portal.azure.com/), create a machine

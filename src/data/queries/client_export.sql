@@ -1,11 +1,8 @@
--- Azure ML Client Export
-
-USE HIFIS
-GO
-
-;WITH Consent AS(
-
-SELECT * FROM
+;WITH Consent AS
+(
+SELECT 
+	* 
+FROM
  (
 SELECT 
 			ClientID, 
@@ -21,6 +18,7 @@ SELECT
 			INNER JOIN HIFIS_Consent_ServiceProviders as CSP ON Con.ConsentID = CSP.ConsentID
 			INNER JOIN HIFIS_ConsentTypes as ConTypes ON Con.ConsentTypeID = ConTypes.ID
 			INNER JOIN HIFIS_Organizations as Orgs ON CSP.OrgID = Orgs.OrganizationID
+			AND Orgs.ClusterID = 16
         WHERE 
 			(GETDATE() BETWEEN Con.StartDate AND Con.ExpiryDate OR (GETDATE() >= Con.StartDate AND Con.ExpiryDate IS NULL))
         GROUP BY 
@@ -28,16 +26,17 @@ SELECT
 		) as abc
     WHERE 
 		Row# = 1
-
 ),
-HOUSINGPLACEMENTS AS (
-
+HousingPlacements AS
+(
+--- HOUSE PLACEMENTS ------------------------------------------------
 SELECT 
 	HousePlacementID,
 	PrimaryClientID,
-	MovedInDate
---INTO
---	HousingPlacements
+	MovedInDate,
+	PlacementEndedYN,
+	FollowUpCompleteYN,
+	DateEnd
 FROM
 (
 	SELECT 
@@ -49,18 +48,24 @@ FROM
 		DateExpectedMoveIn,
 		MovedInDate,
 		DateSearchEnded,
-		FollowUpCompleteYN
+		PlacementEndedYN,
+		FollowUpCompleteYN,
+		b.DateEnd
 	FROM
 		HIFIS_HousePlacements a
 		INNER JOIN HIFIS_Services b on b.ServiceID = a.ServiceID
 		INNER JOIN HIFIS_Organizations c on c.OrganizationID = b.OrganizationID
 	WHERE
-	c.ClusterID <> 16
+	c.ClusterID = 16
+	AND
+	a.PlacementEndedYN = 'N'
+	AND
+	MovedInDate IS NOT NULL
+	
+		
 ) t
 WHERE Row = 1
-AND MovedInDate IS NOT NULL
-)
-,
+),
 Families AS
 (
 
@@ -81,8 +86,7 @@ Families AS
     pg.[LastUpdatedBy], 
     pg.[CreatedBy],
 	prt.NameE as RelationshipType
---INTO 
---	#FAMILIES
+
 FROM
 	HIFIS_People_Groups pg
     INNER JOIN HIFIS_Groups g ON g.GroupID = pg.GroupID
@@ -112,41 +116,99 @@ WHERE
 	) 
 	AND pg.GroupRoleTypeID <> 9
 	
+),
+ClientBasics AS
+(
+--- Client Basics
+----------------------------------------------------
 
-
-
+SELECT
+	vw_ClientBasics.ClientID,
+	HIFIS_Clients.PersonID,
+	Consent.ConsentType,
+	Families.GroupID as FamilyID,
+	Families.RelationshipType,
+	HIFIS_People.DOB,
+	vw_ClientBasics.CurrentAge,
+	Gender_En as Gender,
+	AboriginalIndicator_En as AboriginalIndicator,
+	Citizenship_En as Citizenship,
+	VeteranStatus_En as VeteranStatus,
+	HIFIS_CountryTypes.NameE as CountryOfBirth,
+	HIFIS_ProvinceTypes.NameE as ProvinceOfBirth,
+	HIFIS_CityTypes.NameE as CityOfBirth,
+	HIFIS_EyeColorTypes.NameE as EyeColour,
+	HIFIS_HairColorTypes.NameE as HairColour,
+	HIFIS_Clients.ClientHeight as ClientHeightCM,
+	HIFIS_Clients.ClientWeight as ClientWeightKG,
+	CASE WHEN HousingPlacements.MovedInDate IS NOT NULL THEN 'Y' ELSE 'N' END as InHousing,
+	HousingPlacements.MovedInDate
+FROM 
+	vw_ClientBasics
+	INNER JOIN Consent ON vw_ClientBasics.ClientID = Consent.ClientID
+	INNER JOIN HIFIS_Clients ON vw_ClientBasics.ClientID = HIFIS_Clients.ClientID
+	INNER JOIN HIFIS_People ON HIFIS_People.PersonID = HIFIS_Clients.PersonID
+	LEFT OUTER JOIN HIFIS_CountryTypes ON HIFIS_CLients.CountryOfBirth = HIFIS_CountryTypes.ID
+	LEFT OUTER JOIN HIFIS_ProvinceTypes ON HIFIS_Clients.ProvinceOfBirth = HIFIS_ProvinceTypes.ID
+	LEFT OUTER JOIN HIFIS_CityTypes ON HIFIS_Clients.CityOfBirth = HIFIS_CityTypes.CityTypeID
+	LEFT OUTER JOIN HIFIS_EyeColorTypes ON HIFIS_Clients.EyeColorTypeID = HIFIS_EyeColorTypes.ID
+	LEFT OUTER JOIN HIFIS_HairColorTypes ON HIFIS_Clients.HairColorTypeID = HIFIS_HairColorTypes.ID
+	LEFT OUTER JOIN HousingPlacements ON vw_ClientBasics.ClientID = HousingPlacements.PrimaryClientID
+	LEFT OUTER JOIN Families ON HIFIS_Clients.PersonID = Families.PersonID
 
 ),
-Incomes
-AS
+Services AS
 (
-		SELECT * FROM
+
+SELECT
+	clientID,
+	ServiceID,
+	ServiceType_En as ServiceType,
+	DateStart,
+	DateEnd,
+	ReasonForService_En as ReasonForService,
+	OrganizationName
+FROM
+	vw_ClientsServices
+WHERE
+	EXISTS (SELECT 1 FROM ClientBasics WHERE vw_ClientsServices.ClientID = ClientBasics.ClientID)
+),
+Incomes AS
+(
+
+
+--- incomes ---------------------------------------------------------------------------------------------------------------
+
+SELECT 
+	* 
+
+FROM
 		(
 			SELECT
-				--ROW_NUMBER() OVER (PARTITION BY HIFIS_ClientINComes.clientID,HIFIS_ClientIncomes.IncomeTypeID ORDER BY DateStart DESC) as RowNumber,
 				ci.ClientID,
 				IncomeTypeID,
 				ClientIncomeID,
 				it.NameE,
 				MonthlyAmount,
 				DateStart,
-				DateEnd
+				DateEnd,
+				ci.OwnerOrgID
 				
 			FROM 
 				HIFIS_ClientIncomes ci
 				INNER JOIN HIFIS_IncomeTypes it ON it.ID = ci.incomeTypeID
 			WHERE 
 				ci.createdDate IS NULL
-			--AND
-			--	ClientIncomeID NOT IN (Select ClientIncomeID FROM CTE)
-
+			
 		) t
 
 ),
-
 Expenses AS
 (
-	SELECT 
+
+--- EXPENSES ---------------------------------------------------------------
+
+SELECT 
 	ce.ClientExpenseID,
 	ce.ClientID,
 	ce.ExpenseTypeID,
@@ -158,80 +220,66 @@ Expenses AS
 	ce.ExpenseAmount,
 	ce.IsEssentialYN
 
-	
-	 FROM 
+ FROM 
 	HIFIS_ClientExpenses ce
 	INNER JOIN HIFIS_ExpenseTypes et ON et.ID = ce.ExpenseTypeID 
 	INNER JOIN HIFIS_PayFrequencyTypes pft ON pft.ID = ce.PayFrequencyTypeID
-
 ),
-
 HealthIssues AS
 (
+
+--- HEALTH ISSUES --------------------------------------------------------------------------------------------
+
 SELECT 
-hi.HealthIssueID,
-hi.ClientID,
-hi.HealthIssueTypeID,
-HealthIssue = hit.NameE,
-DateFrom,
-DateTo,
-Description,
-Symptoms,
-Medication,
-Treatment,
-SelfReportedYN,
-SuspectedYN,
-DiagnosedYN,
-ContagiousYN,
-hm.MedicationName
- FROM
-HIFIS_HealthIssues hi
-INNER JOIN HIFIS_HealthIssueTypes hit ON hit.ID = hi.HealthIssueTypeID --HIFIS_HealthIssues.HealthIssueTypeID = HIFIS_HealthIssueTypes.ID
-LEFT OUTER JOIN HIFIS_Medications hm ON hm.HealthIssueId = hi.HealthIssueID --HIFIS_HealthIssues.HealthIssueID = HIFIS_Medications.HealthIssueID
+	hi.HealthIssueID,
+	hi.ClientID,
+	hi.HealthIssueTypeID,
+	HealthIssue = hit.NameE,
+	DateFrom,
+	DateTo,
+	Description,
+	Symptoms,
+	Medication,
+	Treatment,
+	SelfReportedYN,
+	SuspectedYN,
+	DiagnosedYN,
+	ContagiousYN,
+	hm.MedicationName
 
+FROM
+	HIFIS_HealthIssues hi
+	INNER JOIN HIFIS_HealthIssueTypes hit ON hit.ID = hi.HealthIssueTypeID --HIFIS_HealthIssues.HealthIssueTypeID = HIFIS_HealthIssueTypes.ID
+	LEFT OUTER JOIN HIFIS_Medications hm ON hm.HealthIssueId = hi.HealthIssueID --HIFIS_HealthIssues.HealthIssueID = HIFIS_Medications.HealthIssueID
 ),
-
-AssestsandLiabilities as
+Medications AS
 (
-	select 
-la.LiabilityOrAssetID,
-la.ClientID,
-Type='Asset',
-la.DateStart,
-la.DateEnd,
-la.Description,
-la.Amount,
-ast.NameE
+-- MEDICATIONS -------------------------------------------------------------------------------------------------------------------------
 
- FROM 
-HIFIS_LiabilitiesOrAssests la
-LEFT OUTER JOIN HIFIS_AssetTypes  ast ON ast.ID = la.AssetTypeID -- HIFIS_LiabilitiesOrAssests.AssetTypeID = HIFIS_AssetTypes.ID
-WHERE AssetTypeID IS NOT NULL
-
-UNION
-
-select 
-la.LiabilityOrAssetID,
-la.ClientID,
-Type='Liability',
-la.DateStart,
-la.DateEnd,
-la.Description,
-la.Amount,
-lt.NameE
-FROM 
-HIFIS_LiabilitiesOrAssests la
-LEFT OUTER JOIN HIFIS_LiabilityTypes lt ON lt.ID = la.AssetTypeID --HIFIS_LiabilitiesOrAssests.AssetTypeID = HIFIS_LiabilityTypes.ID
+SELECT 
+	medicationID,
+	ClientID,
+	MedicationName,
+	Dosage,
+	DateStart,
+	DateEnd
+FROM
+	HIFIS_Medications 
 WHERE 
- LiabilityTypeID IS NOT NULL
-
+	HealthIssueID IS NULL
 ),
-WatchConcerns AS
-(
-	SELECT * FROM 
+
+
+--- BY NAME LIST WATCH CONCERNS (ID = 10000) ---------------------------------------------------------------------------------
+
+/*  NO LONGER USED BY HP BUT KEEPING IN CASE
+SELECT *
+INTO
+	##WatchConcerns
+FROM 
 	(
 	SELECT
-		Row# = ROW_NUMBER() OVER (PARTITION BY cwc.ClientID ORDER BY DateStart DESC) ,
+		Row## = ROW_NUMBER() OVER (PARTITION BY cwc.ClientID ORDER BY DateStart DESC) ,
 		cwc.ClientWatchConcernID,
 		cwc.ClientID,
 		cwc.WatchConcernTypeID,
@@ -246,265 +294,896 @@ WatchConcerns AS
 	WHERE ID = 1000
 ) t
 WHERE ROW#=1
-	
-),
+
+*/ 
+--CONTRIBUTING FACTORS ------------------------------------------------------------------------------
 ContributingFactors AS
 (
-	SELECT 
-cf.ClientContributingFactorID,
-cf.ClientID,
-ContributingFactor = cft.NameE,
-cf.DateStart,
-cf.DateEnd
+SELECT 
+	cf.ClientContributingFactorID,
+	cf.ClientID,
+	ContributingFactor = cft.NameE,
+	cf.DateStart,
+	cf.DateEnd
+FROM 
+	HIFIS_Client_ContributingFactor cf
+	INNER JOIN HIFIS_ContributingFactorTypes cft ON cft.ID = cf.ContributingTypeID
 
- FROM HIFIS_Client_ContributingFactor cf
-INNER JOIN HIFIS_ContributingFactorTypes cft ON cft.ID = cf.ContributingTypeID
--- HIFIS_Client_ContributingFactor.ContributingTypeID = HIFIS_ContributingFactorTypes.ID
 ),
-BehavioralRiskFactors AS
-(
 
-	SELECT 
+BehavioralRiskFactors as
+(
+--- BEHAVIORAL RISK FACTORS -----------------------------------------------------------------------
+
+SELECT 
 	ClientBehaviouralFactorID,
 	ClientID,
 	BehavioralFactor = bft.NameE,
 	Severity = pt.NameE,
 	DateStart,
 	DateEnd
-	FROM HIFIS_Client_BehaviouralFactor cbf
-	INNER JOIN HIFIS_BehaviouralFactorTypes bft ON bft.ID = cbf.BehavioralTypeID -- HIFIS_Client_BehaviouralFactor.BehavioralTypeID = HIFIS_BehaviouralFactorTypes.ID
-	INNER JOIN HIFIS_ProbabilityTypes pt ON pt.ID = cbf.probabilityTypeID 
-	-- HIFIS_Client_BehaviouralFactor.ProbabilityTypeID = HIFIS_ProbabilityTypes.ID
 
+FROM 
+	HIFIS_Client_BehaviouralFactor cbf
+	INNER JOIN HIFIS_BehaviouralFactorTypes bft ON bft.ID = cbf.BehavioralTypeID
+	INNER JOIN HIFIS_ProbabilityTypes pt ON pt.ID = cbf.probabilityTypeID 
 
 ),
 LifeEvents AS
 (
-	SELECT 
-PeopleLifeEventID,
-PersonID,
-let.ID,
-LifeEvent = let.NameE,
-DateStart,
-DateEnd
-FROM
-HIFIS_People_LifeEvents le
-INNER JOIN HIFIS_LifeEventsTypes let ON let.ID = le.lifeEventTypeID
--- ON HIFIS_People_LifeEvents.LifeEventTypeID = HIFIS_LifeEventsTypes.ID
-WHERE le.LifeEventTypeID <> 1005
 
-)
-,VISPDATS AS
-	
+--- LIFE EVENTS -----------------------------------------------------------------------------------------------
 
-(	
-	SELECT  
-			 cli.ClientID,
-			 ppl.CurrentAge,
-			 SPDAT_Type = sit.NameE,
-			 PreScreenPeriod = psp.NameE,
-			 AssessmentPeriod = apt.NameE,
-			 
-			 SPDAT_Date = si.StartDateTime,
-			 si.LastUpdatedDate,
-			 orgs.OrganizationID,
-			 orgs.Name as ServiceProvider,
-			 --Questions.AssessmentQuestionID,
-			 --Questions.QuestionE,
-			 --Questions.DescriptionE,
-			 --QA.ScoreValue,
-			 ss.TotalScore
-			--RowNumber = ROW_NUMBER() OVER(PARTITION BY HIFIS_Clients.clientID ORDER BY HIFIS_Clients.ClientID,HIFIS_SPDAT_Intake.LastUpdatedDate DESC)
-		FROM            
-			HIFIS_SPDAT_Intake si
-			INNER JOIN HIFIS_SPDAT_ScoringSummary ss on ss.intakeID = si.IntakeID
-			-- ON HIFIS_SPDAT_Intake.IntakeID = HIFIS_SPDAT_ScoringSummary.IntakeID 
-			INNER JOIN HIFIS_Services serv ON  serv.ServiceID = si.ServiceID
-			--HIFIS_SPDAT_Intake.ServiceID = HIFIS_Services.ServiceID 
-			INNER JOIN HIFIS_Client_Services cserv ON cserv.serviceID = serv.ServiceID 
-			-- HIFIS_Services.ServiceID = HIFIS_Client_Services.ServiceID
-			INNER JOIN HIFIS_Clients cli ON cli.ClientID = cserv.ClientID
-			--HIFIS_Client_Services.ClientID = HIFIS_Clients.ClientID 
-			INNER JOIN HIFIS_People ppl ON ppl.personID = cli.personID 
-			--HIFIS_CLients.PersonID = HIFIS_People.PersonID 
-			INNER JOIN HIFIS_SPDAT_IntakeTypes sit ON sit.ID = si.IntakeTYpe 
-			--HIFIS_SPDAT_Intake.IntakeType = HIFIS_SPDAT_IntakeTypes.ID 
-			INNER JOIN HIFIS_ORganizations orgs ON orgs.OrganizationID = serv.OrganizationID
-			--HIFIS_Services.OrganizationID = HIFIS_Organizations.OrganizationID 
-			LEFT OUTER JOIN	HIFIS_SPDAT_AssessmentPeriodTypes apt on apt.ID = si.AssessmentPeriodTypeID
-			-- ON HIFIS_SPDAT_Intake.AssessmentPeriodTypeID = HIFIS_SPDAT_AssessmentPeriodTypes.ID 
-			LEFT OUTER JOIN HIFIS_SPDAT_PreScreenPeriodTypes psp ON psp.ID = si.PreScreenPeriodTypeID
-			-- HIFIS_SPDAT_Intake.PreScreenPeriodTypeID = HIFIS_SPDAT_PreScreenPeriodTypes.ID
-			--INNER JOIN HIFIS_SPDAT_Intake_QuestionsAnswered QA ON HIFIS_SPDAT_Intake.IntakeID = QA.IntakeID
-			--INNER JOIN HIFIS_SPDAT_AssessmentQuestions Questions ON QA.AssessmentQuestionID = Questions.AssessmentQuestionID
-		WHERE 
-			TOTALSCORE IS NOT NULL
-		--	TotalScore > 8
-		AND 
-			cli.ClientStateTypeID = 1
-		AND 
-			--orgs.OrganizationID IN (SELECT OrganizationID FROM HIFIS_Organizations WHERE ClusterID = 16)
-			orgs.ClusterID = 16
-		AND
-			sit.NameE LIKE '%VI%'
-
-
-
-)
-
-,Medications AS
-(
 SELECT 
-medicationID,
-ClientID,
-MedicationName,
-Dosage,
-DateStart,
-DateEnd
-
+	PeopleLifeEventID,
+	le.PersonID,
+	Clients.ClientID,
+	let.ID,
+	LifeEvent = let.NameE,
+	DateStart,
+	DateEnd
 
 FROM
-HIFIS_Medications 
-WHERE HealthIssueID IS NULL
-
+	HIFIS_People_LifeEvents le
+	INNER JOIN HIFIS_LifeEventsTypes let ON let.ID = le.lifeEventTypeID
+	INNER JOIN HIFIS_Clients clients ON le.PersonID = Clients.PersonID
+WHERE 
+	le.LifeEventTypeID <> 1005
 
 ),
 Diets AS
 (
+
+-- DIETS -----------------------------------------------------------------------------------------------------
+
+SELECT 
+	cd.ClientDietID,
+	cd.ClientID,
+	DietCatetory = dct.NameE,
+	FoodType = dfi.NameE,
+	cd.AvoidedDietYN,
+	cd.CreatedDate
+FROM
+	HIFIS_ClientDiets cd
+	INNER JOIN HIFIS_DietCategoryTypes dct ON dct.ID = cd.DietCategoryTypeID
+	INNER JOIN HIFIS_DietFoodItemTypes dfi ON dfi.ID = cd.DietFoodItemTypeID
+),
+VISPDATS AS
+(
+
+--  VI-SPDATS -------------------------------------------------------------------------------------------------
+
+SELECT  
+	cli.ClientID,
+	si.IntakeID,
+	ppl.CurrentAge,
+	SPDAT_Type = sit.NameE,
+	PreScreenPeriod = psp.NameE,
+	AssessmentPeriod = apt.NameE,
+	SPDAT_Date = si.StartDateTime,
+	si.LastUpdatedDate,
+	orgs.OrganizationID,
+	orgs.Name as ServiceProvider,
+	ss.TotalScore
+FROM            
+	HIFIS_SPDAT_Intake si
+	INNER JOIN HIFIS_SPDAT_ScoringSummary ss on ss.intakeID = si.IntakeID
+	INNER JOIN HIFIS_Services serv ON  serv.ServiceID = si.ServiceID
+	INNER JOIN HIFIS_Client_Services cserv ON cserv.serviceID = serv.ServiceID 
+	INNER JOIN HIFIS_Clients cli ON cli.ClientID = cserv.ClientID
+	INNER JOIN HIFIS_People ppl ON ppl.personID = cli.personID 
+	INNER JOIN HIFIS_SPDAT_IntakeTypes sit ON sit.ID = si.IntakeTYpe 
+	INNER JOIN HIFIS_ORganizations orgs ON orgs.OrganizationID = serv.OrganizationID
+	LEFT OUTER JOIN	HIFIS_SPDAT_AssessmentPeriodTypes apt on apt.ID = si.AssessmentPeriodTypeID
+	LEFT OUTER JOIN HIFIS_SPDAT_PreScreenPeriodTypes psp ON psp.ID = si.PreScreenPeriodTypeID
+WHERE 
+	TOTALSCORE IS NOT NULL
+AND 
+	cli.ClientStateTypeID = 1
+AND 
+	orgs.ClusterID = 16
+AND
+	sit.NameE LIKE '%VI%'
+
+),
+-- EDUCATION LEVELS ------------------------------------------------------------------------------------------------------
+EducationLevels AS
+(
+
+SELECT 
+	A.ClientID,
+	B.NameE as EducationLevel,
+	A.DateStart,
+	A.DateEnd
+FROM
+	HIFIS_ClientEducationLevels A
+	INNER JOIN HIFIS_EducationLevelTypes B  ON A.EducationLevelTypeID = B.ID
+),
+
+-- SERVICE RESTRICTIONS  ----------------------------------------------------------------------------------------------
+
+ClientBarredPeriods AS
+(
+	SELECT
+		A.ClientBarredPeriodID,
+		A.ClientID,
+		A.DateStart,
+		A.DateEnd,
+		B.NameE as Reason,
+		Orgs.name as OrganizationName
+
+	FROM 
+		HIFIS_Client_Barred_Periods A
+		INNER JOIN HIFIS_ReasonBarredTypes B ON A.ReasonBarredTypeID = B.ID
+		INNER JOIN HIFIS_Organizations_Client_Barred_Periods C  ON A.ClientBarredPeriodID = C.ClientBarredPeriodID
+		INNER JOIN HIFIS_Organizations Orgs ON C.OrganizationID = orgs.OrganizationID
+	WHERE 
+		CAST(A.DateStart as DAte) >= '2017-07-01'  -- there are historical restrictions that have been imported into HIFIS.  
+													--only use data created in HIFIS applicaiton. HIFIS use started in July 2017
+	 AND EXISTS (
+		SELECT 1 FROM Consent WHERE A.ClientID = Consent.ClientID
+
+		)
+)
+,
+BarredModules AS
+(
+
+	SELECT
+		A.ClientBarredPeriodID,
+		C.NameE as Module
+	FROM
+		HIFIS_Client_Barred_Periods A
+		INNER JOIN HIFIS_Barred_Modules B ON A.ClientBarredPeriodID = B.ClientBarredPeriodID
+		INNER JOIN HIFIS_ServiceRestrictionsModuleTypes C ON B.ServiceRestrictionModuleTypeID = C.ID
+),
+ServiceRestrictions AS
+(
+
 	SELECT 
-cd.ClientDietID,
-cd.ClientID,
-DietCatetory = dct.NameE,
-FoodType = dfi.NameE,
-cd.AvoidedDietYN
-
- FROM
-HIFIS_ClientDiets cd
-INNER JOIN HIFIS_DietCategoryTypes dct ON dct.ID = cd.DietCategoryTypeID
--- HIFIS_ClientDiets.DietCategoryTypeID = HIFIS_DietCategoryTypes.ID
-INNER JOIN HIFIS_DietFoodItemTypes dfi ON dfi.ID = cd.DietFoodItemTypeID
--- HIFIS_ClientDiets.DietFoodItemTypeID = HIFIS_DietFoodItemTypes.ID
-
+	ClientBarredPeriodID,
+	ClientID,
+	DateStart,
+	DateEnd,
+	Reason,
+	OrganizationName,
+	STUFF(( SELECT '|' + Module
+		FROM BarredModules t2
+		WHERE t2.clientBarredPeriodID = t1.ClientBarredPeriodID
+		FOR XML PATH('')),1,1,'')  as Modules
+FROM 
+	ClientBarredPeriods t1
 )
 
 
 
 
+-- MAIN  QUERY --------------------------------------------------------------------------------------------------
 
 
+SELECT
+	--COUNT(DISTINCT ClientID) as TotalClients
+	*
+FROM
+(
+SELECT
+	ClientBasics.*,
+	Services.ServiceID,
+	Services.ServiceType,
+	Services.DateStart,
+	Services.DateEnd,
+	Services.ReasonForService,
+	Services.OrganizationName,
+	NULL as IncomeType,
+	NULL as MonthlyAmount,
+	NULL AS ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL AS IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL AS HealthIssue,
+	NULl as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL AS ClientWatchConcernID,
+	--NULL AS WatchConcern,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+FROM
+	ClientBasics
+	INNER JOIN Services ON ClientBasics.ClientID = Services.ClientID
 
-SELECT 
+	
+	
+UNION ALL
 
-	Serv.ServiceID,
-	cli.ClientID,
-	Consent.ConsentType,
-	FamilyID = Families.GroupID,
-	--Families.PeopleRelationshipTypeID,
-	Families.RelationshipType,
-	ppl.DOB,
-	ppl.CurrentAge,
-	--CurrentAge = DATEDIFF(Day,HIFIS_People.DOB,GetDate()) / 365.2422,
-	Gender = gt.NameE,--  cbas.Gender_En, --Gender_En,
-	AboriginalIndicator = ait.NameE, --serv.AboriginalIndicator_En,
-	Citizenship = ctz.NameE, --serv.Citizenship_En,
-	VeteranStatus = vst.NameE, --serv.VeteranStatus_En,
-	CountryOfBirth = ctry.NameE,
-	ProvinceOfBirth = COALESCE(Prov.NameE,ProvinceFreeText),
-	CityOfBirth = COALESCE(city.NameE,CityFreeText),
-	GeoRegion = geo.NameE,
-	HairColour = hct.NameE,
-	EyeColour = eye.NameE,
-	ClientHeightCM = ClientHeight,
-	ClientWeightKG = ClientWeight,
-	ServiceType = ServTypes.NameE, -- serv.ServiceType_EN
-	orgs.OrganizationID,
-	Orgs.Name as OrganizationName,
-	ServiceStartDate = serv.DateStart,
-	ServiceEndDate = serv.DateEnd,
-	ReasonForService = rfs.NameE, --serv.ReasonForService_En,
-	CurrentlyHoused = CASE WHEN HousingPlacements.PrimaryClientID IS NOT NULL THEN 'Yes' Else 'No' END,
-	MovedInDate,
-	IncomeType = Incomes.NameE,
-	Incomes.MonthlyAmount,
-	IncomeStartDate = Incomes.DateStart,
-	IncomeEndDate = Incomes.DateEnd,
-	ExpenseType = Replace(Expenses.ExpenseType,',',''),
-	ExpenseStartDate = Expenses.DateStart,
-	ExpenseEndDate = Expenses.DateEnd,
-	Expenses.Expensefrequency,
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Income' as ServiceType,
+	incomes.DateStart,
+	incomes.DateEnd,
+	incomes.NameE,
+	NULL as OranizationName,
+	incomes.NameE as IncomeType,
+	incomes.MonthlyAmount,
+	NULL AS ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL AS IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL AS HealthIssue,
+	NULl as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL AS ClientWatchConcernID,
+	--NULL AS WatchConcern,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+
+FROM
+	ClientBasics
+	INNER JOIN incomes ON ClientBasics.ClientID = incomes.ClientID
+	
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Expenses' as ServiceType,
+	Expenses.DateStart,
+	Expenses.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	Expenses.ClientExpenseID,
+	Expenses.ExpenseType,
 	Expenses.ExpenseAmount,
+	Expenses.ExpenseFrequency,
 	Expenses.IsEssentialYN,
-	EducationLevel = edu.NameE,
-	EducationStartDate = cel.DateStart,
-	EducationEndDate = cel.DateEnd,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL AS HealthIssue,
+	NULl as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL AS ClientWatchConcernID,
+	--NULL AS WatchConcern,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+FROM
+	ClientBasics
+	INNER JOIN Expenses ON ClientBasics.ClientID = Expenses.ClientID
+
+
+
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Education' as ServiceType,
+	EducationLevels.DateStart,
+	EducationLevels.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL AS ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL IsEssentialYN,
+	EducationLevels.EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL AS HealthIssue,
+	NULl as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL AS ClientWatchConcernID,
+	--NULL AS WatchConcern,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+FROM
+	ClientBasics
+	INNER JOIN EducationLevels ON ClientBasics.ClientID = EducationLevels.ClientID
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'HealthIssues' as ServiceType,
+	HealthIssues.DateFrom as DateStart,
+	HealthIssues.DateTo as DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	HealthIssues.HealthIssueID,
 	HealthIssues.HealthIssue,
 	HealthIssues.DiagnosedYN,
 	HealthIssues.SelfReportedYN,
 	HealthIssues.SuspectedYN,
-	HealthIssueStart = HealthIssues.DateFrom,
-	HealthIssueEnd = HealthIssues.DateTo,
-	HealthIssueMedicationName = HealthIssues.MedicationName,
-	OtherMedications = Medications.MedicationName,
+	HealthIssues.MedicationName as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL AS ClientWatchConcernID,
+	--NULL AS WatchConcern,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+
+FROM
+	ClientBasics
+	INNER JOIN HealthIssues ON ClientBasics.ClientID = HealthIssues.ClientID
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Medications' as ServiceType,
+	Medications.DateStart,
+	Medications.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	Medications.MedicationName as OtherMedications,
+	--NULL AS ClientWatchConcernID,
+	--NULL AS WatchConcern,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+
+FROM
+	ClientBasics
+	INNER JOIN Medications ON ClientBasics.ClientID = Medications.ClientID
+
+
+
+/*
+UNION ALL
+-- Watch concerns are commented out as they are no longer used by Homeless Prevention.
+-- keeping code in case this changes again
+SELECT
+	ClientBasics.*,
+	'Watch Concern' as ServiceType,
+	WatchConcerns.DateStart,
+	WatchConcerns.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	WatchConcerns.ClientWatchConcernID,
 	WatchConcerns.WatchConcern,
-	WatchConcerns.DateStart as WatchConcernDateStart,
-	WatchConcerns.DateEnd as WatchConcernDateEnd,
+	NULL AS clientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore
+FROM
+	ClientBasics
+	INNER JOIN WatchConcerns ON ClientBasics.ClientID = WatchConcerns.ClientID
+
+*/ 
+
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Contributing Factor' as ServiceType,
+	ContributingFactors.DateStart,
+	ContributingFactors.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL as ClientWatchConcernID,
+	--NULL as WatchConcern,
+	ContributingFactors.ClientContributingFactorID,
 	ContributingFactors.ContributingFactor,
-	ContributingFactorDateStart = ContributingFactors.DateStart,
-	ContributingFactorDateEnd = ContributingFactors.DateEnd,
+	NULL AS ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL AS Severity,
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+FROM
+	ClientBasics
+	INNER JOIN ContributingFactors ON ClientBasics.ClientID = ContributingFactors.ClientID
+
+
+
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Behavioral Risk Factor' as ServiceType,
+	BehavioralRiskFactors.DateStart,
+	BehavioralRiskFactors.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL as ClientWatchConcernID,
+	--NULL as WatchConcern,
+	NULL as ClientContributingFactorID,
+	NULL AS ContributingFactor,
+	BehavioralRiskFactors.ClientBehaviouralFactorID,
 	BehavioralRiskFactors.BehavioralFactor,
 	BehavioralRiskFactors.Severity,
-	BehavioralRiskFactorDateStart = BehavioralRiskFactors.DateStart,
-	BehavioralRiskFactorDateEnd = BehavioralRiskFactors.DateEnd,
-	LifeEvents.LifeEvent,
-	LifeEventStartDate = LifeEvents.DateStart,
-	LifeEventEndDate = LifeEVents.DateEnd,
-	DIets.DietCatetory,
-	Diets.FoodType,
-	AvoidInDiet = Diets.AvoidedDietYN,
-	VISPDATS.SPDAT_Type,
-	VISPDATS.SPDAT_Date,
-	VISPDATS.ServiceProvider,
-	VISPDATS.PreScreenPeriod,
-	VISPDATS.TotalScore
-FROM 
-	HIFIS_Services serv
-	--vw_ClientsServices Serv
-	INNER JOIN  HIFIS_Client_Services cserv ON cserv.ServiceID = serv.ServiceID
-	INNER JOIN HIFIS_Clients cli ON cli.ClientID = cserv.ClientID
-	INNER JOIN HIFIS_People ppl ON ppl.PersonID = cli.PersonID
-	INNER JOIN HIFIS_Organizations orgs ON orgs.OrganizationID = serv.OrganizationID
-	--INNER JOIN vw_ClientBasics cbas on cbas.ClientID = cli.clientID
-	INNER JOIN HIFIS_ServiceTypes servTypes ON ServTypes.ID = serv.ServiceTypeID
-	LEFT OUTER JOIN HIFIS_ReasonForServiceTypes rfs on rfs.ID = serv.ReasonForServiceTYpeID
-	INNER JOIN HIFIS_AboriginalIndicatorTypes ait ON  ait.ID = cli.AboriginalIndicatorID
-	INNER JOIN HIFIS_CitizenshipTypes ctz ON ctz.ID = cli.CitizenshipTypeID
-	INNER JOIN HIFIS_VeteranStatesTypes vst ON vst.ID = cli.VeteranStateID
-	INNER JOIN HIFIS_GenderTypes gt ON gt.ID = ppl.GenderTypeID
-	INNER JOIN Consent ON cli.ClientID = Consent.ClientID
-	LEFT OUTER JOIN HIFIS_CountryTypes ctry ON ctry.ID = cli.CountryOfBirth --HIFIS_CLients.CountryOfBirth = HIFIS_CountryTypes.ID
-	LEFT OUTER JOIN HIFIS_ProvinceTypes prov ON prov.id = cli.ProvinceOfBirth --HIFIS_CLients.ProvinceOfBirth = HIFIS_ProvinceTypes.ID
-	LEFT OUTER JOIN HIFIS_CityTypes city ON city.CityTypeID = cli.CityOfBirth --HIFIS_Clients.CityOfBirth = HIFIS_CityTypes.CityTypeID
-	LEFT OUTER JOIN HIFIS_HairColorTypes hct ON hct.ID = cli.HairColorTypeID --HIFIS_Clients.HairColorTypeID = HIFIS_HairColorTypes.ID
-	LEFT OUTER JOIN HIFIS_EyeColorTypes eye ON eye.ID = cli.EyeColorTypeID -- HIFIS_CLients.EyeColorTypeID = HIFIS_EyeColorTypes.ID
-	LEFT OUTER JOIN HIFIS_GeoRegionTypes geo ON geo.ID = ppl.GeoRegionTypeID -- HIFIS_People.GeoRegionTypeID = HIFIS_GeoRegionTypes.ID
-	LEFT OUTER JOIN HIFIS_ClientEducationLevels cel ON cel.clientID = cli.ClientID --  vw_ClientsServices.ClientID = HIFIS_ClientEducationLevels.ClientID
-	LEFT OUTER JOIN HIFIS_EducationLevelTypes edu ON edu.ID = cel.EducationLevelTypeID -- HIFIS_ClientEducationLevels.EducationLevelTypeID = HIFIS_EducationLevelTypes.ID
-	LEFT OUTER JOIN HousingPlacements ON HousingPlacements.PrimaryClientID = cli.ClientID -- = HousingPlacements.PrimaryClientID
-	LEFT OUTER JOIN Families ON Families.PersonID = ppl.personID
-	LEFT OUTER JOIN HealthIssues ON HealthIssues.ClientID = cli.ClientID 
-	LEFT OUTER JOIN Incomes ON Incomes.ClientID = cli.ClientID
-	LEFT OUTER JOIN Expenses ON Expenses.ClientID = cli.ClientID
-	LEFT OUTER JOIN WatchConcerns ON WatchConcerns.ClientID = cli.ClientID
-	LEFT OUTER JOIN ContributingFactors ON ContributingFactors.ClientID = cli.ClientID
-	LEFT OUTER JOIN BehavioralRiskFactors ON BehavioralRiskFactors.ClientID = cli.ClientID
-	LEFT OUTER JOIN LifeEvents ON LifeEvents.PersonID = ppl.PersonID
-	LEFT OUTER JOIN Medications ON Medications.ClientID = cli.ClientID
-	LEFT OUTER JOIN Diets ON Diets.clientID = cli.ClientID
-	LEFT OUTER JOIN VISPDATS ON VISPDATS.ClientID = cli.ClientID
-WHERE 
-	orgs.ClusterID = 16 -- HIFIS Shared Cluster
-	--serv.OrganizationID  IN (SELECT OrganizationID FROM HIFIS_Organizations WHERE ClusterID = 16)
-	
+	NULL AS PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+FROM
+	ClientBasics
+	INNER JOIN BehavioralRiskFactors ON ClientBasics.ClientID = BehavioralRiskFactors.ClientID
 
-ORDER BY ClientID 
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Life Events' as ServiceType,
+	lifeEvents.DateStart,
+	lifeEvents.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL as ClientWatchConcernID,
+	--NULL as WatchConcern,
+	NULL as ClientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL as ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL as Severity,
+	lifeEvents.PeopleLifeEventID,
+	lifeEvents.LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+
+FROM
+	ClientBasics
+	INNER JOIN lifeEvents ON ClientBasics.personID = lifeEvents.personID
+
+
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Diet' as ServiceType,
+	Diets.CreatedDate as DateStart,
+	NULL as DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL as ClientWatchConcernID,
+	--NULL as WatchConcern,
+	NULL as ClientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL as ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL as Severity,
+	NULL as PeopleLifeEventID,
+	NULL as LifeEvent,
+	Diets.ClientDietID,
+	Diets.DietCatetory,
+	Diets.FoodType,
+	Diets.AvoidedDietYN,
+	NULL as IntakeID,
+	NULL as PreScreenPeriod,
+	NULL as TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+
+
+FROM
+	ClientBasics
+	INNER JOIN Diets ON ClientBasics.ClientID = Diets.ClientID
+
+
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'VISPDAT' as ServiceType,
+	VISPDATS.SPDAT_Date as StartDate,
+	NULL as DateEnd,
+	NULL AS ReasonForService,
+	--NULL AS OrganizationName,
+	VISPDATS.ServiceProvider as ORganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL as ClientWatchConcernID,
+	--NULL as WatchConcern,
+	NULL as ClientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL as ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL as Severity,
+	NULL as PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	VISPDATS.IntakeID,
+	VISPDATS.PreScreenPeriod,
+	VISPDATS.TotalScore,
+	NULL AS ClientBarredPeriodID,
+	NULL as Reason,
+	NULL as Modules,
+	NULL as ServiceRestricitonOrganizationName
+
+
+FROM
+	ClientBasics
+	INNER JOIN VISPDATS ON ClientBasics.ClientID = VISPDATS.ClientID
+
+
+UNION ALL
+
+SELECT
+	ClientBasics.*,
+	NULL as ServiceID,
+	'Service Restriction' as ServiceType,
+	ServiceRestrictions.DateStart,
+	ServiceRestrictions.DateEnd,
+	NULL AS ReasonForService,
+	NULL AS OrganizationName,
+	NULL AS IncomeType,
+	NULL as MonthlyAmount,
+	NULL as ClientExpenseID,
+	NULL AS ExpenseType,
+	NULL AS ExpenseAmount,
+	NULL AS ExpenseFrequency,
+	NULL as IsEssentialYN,
+	NULL as EducationLevel,
+	NULL as EducationStartDate,
+	NULL as EducationEndDate,
+	NULL as HealthIssueID,
+	NULL as HealthIssue,
+	NULL as DiagnosedYN,
+	NULL as SelfReportedYN,
+	NULL as SuspectedYN,
+	NULL as HealthIssuesMedicationName,
+	NULL as OtherMedications,
+	--NULL as ClientWatchConcernID,
+	--NULL as WatchConcern,
+	NULL as ClientContributingFactorID,
+	NULL AS ContributingFactor,
+	NULL as ClientBehaviouralFactorID,
+	NULL AS BehavioralFactor,
+	NULL as Severity,
+	NULL as PeopleLifeEventID,
+	NULL as LifeEvent,
+	NULL AS ClientDietID,
+	NULL AS DietCatetory,
+	NULL AS FoodType,
+	NULL AS AvoidedDietYN,
+	NULL AS IntakeID,
+	NULL AS PreScreenPeriod,
+	NULL AS TotalScore,
+	ServiceRestrictions.ClientBarredPeriodID,
+	ServiceRestrictions.Reason,
+	CAST(ServiceRestrictions.Modules as nvarchar) as Modules,
+	ServiceRestrictions.OrganizationName as ServiceRestrictionOrganizationName
+
+
+FROM
+	ClientBasics
+	INNER JOIN ServiceRestrictions ON ClientBasics.ClientID = ServiceRestrictions.ClientID
+
+
+	
+) t
+
+WHERE 
+	EXISTS (SELECT 1 FROM Services WHERE t.ClientID = Services.ClientID)
+
+ORDER BY 
+	ClientID,DateStart,DateEnd
+
+
 

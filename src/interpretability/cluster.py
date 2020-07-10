@@ -32,6 +32,8 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         print("No file found at " + cfg['PATHS']['PROCESSED_DATA'] + ". Run preprocessing script before running this script.")
         return
     client_ids = df.pop('ClientID').tolist()
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        dates = df.pop('Date').tolist()
     df.drop('GroundTruth', axis=1, inplace=True)
     X = np.array(df)
 
@@ -65,8 +67,12 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         k_prototypes.num_dissim(np.expand_dims(x0[noncat_feat_idxs], axis=0), np.expand_dims(x1[noncat_feat_idxs], axis=0)) + \
             k_prototypes.gamma * k_prototypes.cat_dissim(np.expand_dims(x0[cat_feat_idxs], axis=0), np.expand_dims(x1[cat_feat_idxs], axis=0))
     client_clusters += 1    # Enforce that cluster labels are integer range of [1, K]
-    clusters_df = pd.DataFrame({'ClientID': client_ids, 'Cluster Membership': client_clusters})
-    clusters_df.set_index('ClientID')
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        clusters_df = pd.DataFrame({'ClientID': client_ids, 'Date': dates, 'Cluster Membership': client_clusters})
+        clusters_df.set_index(['ClientID', 'Date'])
+    else:
+        clusters_df = pd.DataFrame({'ClientID': client_ids, 'Cluster Membership': client_clusters})
+        clusters_df.set_index('ClientID')
 
     # Get centroids of clusters
     cluster_centroids = np.concatenate((k_prototypes.cluster_centroids_[0], k_prototypes.cluster_centroids_[1]), axis=1)

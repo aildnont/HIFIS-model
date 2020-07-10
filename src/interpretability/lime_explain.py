@@ -68,17 +68,18 @@ def setup_lime(cfg=None):
     # Load relevant constants from project config file if custsom config object not supplied
     if cfg is None:
         cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+    model_def = cfg['TRAIN']['MODEL_DEF'].upper()
     lime_dict = {}
-    lime_dict['NUM_SAMPLES'] = cfg['LIME']['NUM_SAMPLES']
-    lime_dict['NUM_FEATURES'] = cfg['LIME']['NUM_FEATURES']
+    lime_dict['NUM_SAMPLES'] = cfg['LIME'][model_def]['NUM_SAMPLES']
+    lime_dict['NUM_FEATURES'] = cfg['LIME'][model_def]['NUM_FEATURES']
     lime_dict['SAMPLE_FRACTION'] = cfg['LIME']['SP']['SAMPLE_FRACTION']
     lime_dict['FILE_PATH'] = cfg['PATHS']['LIME_EXPERIMENT']
     lime_dict['IMG_PATH'] = cfg['PATHS']['IMAGES']
     lime_dict['SP_FILE_PATH'] = cfg['PATHS']['LIME_SUBMODULAR_PICK']
     lime_dict['NUM_EXPLANATIONS'] = cfg['LIME']['SP']['NUM_EXPLANATIONS']
     lime_dict['PRED_THRESHOLD'] = cfg['PREDICTION']['THRESHOLD']
-    KERNEL_WIDTH = cfg['LIME']['KERNEL_WIDTH']
-    FEATURE_SELECTION = cfg['LIME']['FEATURE_SELECTION']
+    KERNEL_WIDTH = None if isinstance(cfg['LIME'][model_def]['KERNEL_WIDTH'], str) else cfg['LIME'][model_def]['KERNEL_WIDTH']
+    FEATURE_SELECTION = cfg['LIME'][model_def]['FEATURE_SELECTION']
 
     # Load feature information
     input_stream = open(cfg['PATHS']['DATA_INFO'], 'r')
@@ -91,8 +92,12 @@ def setup_lime(cfg=None):
     test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 
     # Get client IDs and corresponding ground truths
-    Y_train = pd.concat([train_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
-    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in ['ClientID', 'GroundTruth']], axis=1).set_index('ClientID')
+    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        idx_feats = ['ClientID', 'Date']
+    else:
+        idx_feats = ['ClientID']
+    Y_train = pd.concat([train_df.pop(y) for y in idx_feats + ['GroundTruth']], axis=1).set_index(idx_feats)
+    lime_dict['Y_TEST'] = pd.concat([test_df.pop(y) for y in idx_feats + ['GroundTruth']], axis=1).set_index(idx_feats)
 
     # Load data transformers
     lime_dict['SCALER_CT'] = load(cfg['PATHS']['SCALER_COL_TRANSFORMER'])
@@ -113,7 +118,7 @@ def setup_lime(cfg=None):
     # Get training data stats
     training_data_stats = {'means': {}, 'mins': {}, 'maxs': {}, 'stds': {}, 'feature_values': {}, 'feature_frequencies': {}}
     for i in range(len(feature_names)):
-        training_data_stats['means'][i] = np.mean(lime_dict['X_TRAIN'][:,i])
+        training_data_stats['means'][i] = np.mean(lime_dict['X_TRAIN'][:, i])
         training_data_stats['mins'][i] = np.min(lime_dict['X_TRAIN'][:, i])
         training_data_stats['maxs'][i] = np.max(lime_dict['X_TRAIN'][:, i])
         training_data_stats['stds'][i] = np.std(lime_dict['X_TRAIN'][:, i])
@@ -127,7 +132,7 @@ def setup_lime(cfg=None):
 
     lime_dict['EXPLAINER'] = LimeTabularExplainer(lime_dict['X_TRAIN'], feature_names=feature_names, class_names=['0', '1'],
                                     categorical_features=cat_feat_idxs, categorical_names=sv_cat_values, training_labels=train_labels,
-                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='decile',
+                                    kernel_width=KERNEL_WIDTH, feature_selection=FEATURE_SELECTION, discretizer='quartile',
                                     discretize_continuous=True)
     dill.dump(lime_dict['EXPLAINER'], open(cfg['PATHS']['LIME_EXPLAINER'], 'wb'))    # Serialize the explainer
 
@@ -270,20 +275,25 @@ def submodular_pick(lime_dict, file_path=None):
     return
 
 
-def explain_single_client(lime_dict, client_id):
+def explain_single_client(lime_dict, client_id, date=None):
     '''
     # Make a prediction and explain the rationale
     :param lime_dict: dict containing important information and objects for explanation experiments
     :param client_id: a Client ID (integer) from the test set to predict and explain
+    :param date: Time series only: date string (yyyy-mm-dd) to index time series data for a client
     '''
-    i = lime_dict['Y_TEST'].index.get_loc(client_id)
+    if date is None:
+        idx = client_id
+    else:
+        idx = (client_id, date)
+    i = lime_dict['Y_TEST'].index.get_loc(idx)
     start_time = datetime.datetime.now()
     explanation = predict_and_explain(lime_dict['X_TEST'][i], lime_dict['MODEL'], lime_dict['EXPLAINER'],
                                       lime_dict['OHE_CT_SV'], lime_dict['SCALER_CT'], lime_dict['NUM_FEATURES'],
                                       lime_dict['NUM_SAMPLES'])
     print("Explanation time = " + str((datetime.datetime.now() - start_time).total_seconds()) + " seconds")
-    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[client_id, 'GroundTruth'],
-                          file_path=lime_dict['IMG_PATH'])
+    fig = visualize_explanation(explanation, client_id, lime_dict['Y_TEST'].loc[idx, 'GroundTruth'],
+                          date=date, file_path=lime_dict['IMG_PATH'])
     return
 
 def run_lime_experiment_and_visualize(lime_dict):
@@ -306,5 +316,6 @@ if __name__ == '__main__':
     elif cfg['LIME']['EXPERIMENT'] == 'lime_experiment':
         run_lime_experiment_and_visualize(lime_dict)
     else:
-        client_id = 00000    # <-- Replace with Client ID from a client in test set
-        explain_single_client(lime_dict, client_id)
+        client_id = lime_dict['Y_TEST'].index[0][0]    # <-- Replace with Client ID from a client in test set
+        date = lime_dict['Y_TEST'].index[0][1] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else None
+        explain_single_client(lime_dict, client_id, date=date)

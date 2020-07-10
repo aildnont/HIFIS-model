@@ -10,6 +10,7 @@ PATHS:
   MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
   LOGS: 'results\\logs\\'
+  EXPERIMENTS: 'results/experiments/'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
   LIME_SUBMODULAR_PICK: 'results/experiments/lime_submodular_pick.csv'
@@ -32,46 +33,37 @@ DATA:
   GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
-  FEATURES_TO_DROP_FIRST: ['OrganizationID','MovedInDate','HealthIssueMedicationName','OtherMedications','DietCatetory','FoodType',
+  FEATURES_TO_DROP_FIRST: ['MovedInDate','OtherMedications','DietCatetory','FoodType',
                            'ConsentType','ClientHeightCM','EyeColour','HairColour','ProvinceOfBirth','CityOfBirth','CountryOfBirth',
-                           'ServiceProvider']
+                           'IntakeID', 'clientContributingFactorID', 'ClientBehaviouralFactorID', 'PeopleLifeEventID',
+                            'ClientDietID', 'ClientBarredPeriodID', 'Modules', 'ServiceRestricitonOrganizationName', 'PersonID']
   IDENTIFYING_FEATURES_TO_DROP_LAST: ['ServiceID','FamilyID','MonthlyAmount','DOB']
-  TIMED_FEATURES_TO_DROP_LAST: ['ServiceEndDate','ExpenseStartDate','ExpenseEndDate','IncomeStartDate',
-                           'IncomeEndDate','HealthIssueStart','HealthIssueEnd','LifeEventStartDate','LifeEventEndDate','SPDAT_Date',
-                           'ContributingFactorDateStart','ContributingFactorDateEnd','BehavioralRiskFactorDateStart','BehavioralRiskFactorDateEnd',
-                           'EducationStartDate','EducationEndDate','WatchConcernDateStart','WatchConcernDateEnd']
-  TIMED_EVENT_FEATURES:
-    ExpenseStartDate: ['ExpenseType', 'Expensefrequency', 'ExpenseAmount', 'IsEssentialYN']
-    IncomeStartDate: ['IncomeType', 'MonthlyAmount']
-    HealthIssueStart: ['HealthIssue', 'HealthIssueMedicationName', 'OtherMedications', 'DiagnosedYN','SelfReportedYN', 'SuspectedYN']
-    ContributingFactorDateStart: ['ContributingFactor']
-    BehavioralRiskFactorDateStart: ['BehavioralFactor', 'Severity']
-    LifeEventStartDate: ['LifeEvent']
-    SPDAT_Date: ['TotalScore','SPDAT_Type','PreScreenPeriod']
-    WatchConcernDateStart: ['WatchConcern']
+  TIMED_FEATURES_TO_DROP_LAST: ['DateEnd']
+  TIMED_EVENTS: ['Behavioral Risk Factor', 'Contributing Factor', 'Diet', 'Education', 'Expenses', 'HealthIssues', 'Income', 'Life Events',
+                 'Medications', 'Service Restriction', 'VAT', 'VISPDAT']
   TIMED_SERVICE_FEATURES: ['Stay', 'Case Management', 'Housing', 'Housing Subsidy', 'Storage']
-  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services']
-  NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','ServiceStartDate', 'ServiceEndDate','CurrentAge','ClientHeightCM',
-    'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','SPDAT_Date','TotalScore']
+  COUNTED_SERVICE_FEATURES: ['Reservations', 'Turnaways', 'Food Bank', 'Goods and Services', 'SPDAT']
+  NONCATEGORICAL_FEATURES: ['ServiceID','ClientID','FamilyID','DateStart', 'DateEnd','CurrentAge','ClientHeightCM',
+                            'ClientWeightKG','MonthlyAmount', 'ExpenseAmount','TotalScore']
   CATEGORICAL_FEATURES: ['ConsentType', 'RelationshipType', 'Gender', 'AboriginalIndicator', 'Citizenship', 'VeteranStatus', 'CountryOfBirth',
-    'ProvinceOfBirth', 'CityOfBirth', 'GeoRegion', 'HairColour', 'EyeColour', 'ServiceType', 'OrganizationName', 'ReasonForService',
-    'CurrentlyHoused', 'IncomeType', 'ExpenseType', 'Expensefrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
-    'SelfReportedYN', 'SuspectedYN', 'HealthIssueMedicationName', 'OtherMedications', 'WatchConcern', 'ContributingFactor', 'BehavioralFactor',
-    'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'AvoidInDiet', 'SPDAT_Type', 'ServiceProvider', 'PreScreenPeriod']
-  TIME_PAIRED_FEATURES:
-    -
-      NAME: 'Service'
-      START: 'ServiceStartDate'
-      END: 'ServiceEndDate'
+                         'ProvinceOfBirth', 'CityOfBirth', 'HairColour', 'EyeColour', 'ServiceType', 'OrganizationName', 'ReasonForService',
+                         'InHousing', 'IncomeType', 'ExpenseType', 'ExpenseFrequency', 'IsEssentialYN', 'EducationLevel', 'HealthIssue', 'DiagnosedYN',
+                         'SelfReportedYN', 'SuspectedYN', 'OtherMedications', 'ContributingFactor', 'BehavioralFactor',
+                         'Severity', 'LifeEvent', 'DietCatetory', 'FoodType', 'PreScreenPeriod', 'Reason']
+  KFOLDS: 10
+  TIME_SERIES:
+    TIME_STEP: 30                        # In days
+    T_X: 6                               # Length of time series input sequence
+    YEARS_OF_DATA: 3                     # Years of recent data to create time series records for.
+    FOLDS: 7
   SPDAT:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false
     SPDAT_DATA_ONLY: false
 
-
 # Neural network models
 NN:
-  MODEL1:
+  HIFIS_MLP:
     NODES:
       DENSE0: 80
       DENSE1: 60
@@ -79,48 +71,67 @@ NN:
     L2_LAMBDA: 0.01
     DROPOUT: 0.35
     LR: 0.0001
+  HIFIS_RNN_MLP:
+    LSTM:
+      UNITS: 4
+    DENSE:
+      DENSE0: 64
+      DENSE1: 32
+    LAYERS: 6
+    L2_LAMBDA: 0.00178
+    DROPOUT: 0.44
+    LR: 0.001
 
 # Training
 TRAIN:
-  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search'}
-  TRAIN_SPLIT: 0.8
-  VAL_SPLIT: 0.1
-  TEST_SPLIT: 0.1
+  EXPERIMENT: 'multi_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
+  MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
+  TRAIN_SPLIT: 0.9
+  VAL_SPLIT: 0.05
+  TEST_SPLIT: 0.05
   EPOCHS: 300
-  BATCH_SIZE: 32
-  POS_WEIGHT: 0.6
+  BATCH_SIZE: 1024
+  POS_WEIGHT: 0.5
   IMB_STRATEGY: 'class_weight'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn'}
-  METRIC_PREFERENCE: ['recall', 'precision', 'auc', 'loss']
-  NUM_RUNS: 150
+  METRIC_PREFERENCE: ['f1score', 'recall', 'precision', 'auc', 'loss']
+  NUM_RUNS: 100
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
-    COMBINATIONS: 60
+    COMBINATIONS: 100
     REPEATS: 2
     RANGES:
-      NODES0: [80, 100]               # Discrete range
-      NODES1: [60, 80]                # Discrete range
-      LAYERS: [2, 3, 4]               # Discrete range
-      DROPOUT: [0.2, 0.4]             # Real range
-      LR: [-3.0, -3.0]                # Real range on logarithmic scale (10^x)
-      OPTIMIZER: ['adam', 'sgd']      # Discrete range
-      BETA_1: [-1.0, -1.0]            # 1st moment for Adam. Real range on log scale (1 - 10^x)
-      BETA_2: [-3.0, -3.0]            # 2nd moment for Adam. Real range on log scale (1 - 10^x)
-      L2_LAMBDA: [-2.0, -2.0]         # Real range on log scale (10^x)
-      BATCH_SIZE: [128, 256]          # Discrete range
-      POS_WEIGHT: [0.6, 0.7]          # Weight multiplier for positive class. Real range
-      IMB_STRATEGY: ['class_weight', 'smote', 'random_oversample']  # Discrete range
+      NODES0: [32, 48, 64]                  # Discrete range
+      NODES1: [16, 24, 32]                  # Discrete range
+      LAYERS: [2, 4, 6]                     # Discrete range
+      DROPOUT: [0.2, 0.5]                   # Real range
+      LR: [-3.0, -3.0]                      # Real range on logarithmic scale (10^x)
+      OPTIMIZER: ['adam']                   # Discrete range
+      BETA_1: [-1.0, -1.0]                  # 1st moment for Adam. Real range on log scale (1 - 10^x)
+      BETA_2: [-3.0, -3.0]                  # 2nd moment for Adam. Real range on log scale (1 - 10^x)
+      L2_LAMBDA: [-7.0, -2.0]               # Real range on log scale (10^x)
+      BATCH_SIZE: [1024]                    # Discrete range
+      POS_WEIGHT: [0.5, 0.7]                # Weight multiplier for positive class. Real range
+      IMB_STRATEGY: ['class_weight']        # Discrete range
+      LSTM_UNITS: [4, 8, 16, 32]            # Discrete range
 
 # LIME explanations
 LIME:
-  KERNEL_WIDTH: 2.5
-  FEATURE_SELECTION: 'lasso_path'
-  NUM_FEATURES: 15
-  NUM_SAMPLES: 60000
-  MAX_DISPLAYED_RULES: 30
+  HIFIS_MLP:
+    KERNEL_WIDTH: 2.5
+    FEATURE_SELECTION: 'lasso_path'
+    NUM_FEATURES: 15
+    NUM_SAMPLES: 60000
+    MAX_DISPLAYED_RULES: 15
+  HIFIS_RNN_MLP:
+    KERNEL_WIDTH: 'default'
+    FEATURE_SELECTION: 'lasso_path'
+    NUM_FEATURES: 30
+    NUM_SAMPLES: 40000
+    MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_FRACTION: 1.0
+    SAMPLE_FRACTION: 0.2
     NUM_EXPLANATIONS: 15
   EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 

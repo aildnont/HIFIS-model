@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from tqdm import tqdm
 
 
 class SubmodularPick(object):
@@ -67,7 +68,7 @@ class SubmodularPick(object):
 
         # Generate Explanations
         self.explanations = []
-        for i in sample_indices:
+        for i in tqdm(sample_indices):
             self.explanations.append(
                 explainer.explain_instance(
                     data[i], predict_fn, num_features=num_features,
