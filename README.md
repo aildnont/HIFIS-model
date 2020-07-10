@@ -25,6 +25,37 @@ using the HIFIS application and HIFIS database schema who wish to
 explore the application of this model in their own locales. This model
 was built using data from HIFIS 4.0.57.30.
 
+## Table of Contents
+1. [**_Getting Started_**](#getting-started)
+2. [**_Use Cases_**](#use-cases)  
+   i)
+   [_Train a model and visualize results_](#train-a-model-and-visualize-results)  
+   ii)
+   [_Train multiple models and save the best one_](#train-multiple-models-and-save-the-best-one)  
+   iii)
+   [_Prediction horizon search experiment_](#prediction-horizon-search-experiment)  
+   iv) [_LIME explanations_](#lime-explanations)  
+   v) [_Random hyperparameter search_](#random-hyperparameter-search)  
+   vi)
+   [_Batch predictions from raw data_](#batch-predictions-from-raw-data)  
+   vii) [_Cross validation_](#cross-validation)  
+   viii)
+   [_Exclusion of sensitive features_](#exclusion-of-sensitive-features)  
+   ix)
+   [_Client clustering experiment (using K-Prototypes)_](#client-clustering-experiment-using-k-prototypes)
+3. [**_Time Series Forecasting Model_**](#time-series-forecasting-model)  
+   i) [_Time series data_](#time-series-data)  
+   ii) [_RNN-MLP Hybrid Model_](#rnn-mlp-hybrid-model)  
+   iii)
+   [_Time series LIME explanations_](#time-series-lime-explanations)  
+   iv) [_Steps to use_](#steps-to-use)
+4. [**_Troubleshooting_**](#troubleshooting)
+5. [**_Project Structure_**](#project-structure)
+6. [**_Project Config_**](#project-config)
+7. [**_Azure Machine Learning Pipelines_**](#azure-machine-learning-pipelines)  
+   i) [_Additional steps for Azure_](#additional-steps-for-azure)
+8. [**_Contact_**](#contact)
+
 ## Getting Started
 1. Clone this repository (for help see this
    [tutorial](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository)).
@@ -65,6 +96,9 @@ was built using data from HIFIS 4.0.57.30.
    generate interpretable explanations for the model's predictions on
    the test set. A spreadsheet of predictions and explanations will be
    saved within _results/experiments/_.
+
+![alt text](documents/readme_images/workflow_summary.png "Flow Chart of
+HIFIS Model Workflow Summary")
 
 ## Use Cases
 
@@ -139,7 +173,7 @@ you care about optimizing.
    _results/logs/training/_, and its directory name will be the current
    time in the same format.
 
-### Prediction Horizon Search Experiment
+### Prediction horizon search experiment
 The prediction horizon (_N_) is defined as the amount of time from now
 that the model makes its predictions for. In our case, the prediction
 horizon is how far in the future (in weeks) the model is predicting risk
@@ -168,9 +202,9 @@ for instructions on how to run a Prediction Horizon Search Experiment.
    this visualization.
 
 ![alt text](documents/readme_images/horizon_experiment_example.png
-"Prediction Horizon Search Experiment")
+"Prediction horizon search experiment")
 
-### LIME Explanations
+### LIME explanations
 Since the predictions made by this model are to be used by a government
 institution to benefit vulnerable members of society, it is imperative
 that the model's predictions may be explained so as to facilitate
@@ -235,12 +269,14 @@ explain the model's predictions on examples in the test set.
       passed to the function. You will have to set the Client ID of a
       client who is in the test set in the main function of
       [lime_explain.py](src/interpretability/lime_explain.py) (it
-      currently reads ```client_id = 00000```). An image will be
-      generated that depicts the top explainable features that the model
-      used to make its prediction. The image will be automatically saved
-      in _documents/generated_images/_, and its filename will resemble
-      the following: _Client_client_id_exp_yyyymmdd-hhmmss.png_. See
-      below for an example of this graphic.
+      currently reads ```client_id = lime_dict['Y_TEST'].index[0][0]```,
+      which selects the first ClientID in the test set). An image will
+      be generated that depicts the top explainable features that the
+      model used to make its prediction. The image will be automatically
+      saved in _documents/generated_images/_, and its filename will
+      resemble the following:
+      _Client_client_id_exp_yyyymmdd-hhmmss.png_. See below for an
+      example of this graphic.
 4. Interpret the output of the LIME explainer. LIME partitions features
    into classes or ranges and reports the features most contributory to
    a prediction. A feature explanation is considered to be a value (or
@@ -266,7 +302,7 @@ explain the model's predictions on examples in the test set.
 ![alt text](documents/readme_images/LIME_example.PNG "A sample LIME
 explanation")
 
-### Random Hyperparameter Search
+### Random hyperparameter search
 Hyperparameter tuning is an important part of the standard machine
 learning workflow. We chose to conduct a series of random hyperparameter
 searches. The results of one search informed the next, leading us to
@@ -397,7 +433,7 @@ for all clients, given raw data from HIFIS and a trained model.
       particular clients over time.
 5.  Execute [predict.py](src/predict.py).
 
-### Cross Validation
+### Cross validation
 Cross validation helps us select a model that is as unbiased as possible
 towards any particular dataset. By using cross validation, we can be
 increasingly confident in the external validity of our results. This
@@ -450,7 +486,7 @@ for details on how to accomplish this:
    _FEATURES_TO_DROP_FIRST_ field of the _DATA_ section of
    [config.yml](config.yml) (for more info see [Project Config](#data)).
 
-### Client Clustering Experiment (Using K-Prototypes)
+### Client clustering experiment (using K-Prototypes)
 We were interested in investigating whether HIFIS client data could be
 clustered. Since HIFIS consists of numerical and categorical data, and
 in the spirit of minimizing time complexity,
@@ -526,7 +562,7 @@ give further context to a client's story that could be formalized as an
 example. This section will describe the changes in the features,
 dataset, model, and explanations.
 
-### Time Series Data
+### Time series data
 Features that describe client service usage (e.g. stays, case
 management, food bank visits) are quantified over time. In the original
 HIFIS MLP model, these features were totalled up to the date of the
@@ -558,7 +594,7 @@ cross validation experiment used in this repository for time series data
 is nested cross validation with day-forward chaining (see [Cross
 Validation](#cross-validation) for more info).
 
-### RNN-MLP Hybrid Model
+### RNN-MLP hybrid model
 The time series forecasting model is different than that of the first
 model described. The first iteration of the HIFIS model was a
 multi-layer preceptron (MLP). The time series forecasting model we
@@ -576,7 +612,7 @@ summarizing the RNN-MLP's architecture.
 ![alt text](documents/readme_images/HIFIS_RNN_MLP.png "HIFIS RNN-MLP
 architecture overview")
 
-### Time Series LIME Explanations
+### Time series LIME explanations
 Explanations are computed for the RNN-MLP model in the same way as they
 were for the original MLP model, except that they are computed for
 predictions for a particular client at a particular date. We found that
@@ -589,7 +625,7 @@ had 2 timesteps ago, where the timestep duration is 30 days.
 Additionally, stable explanations take longer to compute for the RNN-MLP
 models.
 
-### Steps to Use
+### Steps to use
 1. In [config.yml](config.yml), set _MODEL_DEF_ within _TRAIN_ to
    _'hifis_rnn_mlp'_.
 2. Follow steps 1-4 in
@@ -600,6 +636,81 @@ models.
    you wish to explain a single client, be sure that you pass a value
    for the _date_ parameter to _explain_single_client()_ in the
    _yyyy-mm-dd_ format.
+
+## Troubleshooting
+
+Below are some common error scenarios that you may experience if you
+apply this repository to your municipality's HIFIS database, along with
+possible solutions.
+- **_KeyError: "['MyFeature'] not found in axis"_**  
+  Commonly occurs if you have specified a feature in one of the lists of
+  the _DATA_ seection of [config.yml](config.yml) that does not exist as
+  a column in the CSV of raw data extracted from the HIFIS database.
+  This could occur if one of the default features in those lists does
+  not exist in your HIFIS database. To fix this, remove the feature (in
+  this case called 'MyFeature') from the appropriate list in
+  [config.yml](config.yml).
+- **A feature in your database is missing in the preprocessed data CSV**  
+  All features are either classified as noncategorical or categorical.
+  You must ensure that the lists defined at _DATA >
+  NONCATEGORICAL_FEATURES_ and _DATA > CATEGORICAL_FEATURES_ (in
+  [config.yml](config.yml)) include the column names in your raw data
+  that you wish to use as features for the model.
+- **Incorrect designation of feature as noncategorical vs. categorical**  
+  The lists defined in [config.yml](config.yml) at _DATA >
+  NONCATEGORICAL_FEATURES_ and _DATA > CATEGORICAL_FEATURES_ must
+  correctly classify features as noncategorical or categorical. Strange
+  errors may be encountered during execution of
+  _vec_multi_value_cat_features()_ during preprocessing if these are set
+  incorrectly. Remember that categorical features can take on one of a
+  finite amoount of possible values; whereas, noncategorical features
+  are numeric variables whose domains exist within the real numbers. For
+  example, _'Citizenship'_ is a categorical feature and
+  _'CurrentWeightKG'_ is a noncategorical feature.
+- **File "preprocess.py", line 443, in assemble_time_sequences
+  IndexError: list index out of range**  
+  This error can indicate that your raw data does not go as far back in
+  time as needed to produce preprocessed data, given the parameters that
+  you set. It is important to ensure that the sum of the prediction
+  horizon and the length of time covered by each time series example is
+  less than the total time over which raw data was collected. For
+  example, if the prediction horizon is 26 weeks (found at _DATA >
+  N_WEEKS_ in [config.yml](config.yml)], time step length is 30 days
+  (found at _DATA > TIME_SERIES > TIME_STEP_), and input sequence length
+  is 6 (found at _DATA > TIME_SERIES > _T_X_), then you should have at
+  least _26×7 + 30×6 = 362_ days of raw HIFIS data. Note that this is
+  the very minimum - you should have significantly more days of HIFIS
+  data than this value in order to train an effective model. Finally, If
+  preprocessing causes your resultant dataset to be small, you may
+  encounter poor results when training a model; therefore, consider that
+  the absence of this error does not guarantee that you have enough raw
+  data.
+- **_OSError: SavedModel file does not exist at:
+  results/models/model.h5/{saved_model.pbtxt|saved_model.pb}_**  
+  This common error, experienced when attempting to load model weights
+  from disk from a non-existent file path, may can occur in either
+  [lime_explain.py](src/interpretability/lime_explain.py),
+  [predict.py](src/predict.py), or
+  [cluster.py](src/interpretability/cluster.py). The model weights' path
+  is set at the _PATHS > MODEL_TO_LOAD_ field of
+  [config.yml](config.yml). You must change its default value from
+  _'model.h5'_ to the filename of a model weights file that exists in
+  _results/models/_. Note that trained models are automatically saved
+  with a filename following the convention _'modelyyyymmdd-hhmmss.h5'_,
+  where _yyyymmdd-hhmmss_ is a datetime.
+- **Out-of-memory error during LIME submodular pick**  
+  Submodular pick involves generating LIME explanations for a large
+  number of examples in the training set. The LIME package used in this
+  repository tends to use larger amounts of memory than is required to
+  temporarily store the list of explanations accumulated during a
+  submodular pick experiment. Generating too high of a number of
+  explanations during this experiment can cause out-of-memory errors,
+  depending on available RAM. The only known fix is to decrease the
+  fraction of training set examples to use during submodular pick. This
+  value may be found at the _LIME > SP > SAMPLE_FRACTION_ field of
+  [config.yml](config.yml). To illustrate this issue, we had to set this
+  value to 0.2 when running submodular pick on a training set of
+  approximately 90000 records on a virtual machine with 56 GiB of RAM.
 
 ## Project Structure
 The project looks similar to the directory structure below. Disregard

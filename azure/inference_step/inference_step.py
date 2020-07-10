@@ -21,6 +21,7 @@ cfg['PATHS']['SCALER_COL_TRANSFORMER'] = args.inferencedir + \
                                          cfg['PATHS']['SCALER_COL_TRANSFORMER'].split('/')[-1]
 cfg['PATHS']['MODEL_TO_LOAD'] = args.inferencedir + cfg['PATHS']['MODEL_TO_LOAD'].split('/')[-1]
 cfg['PATHS']['LIME_EXPLAINER'] = args.inferencedir + cfg['PATHS']['LIME_EXPLAINER'].split('/')[-1]
+cfg['PATHS']['PREDICTIONS'] = args.inferencedir + cfg['PATHS']['BATCH_PREDICTIONS'].split('/')[-1]
 cfg['PATHS']['TRENDING_PREDICTIONS'] = args.inferencedir + cfg['PATHS']['TRENDING_PREDICTIONS'].split('/')[-1]
 
 # Load preprocessed data from intermediate pipeline data and move it to the inference directory
@@ -31,7 +32,9 @@ shutil.move(cfg['PATHS']['PROCESSED_DATA'], args.inferencedir + cfg['PATHS']['PR
 results_df = predict_and_explain_set(cfg=cfg, data_path=None, save_results=False, give_explanations=True,
                                      include_feat_values=False, processed_df=processed_df)
 
+# Save today's predictions
 results_df.insert(0, 'Timestamp', pd.to_datetime(datetime.datetime.today()))     # Add a timestamp to these results
+results_df.to_csv(cfg['PATHS']['PREDICTIONS'] + '.csv', columns=list(results_df.columns), index_label=False, index=False)
 
 # If previous prediction file exists, load it and append the predictions we just made.
 if os.path.exists(cfg['PATHS']['TRENDING_PREDICTIONS']):

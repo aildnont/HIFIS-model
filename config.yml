@@ -131,7 +131,7 @@ LIME:
     NUM_SAMPLES: 40000
     MAX_DISPLAYED_RULES: 30
   SP:
-    SAMPLE_FRACTION: 0.3
+    SAMPLE_FRACTION: 0.2
     NUM_EXPLANATIONS: 15
   EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
