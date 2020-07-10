@@ -43,9 +43,10 @@ failure_msg = ''
 if recent_df.shape[0] == 0:
     failure_msg += 'HIFIS_Clients.csv did not contain any service entries with start dates within the last week.\n'
 if raw_df.shape[0] < raw_data_info['N_ROWS']:
-    failure_msg += 'HIFIS_Clients.csv contains less rows than it did last week.\n'
+    failure_msg += 'HIFIS_Clients.csv contains less rows than it did last week. Last week it contained ' + str(raw_data_info['N_ROWS']) + ' rows and today it contains ' + str(raw_df.shape[0]) + ' rows.\n'
 if raw_df.shape[1] < raw_data_info['N_COLS']:
-    failure_msg += 'HIFIS_Clients.csv contains less columns than it did last week.\n'
+    failure_msg += 'HIFIS_Clients.csv contains less columns than it did last week. Last week it contained ' + str(raw_data_info['N_COLS']) + ' columns and today it contains ' + str(raw_df.shape[1]) + ' columns.\n'
+print("Current shape: ", raw_df.shape)
 
 # Update raw data meta-info file
 raw_data_info['N_ROWS'] = raw_df.shape[0]
