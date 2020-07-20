@@ -222,7 +222,7 @@ def train_model(cfg, data, callbacks, verbose=2):
     class_weight = None
     if cfg['TRAIN']['IMB_STRATEGY'] == 'class_weight':
         class_weight = get_class_weights(num_pos, num_neg, cfg['TRAIN']['POS_WEIGHT'])
-    else:
+    elif cfg['TRAIN']['IMB_STRATEGY'] != 'none':
         data['X_train'], data['Y_train'] = minority_oversample(data['X_train'], data['Y_train'],
                                                                algorithm=cfg['TRAIN']['IMB_STRATEGY'])
 
