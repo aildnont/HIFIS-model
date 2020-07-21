@@ -55,7 +55,7 @@ DATA:
     TIME_STEP: 30                        # In days
     T_X: 6                               # Length of time series input sequence
     YEARS_OF_DATA: 3                     # Years of recent data to create time series records for.
-    FOLDS: 7
+    FOLDS: 10
   SPDAT:
     INCLUDE_SPDATS: false
     SPDAT_CLIENTS_ONLY: false
@@ -84,7 +84,7 @@ NN:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'multi_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
+  EXPERIMENT: 'cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
   MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
@@ -93,7 +93,7 @@ TRAIN:
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
   IMB_STRATEGY: 'none'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
-  METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss']
+  METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss', 'accuracy']
   NUM_RUNS: 150
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
