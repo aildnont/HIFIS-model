@@ -461,7 +461,7 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
 
     # Record mean test set results
     for metric in metrics_list:
-        metrics_df[metric][k] = metrics_df[metric].mean()
+        metrics_df[metric][k] = metrics_df[metric][0:-1].mean()
 
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'kFoldCV' + cur_date + '.csv'
@@ -504,7 +504,7 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
 
     # Record mean test set results
     for metric in metrics_list:
-        metrics_df[metric][num_folds] = metrics_df[metric].mean()
+        metrics_df[metric][num_folds] = metrics_df[metric][0:-1].mean()
 
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'nestedCV' + cur_date + '.csv'
