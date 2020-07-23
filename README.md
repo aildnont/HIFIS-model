@@ -459,12 +459,12 @@ To run cross validation, see the steps below:
    _'cross_validation'_.
 3. Execute [train.py](src/train.py). A model will be trained for each
    train/test fold. A CSV will be generated that reports the performance
-   metrics on the test sets for each fold, along with the average
-   metrics for all folds. The file will be located in
-   _results/experiments/_, and its filename will resemble the following
-   structure: _kFoldCVyyyymmdd-hhmmss.csv_, if you are training the
-   HIFIS-MLP model (which is the default). If you are training the
-   HIFIS-RNN-MLP model, the file will be called
+   metrics on the test sets for each fold, along with the mean and
+   standard deviation of metrics for all folds. The file will be located
+   in _results/experiments/_, and its filename will resemble the
+   following structure: _kFoldCVyyyymmdd-hhmmss.csv_, if you are
+   training the HIFIS-MLP model (which is the default). If you are
+   training the HIFIS-RNN-MLP model, the file will be called
    _nestedCVyyyymmdd-hhmmss.csv_.
 
 ### Exclusion of sensitive features

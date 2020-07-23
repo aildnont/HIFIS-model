@@ -411,8 +411,8 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
     train_split = 1.0 - 2.0 / k     # Let val set be same size as test set
 
     metrics_list = cfg['TRAIN']['METRIC_PREFERENCE']
-    metrics_df = pd.DataFrame(np.zeros((k + 1, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
-    metrics_df['Fold'] = list(range(1, k + 1)) + ['mean']
+    metrics_df = pd.DataFrame(np.zeros((k + 2, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
+    metrics_df['Fold'] = list(range(1, k + 1)) + ['mean', 'std']
 
     df_ohe.drop('ClientID', axis=1, inplace=True)     # Anonymize clients
     noncat_feat_idxs = [df_ohe.columns.get_loc(c) for c in noncat_features if c in df_ohe]
@@ -459,9 +459,10 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
         if base_log_dir is not None:
             log_test_results(cfg, new_model, data, test_metrics, log_dir)
 
-    # Record mean test set results
+    # Record mean and standard deviation of test set results
     for metric in metrics_list:
-        metrics_df[metric][k] = metrics_df[metric][0:-1].mean()
+        metrics_df[metric][k] = metrics_df[metric][0:-2].mean()
+        metrics_df[metric][k + 1] = metrics_df[metric][0:-2].std()
 
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'kFoldCV' + cur_date + '.csv'
@@ -480,8 +481,8 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
 
     num_folds = cfg['DATA']['TIME_SERIES']['FOLDS']     # i.e. "k" for nested cross validation
     metrics_list = cfg['TRAIN']['METRIC_PREFERENCE']
-    metrics_df = pd.DataFrame(np.zeros((num_folds + 1, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
-    metrics_df['Fold'] = list(range(1, num_folds + 1)) + ['mean']
+    metrics_df = pd.DataFrame(np.zeros((num_folds + 2, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
+    metrics_df['Fold'] = list(range(1, num_folds + 1)) + ['mean', 'std']
 
     # Train a model k times with different folds
     for i in range(num_folds):
@@ -502,9 +503,10 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
         if base_log_dir is not None:
             log_test_results(cfg, new_model, data, test_metrics, log_dir)
 
-    # Record mean test set results
+    # Record mean and standard deviation of test set results
     for metric in metrics_list:
-        metrics_df[metric][num_folds] = metrics_df[metric][0:-1].mean()
+        metrics_df[metric][num_folds] = metrics_df[metric][0:-2].mean()
+        metrics_df[metric][num_folds + 1] = metrics_df[metric][0:-2].std()
 
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'nestedCV' + cur_date + '.csv'
