@@ -96,7 +96,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
         prediction = 1 if y[1] >= THRESHOLD else 0  # Model's classification
         predicted_class = CLASS_NAMES[prediction]
         client_id = indexes[i][0] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else indexes[i]
-        row = [client_id, n_weeks, predicted_class, y[1] * 100]
+        row = [int(client_id), n_weeks, predicted_class, y[1] * 100]
 
         # Explain this prediction
         if give_explanations:
