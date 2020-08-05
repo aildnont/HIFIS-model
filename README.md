@@ -169,40 +169,9 @@ you care about optimizing.
    the best performance on the test set for the metric you specified
    will be located in _results/models/training/_, and its filename will
    resemble the following structure: modelyyyymmdd-hhmmss.h5, where
-   yyyymmdd-hhmmss is the current time. The model's logs will be located in
-   _results/logs/training/_, and its directory name will be the current
-   time in the same format.
-
-### Prediction horizon search experiment
-The prediction horizon (_N_) is defined as the amount of time from now
-that the model makes its predictions for. In our case, the prediction
-horizon is how far in the future (in weeks) the model is predicting risk
-of chronic homelessness. For example, if the _N_ = 26 weeks, then the
-model is predicting whether or not a client will be at risk of chronic
-homelessness in 26 weeks. While developing this model, we noticed that
-the model's performance is inversely correlated with the prediction
-horizon. The Prediction Horizon Search Experiment trains the model
-multiple times at multiple values of _N_. For each value of _N_, the
-data is retrospectively preprocessed by cutting off the most recent _N_
-weeks of records. The relationships of _N_ and several model metrics are
-graphed for the user to deliver insight on the impact of _N_ and make a
-business decision as to which value yields optimal results. See below
-for instructions on how to run a Prediction Horizon Search Experiment.
-1. In the _HORIZON_SEARCH_ section of [config.yml](config.yml), set
-   _N_MIN_, _N_MAX_, _N_INTERVAL_ and _RUNS_PER_N_ according to your
-   organization's needs (see [Project Config](#project-config) for help).
-2. Run _src/horizon_search.py_. This may take several minutes to hours,
-   depending on your hardware and settings from the previous step.
-3. A .csv representation of experiment results will be available within
-   _results/experiments/_, called _horizon_searchyyyymmdd-hhmmss.csv_,
-   where yyyymmdd-hhmmss is the current time. A graphical representation
-   of the results will be available within
-   _documents/generated_images/_, called
-   _horizon_experiment_yyyymmdd-hhmmss.png_. See below for an example of
-   this visualization.
-
-![alt text](documents/readme_images/horizon_experiment_example.png
-"Prediction horizon search experiment")
+   yyyymmdd-hhmmss is the current time. The model's logs will be located
+   in _results/logs/training/_, and its directory name will be the
+   current time in the same format.
 
 ### LIME explanations
 Since the predictions made by this model are to be used by a government
@@ -466,6 +435,37 @@ To run cross validation, see the steps below:
    training the HIFIS-MLP model (which is the default). If you are
    training the HIFIS-RNN-MLP model, the file will be called
    _nestedCVyyyymmdd-hhmmss.csv_.
+
+### Prediction horizon search experiment
+The prediction horizon (_N_) is defined as the amount of time from now
+that the model makes its predictions for. In our case, the prediction
+horizon is how far in the future (in weeks) the model is predicting risk
+of chronic homelessness. For example, if the _N_ = 26 weeks, then the
+model is predicting whether or not a client will be at risk of chronic
+homelessness in 26 weeks. While developing this model, we noticed that
+the model's performance is inversely correlated with the prediction
+horizon. The Prediction Horizon Search Experiment conducts [cross
+validation](#cross-validation) at multiple values of _N_. For each value of _N_, the
+data is retrospectively preprocessed by cutting off the most recent _N_
+weeks of records. The relationships of _N_ and several model metrics are
+graphed for the user to deliver insight on the impact of _N_ and make a
+business decision as to which value yields optimal results. See below
+for instructions on how to run a Prediction Horizon Search Experiment.
+1. In the _HORIZON_SEARCH_ section of [config.yml](config.yml), set
+   _N_MIN_, _N_MAX_, _N_INTERVAL_ and _RUNS_PER_N_ according to your
+   organization's needs (see [Project Config](#project-config) for help).
+2. Run _src/horizon_search.py_. This may take several minutes to hours,
+   depending on your hardware and settings from the previous step.
+3. A .csv representation of experiment results will be available within
+   _results/experiments/_, called _horizon_searchyyyymmdd-hhmmss.csv_,
+   where yyyymmdd-hhmmss is the current time. A graphical representation
+   of the results will be available within
+   _documents/generated_images/_, called
+   _horizon_experiment_yyyymmdd-hhmmss.png_. See below for an example of
+   this visualization.
+
+![alt text](documents/readme_images/horizon_experiment_example.png
+"Prediction horizon search experiment")
 
 ### Exclusion of sensitive features
 Depending on your organization's circumstances, you may wish to exclude
@@ -953,8 +953,6 @@ Note that the following fields have separate values for the
   search experiment (in weeks)
 - **N_INTERVAL**: Size of increment to increase the prediction horizon
   by when iterating through possible prediction horizons (in weeks)
-- **RUNS_PER_N**: The number of times to train the model per value of
-  the prediction horizon in the experiment
 #### PREDICTION
 - **THRESHOLD**: Classification threshold for prediction
 - **CLASS_NAMES**: Identifiers for the classes predicted by the neural

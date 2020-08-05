@@ -85,14 +85,14 @@ NN:
 # Training
 TRAIN:
   EXPERIMENT: 'cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
-  MODEL_DEF: 'hifis_rnn_mlp'         # One of {'hifis_mlp', 'hifis_rnn_mlp'}
+  MODEL_DEF: 'hifis_rnn_mlp'             # One of {'hifis_mlp', 'hifis_rnn_mlp'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
   EPOCHS: 300
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
-  IMB_STRATEGY: 'none'            # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
+  IMB_STRATEGY: 'none'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
   METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss', 'accuracy']
   NUM_RUNS: 150
   THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
@@ -139,8 +139,7 @@ LIME:
 HORIZON_SEARCH:
   N_MIN: 0
   N_MAX: 52
-  N_INTERVAL: 4
-  RUNS_PER_N: 10
+  N_INTERVAL: 13
 
 # Batch predictions on raw data
 PREDICTION:
