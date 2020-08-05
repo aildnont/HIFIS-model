@@ -467,7 +467,7 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'kFoldCV' + cur_date + '.csv'
     metrics_df.to_csv(experiment_path, columns=metrics_df.columns, index_label=False, index=False)
-    return
+    return metrics_df
 
 
 def nested_cross_validation(cfg, callbacks, base_log_dir):
@@ -511,7 +511,7 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
     # Save results
     experiment_path = cfg['PATHS']['EXPERIMENTS'] + 'nestedCV' + cur_date + '.csv'
     metrics_df.to_csv(experiment_path, columns=metrics_df.columns, index_label=False, index=False)
-    return
+    return metrics_df
 
 
 def log_test_results(cfg, model, data, test_metrics, log_dir):
@@ -596,9 +596,9 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
     elif experiment == 'cross_validation':
         base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
         if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
-            nested_cross_validation(cfg, callbacks, base_log_dir)   # If time series data, do nested CV
+            _ = nested_cross_validation(cfg, callbacks, base_log_dir)   # If time series data, do nested CV
         else:
-            kfold_cross_validation(cfg, callbacks, base_log_dir)    # If not time series data, do k-fold CV
+            _ = kfold_cross_validation(cfg, callbacks, base_log_dir)    # If not time series data, do k-fold CV
     else:
         if experiment == 'multi_train':
             base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None

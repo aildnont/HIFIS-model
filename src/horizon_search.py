@@ -19,27 +19,30 @@ def horizon_search():
     N_MIN = cfg['HORIZON_SEARCH']['N_MIN']
     N_MAX = cfg['HORIZON_SEARCH']['N_MAX']
     N_INTERVAL = cfg['HORIZON_SEARCH']['N_INTERVAL']
-    RUNS_PER_N = cfg['HORIZON_SEARCH']['RUNS_PER_N']
 
     test_metrics_df = pd.DataFrame()
     for n in range(N_MIN, N_MAX + N_INTERVAL, N_INTERVAL):
         print('** n = ', n, ' of ', N_MAX)
+
         # Preprocess data. Avoid recomputing ground truths and classifying features after first iteration.
         if n == N_MIN:
             preprocess(n_weeks=n, calculate_gt=True, classify_cat_feats=True, load_ct=False)
         else:
-            preprocess(n_weeks=n, calculate_gt=False, classify_cat_feats=False, load_ct=True)
+            if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+                preprocess(n_weeks=n, calculate_gt=True, classify_cat_feats=False, load_ct=True)
+            else:
+                preprocess(n_weeks=n, calculate_gt=False, classify_cat_feats=False, load_ct=True)
 
-        # Train the model several times at this prediction horizon
-        results_df = pd.DataFrame()
-        data = load_dataset(cfg)
+        # Conduct cross validation at this prediction horizon
         callbacks = define_callbacks(cfg)
-        for i in range(RUNS_PER_N):
-            print('** n = ', n, ' of ', N_MAX, '; i = ', i + 1, ' of ', RUNS_PER_N)
-            _, results = train_model(cfg, data, callbacks)
-            results_df = results_df.append(pd.DataFrame.from_records([results]))
-        results_df.insert(0, 'n', n)    # Add prediction horizon to test results
-        test_metrics_df = test_metrics_df.append(results_df)    # Append results from this value of n
+        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+            results_df = nested_cross_validation(cfg, callbacks, None)  # If time series data, do nested CV
+        else:
+            results_df = kfold_cross_validation(cfg, callbacks, None)  # If not time series data, do k-fold CV
+        results_df = results_df[0:-2]   # Remove rows for mean and std dev
+        results_df.drop('Fold', axis=1, inplace=True)   # Remove fold column
+        results_df.insert(0, 'n', n)  # Add prediction horizon to test results
+        test_metrics_df = test_metrics_df.append(results_df)  # Append results from this value of n
 
     # Save results
     test_metrics_df.to_csv(cfg['PATHS']['HORIZON_SEARCH'] + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv',

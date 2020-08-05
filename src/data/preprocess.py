@@ -661,6 +661,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
             df_gt = load_df(cfg['PATHS']['GROUND_TRUTH'])  # Load ground truth from file
             df_gt = df_gt.set_index('ClientID')
             df_gt.index = df_gt.index.astype(int)
+            df_gt.set_index(['Date'], append=True, inplace=True)  # Index by date in addition to ClientID
     return df_clients_time_series, df_gt, noncategorical_feats, all_mv_cat_feats
 
 
