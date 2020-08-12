@@ -449,16 +449,14 @@ def assemble_time_sequences(cfg, df_clients, noncat_feats, include_gt):
     df_clients = df_clients.groupby('ClientID', group_keys=False).progress_apply(client_windows)
 
     # Records at the beginning of a client's experience should have 0 for past time series feats
-    if not include_gt:
-        df_clients.dropna(0, inplace=True)
-    else:
-        df_clients.fillna(0, inplace=True)
+    df_clients.fillna(0, inplace=True)
 
     # Cut off any trailing records that could have possible false 0's
     N_WEEKS = cfg['DATA']['N_WEEKS']
     DAYS_PER_YEAR = 365.25
-    cutoff_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=N_WEEKS * 7) - \
-                                      timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
+    cutoff_date = (pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=N_WEEKS * 7)).floor('d')
+    if include_gt:
+        cutoff_date -= timedelta(days=int(cfg['DATA']['TIME_SERIES']['YEARS_OF_DATA'] * DAYS_PER_YEAR))
     df_clients = df_clients[df_clients.index.get_level_values(1) >= cutoff_date]
     return df_clients, noncat_feats
 
@@ -707,6 +705,8 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
 
     # Exclude clients who did not provide consent to use their information for this project
     df.drop(df[df['ClientID'].isin(cfg['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
+    if not include_gt:
+        df = df[~df['ConsentType'].str.contains('Declined')]  # Remove any clients who didn't provide consent for predictions
 
     # Delete unwanted columns
     print("Dropping some features.")
