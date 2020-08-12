@@ -75,7 +75,11 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
         clusters_df.set_index('ClientID')
 
     # Get centroids of clusters
-    cluster_centroids = np.concatenate((k_prototypes.cluster_centroids_[0], k_prototypes.cluster_centroids_[1]), axis=1)
+    cluster_centroids = np.zeros((k_prototypes.cluster_centroids_[0].shape[0],
+                                  k_prototypes.cluster_centroids_[0].shape[1] + k_prototypes.cluster_centroids_[1].shape[1]))
+    cluster_centroids[:, noncat_feat_idxs] = k_prototypes.cluster_centroids_[0]     # Numerical features
+    cluster_centroids[:, cat_feat_idxs] = k_prototypes.cluster_centroids_[1]        # Categorical features
+    #cluster_centroids = np.concatenate((k_prototypes.cluster_centroids_[0], k_prototypes.cluster_centroids_[1]), axis=1)
 
     # Scale noncategorical features of the centroids back to original range
     centroid_noncat_feats = cluster_centroids[:, noncat_feat_idxs]
@@ -124,8 +128,9 @@ def cluster_clients(k=None, save_centroids=True, save_clusters=True, explain_cen
 
     # Predict and explain the cluster centroids
     if explain_centroids:
-        NUM_SAMPLES = cfg['LIME']['NUM_SAMPLES']
-        NUM_FEATURES = cfg['LIME']['NUM_FEATURES']
+        model_def = cfg['TRAIN']['MODEL_DEF'].upper()
+        NUM_SAMPLES = cfg['LIME'][model_def]['NUM_SAMPLES']
+        NUM_FEATURES = cfg['LIME'][model_def]['NUM_FEATURES']
         exp_rows = []
         explanations = []
         print('Creating explanations for cluster centroids.')

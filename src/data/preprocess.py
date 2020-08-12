@@ -782,7 +782,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     # Include SPDAT data
     if cfg['DATA']['SPDAT']['INCLUDE_SPDATS'] and cfg['TRAIN']['MODEL_DEF'] != 'hifis_rnn_mlp':
         print("Adding SPDAT questions as features.")
-        train_end_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=(n_weeks * 7))
+        train_end_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=(N_WEEKS * 7))
         spdat_df, sv_cat_spdat_feats, noncat_spdat_feats = get_spdat_data(cfg['PATHS']['RAW_SPDAT_DATA'],
                                                                           train_end_date)
         if cfg['DATA']['SPDAT']['SPDAT_CLIENTS_ONLY']:
