@@ -705,8 +705,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
 
     # Exclude clients who did not provide consent to use their information for this project
     df.drop(df[df['ClientID'].isin(cfg['DATA']['CLIENT_EXCLUSIONS'])].index, inplace=True)
-    if not include_gt:
-        df = df[~df['ConsentType'].str.contains('Declined')]  # Remove any clients who didn't provide consent for predictions
+    df = df[~df['ConsentType'].str.contains('Declined')]  # Remove any clients who didn't provide consent for predictions
 
     # Delete unwanted columns
     print("Dropping some features.")
