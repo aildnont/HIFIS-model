@@ -1050,7 +1050,7 @@ maross@london.ca
 **Blake VanBerlo**  
 Owner  
 VanBerlo Consulting  
-vanberloblake@gmail.com
+blake@vanberloconsulting.com
 
 
 
