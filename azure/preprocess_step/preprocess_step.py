@@ -63,7 +63,7 @@ if len(failure_msg) > 0:
     for email_address in cfg_private['EMAIL']['CC_EMAILS']:
         message.add_cc(email_address)
     try:
-        sg = SendGridAPIClient('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')
+        sg = SendGridAPIClient(cfg_private['EMAIL']['SENDGRID_API_KEY'])
         response = sg.send(message)
     except Exception as e:
         print(str(e.body))
