@@ -1050,9 +1050,9 @@ Suite 300 - 201 Queens Ave, London, ON. N6A 1J1
 maross@london.ca
 
 **Blake VanBerlo**  
-Owner  
-VanBerlo Consulting  
-blake@vanberloconsulting.com
+Data Scientist  
+City of London Research and Development Lab  
+C: vanberloblake@gmail.com  
 
 
 
