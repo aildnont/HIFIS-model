@@ -2,8 +2,8 @@
 PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   RAW_SPDAT_DATA: 'data/raw/SPDATS.json'
-  PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
-  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
+  PROCESSED_DATA: 'data/processed/HIFIS_Processed_ts.csv'
+  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE_ts - Copy.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: 'data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/'
@@ -30,7 +30,7 @@ PATHS:
 # Constants pertaining to data structure
 DATA:
   N_WEEKS: 26
-  GROUND_TRUTH_DATE: 'today'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
+  GROUND_TRUTH_DATE: '2020-07-20'   # Set to either 'today' or a past date with format 'yyyy-mm-dd'
   CHRONIC_THRESHOLD: 180
   CLIENT_EXCLUSIONS: []
   FEATURES_TO_DROP_FIRST: ['MovedInDate','OtherMedications','DietCatetory','FoodType',
@@ -62,7 +62,7 @@ DATA:
     SPDAT_DATA_ONLY: false
 
 # Neural network models
-NN:
+MODELS:
   HIFIS_MLP:
     NODES:
       DENSE0: 80
@@ -81,22 +81,28 @@ NN:
     L2_LAMBDA: 0.00178
     DROPOUT: 0.44
     LR: 0.001
+  LOGISTIC_REGRESSION:
+  RANDOM_FOREST:
+    N_ESTIMATORS: 100
+  XGBOOST:
+    N_ESTIMATORS: 100
 
 # Training
 TRAIN:
   EXPERIMENT: 'cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
-  MODEL_DEF: 'hifis_rnn_mlp'             # One of {'hifis_mlp', 'hifis_rnn_mlp'}
+  MODEL_DEF: 'hifis_rnn_mlp'             # One of {'hifis_mlp', 'hifis_rnn_mlp', 'logistic_regression', 'random_forest', 'xgboost'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
   EPOCHS: 300
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
-  IMB_STRATEGY: 'none'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
+  IMB_STRATEGY: 'class_weight'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
   METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss', 'accuracy']
   NUM_RUNS: 150
-  THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
+  THRESHOLDS: [0.3, 0.4, 0.5, 0.6, 0.7]  # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
+  DATASET_TYPE: 'static_and_dynamic'                 # One of 'static', 'static_and_dynamic'
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
     COMBINATIONS: 100

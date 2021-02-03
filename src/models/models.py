@@ -4,9 +4,14 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.initializers import Constant
 from tensorflow import convert_to_tensor, split, reshape, transpose
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, accuracy_score, log_loss
+from xgboost import XGBClassifier
+import numpy as np
 from src.custom.losses import f1_loss
 
-def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None):
+def hifis_mlp(cfg, input_dim=None, metrics=None, metadata=None, output_bias=None, hparams=None):
     '''
     Defines a Keras model for HIFIS multi-layer perceptron model (i.e. HIFIS-v2)
     :param cfg: A dictionary of parameters associated with the model architecture
@@ -64,7 +69,7 @@ def hifis_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None)
     return model
 
 
-def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=None):
+def hifis_rnn_mlp(cfg, input_dim=None, metrics=None, metadata=None, output_bias=None, hparams=None):
     '''
     Defines a Keras model for HIFIS hybrid recurrent neural network and multilayer perceptron model (i.e. HIFIS-v3)
     :param cfg: A dictionary of parameters associated with the model architecture
@@ -131,9 +136,122 @@ def hifis_rnn_mlp(cfg, input_dim, metrics, metadata, output_bias=None, hparams=N
     model = Model(inputs=X_input, outputs=Y, name='HIFIS-rnn-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
 
     # Set model loss function, optimizer, metrics.
-    model.compile(loss=f1_loss(4.5), optimizer=optimizer, metrics=metrics)
+    #model.compile(loss=f1_loss(4.5), optimizer=optimizer, metrics=metrics)
+    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
 
     # Print summary of model and return model object
     if hparams is None:
         model.summary()
     return model
+
+
+class logistic_regression:
+
+    def __init__(self, cfg, metrics=[], **kwargs):
+        self.cfg = cfg
+        self.metrics = [None] + [m for m in metrics if not isinstance(m, str)]
+        self.metrics_names = ['loss'] + [m.name for m in metrics if not isinstance(m, str)]
+
+    def fit(self, X_train, Y_train, class_weight=None, **kwargs):
+        self.model = LogisticRegression(class_weight=class_weight)
+        self.model.fit(X_train, Y_train)
+
+    def evaluate(self, X_test, Y_test):
+        test_preds = self.model.predict(X_test)
+        test_probs = self.model.predict_proba(X_test)[:, 1]
+        test_metrics = []
+        for i in range(len(self.metrics_names)):
+            if self.metrics_names[i] in ['precision', 'recall', 'f1score']:
+                scores = []
+                for t in self.metrics[i].thresholds:
+                    preds = (test_probs >= t).astype(int)
+                    if self.metrics_names[i] == 'precision':
+                        scores.append(precision_score(Y_test, preds))
+                    elif self.metrics_names[i] == 'recall':
+                        scores.append(recall_score(Y_test, preds))
+                    elif self.metrics_names[i] == 'f1score':
+                        scores.append(f1_score(Y_test, preds))
+                test_metrics.append(np.array(scores))
+            elif self.metrics_names[i] == 'auc':
+                test_metrics.append(roc_auc_score(Y_test, test_probs))
+            elif self.metrics_names[i] == 'loss':
+                test_metrics.append(log_loss(Y_test, test_probs))
+            elif self.metrics_names[i] == 'accuracy':
+                test_metrics.append(accuracy_score(Y_test, test_preds))
+        return test_metrics
+
+
+class random_forest:
+
+    def __init__(self, cfg, metrics=[], **kwargs):
+        self.cfg = cfg
+        self.metrics = [None] + [m for m in metrics if not isinstance(m, str)]
+        self.metrics_names = ['loss'] + [m.name for m in metrics if not isinstance(m, str)]
+
+    def fit(self, X_train, Y_train, class_weight=None, **kwargs):
+        self.model = RandomForestClassifier(n_estimators=self.cfg['N_ESTIMATORS'], class_weight=class_weight)
+        self.model.fit(X_train, Y_train)
+
+    def evaluate(self, X_test, Y_test):
+        test_preds = self.model.predict(X_test)
+        test_probs = self.model.predict_proba(X_test)[:, 1]
+        test_metrics = []
+        for i in range(len(self.metrics_names)):
+            if self.metrics_names[i] in ['precision', 'recall', 'f1score']:
+                scores = []
+                for t in self.metrics[i].thresholds:
+                    preds = (test_probs >= t).astype(int)
+                    if self.metrics_names[i] == 'precision':
+                        scores.append(precision_score(Y_test, preds))
+                    elif self.metrics_names[i] == 'recall':
+                        scores.append(recall_score(Y_test, preds))
+                    elif self.metrics_names[i] == 'f1score':
+                        scores.append(f1_score(Y_test, preds))
+                test_metrics.append(np.array(scores))
+            elif self.metrics_names[i] == 'auc':
+                test_metrics.append(roc_auc_score(Y_test, test_probs))
+            elif self.metrics_names[i] == 'loss':
+                test_metrics.append(log_loss(Y_test, test_probs))
+            elif self.metrics_names[i] == 'accuracy':
+                test_metrics.append(accuracy_score(Y_test, test_preds))
+        return test_metrics
+
+
+class xgboost_model:
+
+    def __init__(self, cfg, metrics=[], **kwargs):
+        self.cfg = cfg
+        self.metrics = [None] + [m for m in metrics if not isinstance(m, str)]
+        self.metrics_names = ['loss'] + [m.name for m in metrics if not isinstance(m, str)]
+
+    def fit(self, X_train, Y_train, class_weight=None, **kwargs):
+        if class_weight is not None:
+            scale_pos_weight = class_weight[1] / class_weight[0]
+        else:
+            scale_pos_weight = None
+        self.model = XGBClassifier(n_estimators=self.cfg['N_ESTIMATORS'], scale_pos_weight=scale_pos_weight)
+        self.model.fit(X_train, Y_train)
+
+    def evaluate(self, X_test, Y_test):
+        test_preds = self.model.predict(X_test)
+        test_probs = self.model.predict_proba(X_test)[:, 1]
+        test_metrics = []
+        for i in range(len(self.metrics_names)):
+            if self.metrics_names[i] in ['precision', 'recall', 'f1score']:
+                scores = []
+                for t in self.metrics[i].thresholds:
+                    preds = (test_probs >= t).astype(int)
+                    if self.metrics_names[i] == 'precision':
+                        scores.append(precision_score(Y_test, preds))
+                    elif self.metrics_names[i] == 'recall':
+                        scores.append(recall_score(Y_test, preds))
+                    elif self.metrics_names[i] == 'f1score':
+                        scores.append(f1_score(Y_test, preds))
+                test_metrics.append(np.array(scores))
+            elif self.metrics_names[i] == 'auc':
+                test_metrics.append(roc_auc_score(Y_test, test_probs))
+            elif self.metrics_names[i] == 'loss':
+                test_metrics.append(log_loss(Y_test, test_probs))
+            elif self.metrics_names[i] == 'accuracy':
+                test_metrics.append(accuracy_score(Y_test, test_preds))
+        return test_metrics

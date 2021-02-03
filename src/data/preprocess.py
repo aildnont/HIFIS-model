@@ -722,13 +722,14 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     noncategorical_feats.remove('FamilyID')
 
     # Replace null DateEnd entries with today's date. Assumes client is receiving ongoing services.
+    #df['DateEnd'] = np.where(df['DateEnd'].isnull(), pd.to_datetime('today'), df['DateEnd'])
     df['DateEnd'] = np.where(df['DateEnd'].isnull(), pd.to_datetime('today'), df['DateEnd'])
 
     # Convert all timestamps to datetime objects
     print("Converting timestamps to datetimes.")
     df = process_timestamps(df)
 
-    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+    if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
         print("Separating multi and single-valued categorical features.")
         if classify_cat_feats:
             sv_cat_feats, mv_cat_feats = classify_cat_features(df, categorical_feats)
@@ -779,7 +780,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
         df_clients = aggregate_df(df, noncategorical_feats, vec_mv_cat_feats, sv_cat_feats)
 
     # Include SPDAT data
-    if cfg['DATA']['SPDAT']['INCLUDE_SPDATS'] and cfg['TRAIN']['MODEL_DEF'] != 'hifis_rnn_mlp':
+    if cfg['DATA']['SPDAT']['INCLUDE_SPDATS'] and cfg['TRAIN']['DATASET_TYPE'] != 'static_and_dynamic':
         print("Adding SPDAT questions as features.")
         train_end_date = pd.to_datetime(cfg['DATA']['GROUND_TRUTH_DATE']) - timedelta(days=(N_WEEKS * 7))
         spdat_df, sv_cat_spdat_feats, noncat_spdat_feats = get_spdat_data(cfg['PATHS']['RAW_SPDAT_DATA'],
@@ -814,7 +815,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     df_clients[noncategorical_feats] = df_clients[noncategorical_feats].fillna(-1)
 
     # Create columns for most recent T_X values of time series service features and place at the end of the DataFrame
-    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+    if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
         print("Creating columns for recent past values of time series features.")
         df_clients, noncategorical_feats = assemble_time_sequences(cfg, df_clients, noncategorical_feats, include_gt)
         new_col_order = list(df_clients.columns).copy()
@@ -829,7 +830,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
 
     # Append ground truth to dataset and log some useful stats about ground truth
     if include_gt:
-        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
             df_clients = df_clients.join(df_gt)  # Set ground truth for all clients to their saved values
             df_ohe_clients = df_ohe_clients.join(df_gt)  # Set ground truth for all clients to their saved values
             df_clients['GroundTruth'] = df_clients['GroundTruth'].fillna(0)
