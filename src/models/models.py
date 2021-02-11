@@ -171,6 +171,8 @@ class logistic_regression:
                         scores.append(recall_score(Y_test, preds))
                     elif self.metrics_names[i] == 'f1score':
                         scores.append(f1_score(Y_test, preds))
+                if len(scores) == 1:
+                    scores = scores[0]
                 test_metrics.append(np.array(scores))
             elif self.metrics_names[i] == 'auc':
                 test_metrics.append(roc_auc_score(Y_test, test_probs))
@@ -207,6 +209,8 @@ class random_forest:
                         scores.append(recall_score(Y_test, preds))
                     elif self.metrics_names[i] == 'f1score':
                         scores.append(f1_score(Y_test, preds))
+                if len(scores) == 1:
+                    scores = scores[0]
                 test_metrics.append(np.array(scores))
             elif self.metrics_names[i] == 'auc':
                 test_metrics.append(roc_auc_score(Y_test, test_probs))
@@ -247,6 +251,8 @@ class xgboost_model:
                         scores.append(recall_score(Y_test, preds))
                     elif self.metrics_names[i] == 'f1score':
                         scores.append(f1_score(Y_test, preds))
+                if len(scores) == 1:
+                    scores = scores[0]
                 test_metrics.append(np.array(scores))
             elif self.metrics_names[i] == 'auc':
                 test_metrics.append(roc_auc_score(Y_test, test_probs))

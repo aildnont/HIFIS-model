@@ -92,7 +92,7 @@ def setup_lime(cfg=None):
     test_df = pd.read_csv(cfg['PATHS']['TEST_SET'])
 
     # Get client IDs and corresponding ground truths
-    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+    if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
         idx_feats = ['ClientID', 'Date']
     else:
         idx_feats = ['ClientID']
@@ -317,5 +317,5 @@ if __name__ == '__main__':
         run_lime_experiment_and_visualize(lime_dict)
     else:
         client_id = lime_dict['Y_TEST'].index[0][0]    # <-- Replace with Client ID from a client in test set
-        date = lime_dict['Y_TEST'].index[0][1] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else None
+        date = lime_dict['Y_TEST'].index[0][1] if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic' else None
         explain_single_client(lime_dict, client_id, date=date)

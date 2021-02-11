@@ -2,8 +2,8 @@
 PATHS:
   RAW_DATA: 'data/raw/HIFIS_Clients.csv'
   RAW_SPDAT_DATA: 'data/raw/SPDATS.json'
-  PROCESSED_DATA: 'data/processed/HIFIS_Processed_ts.csv'
-  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE_ts - Copy.csv'
+  PROCESSED_DATA: 'data/processed/HIFIS_Processed.csv'
+  PROCESSED_OHE_DATA: 'data/processed/HIFIS_Processed_OHE.csv'
   GROUND_TRUTH: 'data/processed/GroundTruth.csv'
   DATA_INFO: 'data/interpretability/data_info.yml'
   MODEL_WEIGHTS: 'results/models/'
@@ -97,10 +97,10 @@ TRAIN:
   EPOCHS: 300
   BATCH_SIZE: 1024
   POS_WEIGHT: 0.5
-  IMB_STRATEGY: 'class_weight'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
+  IMB_STRATEGY: 'none'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
   METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss', 'accuracy']
   NUM_RUNS: 150
-  THRESHOLDS: [0.3, 0.4, 0.5, 0.6, 0.7]  # Can be changed to list of values in range [0, 1]
+  THRESHOLDS: 0.5  # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   DATASET_TYPE: 'static_and_dynamic'                 # One of 'static', 'static_and_dynamic'
   HP:

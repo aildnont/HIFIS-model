@@ -411,6 +411,7 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
     data = {}
     data['METADATA'] = metadata
     noncat_features = data_info['NON_CAT_FEATURES']  # Noncategorical features to be scaled
+    thresholds = cfg['TRAIN']['THRESHOLDS']
 
     k = cfg['DATA']['KFOLDS']     # i.e. "k" for nested cross validation
     val_split = 1.0 / k
@@ -456,9 +457,14 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
 
         # Train the model and evaluate performance on test set
         new_model, test_metrics = train_model(cfg, data, cur_callbacks)
+
         for metric in test_metrics:
-            if metric in metrics_df.columns:
-                metrics_df[metric][row_idx] = test_metrics[metric]
+            if any(metric in c for c in metrics_df.columns):
+                if any(metric in m for m in ['precision', 'recall', 'f1score']) and isinstance(thresholds, list):
+                    for j in range(len(thresholds)):
+                        metrics_df[metric + '_thr=' + str(thresholds[j])][row_idx] = test_metrics[metric][j]
+                else:
+                    metrics_df[metric][row_idx] = test_metrics[metric]
         row_idx += 1
 
         # Log test set results and images
