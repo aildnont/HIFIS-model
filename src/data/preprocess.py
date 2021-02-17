@@ -185,13 +185,6 @@ def remove_n_weeks(df, train_end_date, dated_feats):
     df = df[df['DateStart'] <= train_end_date]               # Delete rows where service occurred after this date
     df['DateEnd'] = df['DateEnd'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
 
-    # Set features with dated events occurring after the maximum training set date to null
-    '''
-    for feat in dated_feats:
-        idxs_to_update = df[df[feat] > train_end_date].index.tolist()
-        dated_feats[feat] = [f for f in dated_feats[feat] if f in df.columns]
-        df.loc[idxs_to_update, dated_feats[feat]] = np.nan
-    '''
     # Update client age
     if 'DOB' in df.columns:
         df['CurrentAge'] = (train_end_date - df['DOB']).astype('<m8[Y]')
@@ -535,7 +528,7 @@ def calculate_gt_and_service_feats(cfg, df, categorical_feats, noncategorical_fe
     return df, ds_gt, noncategorical_feats
 
 
-def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategorical_feats, gt_duration, include_gt, calculate_gt):
+def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategorical_feats, gt_duration, include_gt, calculate_gt, load_ct):
     '''
     Calculates ground truth, service time series features for client, client monthly income. Vectorizes multi-valued
     categorical features. Aggregates data to be indexed by ClientID and Date.
@@ -547,6 +540,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
     :param gt_duration: Length of time used to calculate chronic homelessness ground truth
     :param include_gt: Boolean indicating whether to include ground truth in processed data
     :param calculate_gt: Boolean indicating whether to calculate ground truth
+    :param load_ct: Boolean indicating whether to load serialized column transformers
     :return: Aggreated client Dataframe with time series features and one-hot encoded multi-valued categorical features,
              Dataframe containing client ground truth, updated list of noncategorical features, list of all multi-valued
              categorical variables
@@ -643,7 +637,7 @@ def calculate_time_series(cfg, cat_feat_info, df, categorical_feats, noncategori
         df_temp[mv_cat_feats] = df_temp[mv_cat_feats].fillna("None")
         for f in all_mv_cat_feats:
             df_temp[f] = 0
-        df_temp_ohe, vec_mv_cat_feats = vec_multi_value_cat_features(df_temp, mv_cat_feats, cfg, False)
+        df_temp_ohe, vec_mv_cat_feats = vec_multi_value_cat_features(df_temp, mv_cat_feats, cfg, load_ct=load_ct)
         for f in vec_mv_cat_feats:
             df_temp[f] = df_temp_ohe[f]
         df_temp.insert(0, 'Date', cutoff_date)  # Insert Date column with train end date as index
@@ -745,7 +739,7 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
         print("Calculating cumulative and time series service features.")
         df_clients, df_gt, noncategorical_feats, all_mv_cat_feats = calculate_time_series(cfg, cat_feat_info, df, categorical_feats,
                                                                         noncategorical_feats, GROUND_TRUTH_DURATION,
-                                                                        include_gt, calculate_gt)
+                                                                        include_gt, calculate_gt, load_ct)
     else:
         # Compute total stays, total monthly income, total # services accessed for each client.
         print("Calculating total service features, monthly income total.")
