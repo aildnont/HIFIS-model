@@ -136,8 +136,7 @@ def hifis_rnn_mlp(cfg, input_dim=None, metrics=None, metadata=None, output_bias=
     model = Model(inputs=X_input, outputs=Y, name='HIFIS-rnn-mlp_' + str(metadata['N_WEEKS']) + '-weeks')
 
     # Set model loss function, optimizer, metrics.
-    #model.compile(loss=f1_loss(4.5), optimizer=optimizer, metrics=metrics)
-    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
+    model.compile(loss=f1_loss(4.5), optimizer=optimizer, metrics=metrics)
 
     # Print summary of model and return model object
     if hparams is None:

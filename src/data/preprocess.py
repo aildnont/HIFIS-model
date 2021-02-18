@@ -185,13 +185,6 @@ def remove_n_weeks(df, train_end_date, dated_feats):
     df = df[df['DateStart'] <= train_end_date]               # Delete rows where service occurred after this date
     df['DateEnd'] = df['DateEnd'].clip(upper=train_end_date)  # Set end date for ongoing services to this date
 
-    # Set features with dated events occurring after the maximum training set date to null
-    '''
-    for feat in dated_feats:
-        idxs_to_update = df[df[feat] > train_end_date].index.tolist()
-        dated_feats[feat] = [f for f in dated_feats[feat] if f in df.columns]
-        df.loc[idxs_to_update, dated_feats[feat]] = np.nan
-    '''
     # Update client age
     if 'DOB' in df.columns:
         df['CurrentAge'] = (train_end_date - df['DOB']).astype('<m8[Y]')
@@ -722,7 +715,6 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     noncategorical_feats.remove('FamilyID')
 
     # Replace null DateEnd entries with today's date. Assumes client is receiving ongoing services.
-    #df['DateEnd'] = np.where(df['DateEnd'].isnull(), pd.to_datetime('today'), df['DateEnd'])
     df['DateEnd'] = np.where(df['DateEnd'].isnull(), pd.to_datetime('today'), df['DateEnd'])
 
     # Convert all timestamps to datetime objects

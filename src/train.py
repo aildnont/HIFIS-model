@@ -643,5 +643,5 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
 
 if __name__ == '__main__':
     cfg = yaml.full_load(open("./config.yml", 'r'))
-    train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT'], save_weights=False, write_logs=False)
+    train_experiment(cfg=cfg, experiment=cfg['TRAIN']['EXPERIMENT'], save_weights=True, write_logs=True)
 
