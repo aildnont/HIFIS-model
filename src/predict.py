@@ -35,7 +35,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
     # Get preprocessed data
     if processed_df is not None:
         df = processed_df
-        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
             indexes = np.array(pd.concat([df.pop('ClientID'), df.pop('Date')], 1))
         else:
             indexes = np.array(df.pop('ClientID'))
@@ -95,7 +95,7 @@ def predict_and_explain_set(cfg=None, data_path=None, save_results=True, give_ex
         y = np.squeeze(predict_instance(x, model, ohe_ct_sv, scaler_ct).T, axis=1)  # Predict example
         prediction = 1 if y[1] >= THRESHOLD else 0  # Model's classification
         predicted_class = CLASS_NAMES[prediction]
-        client_id = indexes[i][0] if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp' else indexes[i]
+        client_id = indexes[i][0] if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic' else indexes[i]
         row = [int(client_id), n_weeks, predicted_class, y[1] * 100]
 
         # Explain this prediction

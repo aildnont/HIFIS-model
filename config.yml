@@ -62,7 +62,7 @@ DATA:
     SPDAT_DATA_ONLY: false
 
 # Neural network models
-NN:
+MODELS:
   HIFIS_MLP:
     NODES:
       DENSE0: 80
@@ -81,11 +81,16 @@ NN:
     L2_LAMBDA: 0.00178
     DROPOUT: 0.44
     LR: 0.001
+  LOGISTIC_REGRESSION:
+  RANDOM_FOREST:
+    N_ESTIMATORS: 100
+  XGBOOST:
+    N_ESTIMATORS: 100
 
 # Training
 TRAIN:
   EXPERIMENT: 'cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
-  MODEL_DEF: 'hifis_rnn_mlp'             # One of {'hifis_mlp', 'hifis_rnn_mlp'}
+  MODEL_DEF: 'hifis_rnn_mlp'             # One of {'hifis_mlp', 'hifis_rnn_mlp', 'logistic_regression', 'random_forest', 'xgboost'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
@@ -95,8 +100,9 @@ TRAIN:
   IMB_STRATEGY: 'none'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
   METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss', 'accuracy']
   NUM_RUNS: 150
-  THRESHOLDS: 0.5   # Can be changed to list of values in range [0, 1]
+  THRESHOLDS: 0.5  # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
+  DATASET_TYPE: 'static_and_dynamic'                 # One of 'static', 'static_and_dynamic'
   HP:
     METRICS: ['accuracy', 'loss', 'recall', 'precision', 'auc']
     COMBINATIONS: 100

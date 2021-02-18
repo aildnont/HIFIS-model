@@ -129,7 +129,7 @@ def load_time_series_dataset(cfg, slide=None):
     time_series_feats = [f for f in df.columns if ('-Day_' in f) and (')' not in f)]
 
     # Partition dataset by date
-    unique_dates = np.flip(df['Date'].unique()).flatten()
+    unique_dates = np.flip(df_ohe['Date'].unique()).flatten()
     val_split = cfg['TRAIN']['VAL_SPLIT']
     if val_split*unique_dates.shape[0] < 1:
         val_split = 1.0 / unique_dates.shape[0]     # Ensure validation set contains records from at least 1 time step
@@ -240,10 +240,16 @@ def train_model(cfg, data, callbacks, verbose=2):
     # Build the model graph.
     if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
         model_def = hifis_rnn_mlp
-    else:
+    elif cfg['TRAIN']['MODEL_DEF'] == 'hifis_mlp':
         model_def = hifis_mlp
-    model = model_def(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()], (data['X_train'].shape[-1],), metrics,
-                      data['METADATA'], output_bias=output_bias)
+    elif cfg['TRAIN']['MODEL_DEF'] == 'logistic_regression':
+        model_def = logistic_regression
+    elif cfg['TRAIN']['MODEL_DEF'] == 'random_forest':
+        model_def = random_forest
+    else:
+        model_def = xgboost_model
+    model = model_def(cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()], input_dim=(data['X_train'].shape[-1],), metrics=metrics,
+                      metadata=data['METADATA'], output_bias=output_bias)
 
     # Train the model.
     history = model.fit(data['X_train'], data['Y_train'], batch_size=cfg['TRAIN']['BATCH_SIZE'],
@@ -374,7 +380,7 @@ def random_hparam_search(cfg, data, callbacks, log_dir):
                     val = 10 ** hparams[h]      # These hyperparameters are sampled on the log scale.
                 else:
                     val = hparams[h]
-                cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()][h] = val
+                cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()][h] = val
 
             # Set some hyperparameters that are not specified in model definition.
             cfg['TRAIN']['BATCH_SIZE'] = hparams['BATCH_SIZE']
@@ -405,6 +411,7 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
     data = {}
     data['METADATA'] = metadata
     noncat_features = data_info['NON_CAT_FEATURES']  # Noncategorical features to be scaled
+    thresholds = cfg['TRAIN']['THRESHOLDS']
 
     k = cfg['DATA']['KFOLDS']     # i.e. "k" for nested cross validation
     val_split = 1.0 / k
@@ -450,9 +457,14 @@ def kfold_cross_validation(cfg, callbacks, base_log_dir):
 
         # Train the model and evaluate performance on test set
         new_model, test_metrics = train_model(cfg, data, cur_callbacks)
+
         for metric in test_metrics:
-            if metric in metrics_df.columns:
-                metrics_df[metric][row_idx] = test_metrics[metric]
+            if any(metric in c for c in metrics_df.columns):
+                if any(metric in m for m in ['precision', 'recall', 'f1score']) and isinstance(thresholds, list):
+                    for j in range(len(thresholds)):
+                        metrics_df[metric + '_thr=' + str(thresholds[j])][row_idx] = test_metrics[metric][j]
+                else:
+                    metrics_df[metric][row_idx] = test_metrics[metric]
         row_idx += 1
 
         # Log test set results and images
@@ -480,7 +492,14 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
     '''
 
     num_folds = cfg['DATA']['TIME_SERIES']['FOLDS']     # i.e. "k" for nested cross validation
-    metrics_list = cfg['TRAIN']['METRIC_PREFERENCE']
+    metrics = cfg['TRAIN']['METRIC_PREFERENCE']
+    thresholds = cfg['TRAIN']['THRESHOLDS']
+    metrics_list = []
+    for m in metrics:
+        if m in ['precision', 'recall', 'f1score'] and isinstance(thresholds, list):
+            metrics_list += [(m + '_thr=' + str(t)) for t in thresholds]
+        else:
+            metrics_list.append(m)
     metrics_df = pd.DataFrame(np.zeros((num_folds + 2, len(metrics_list) + 1)), columns=['Fold'] + metrics_list)
     metrics_df['Fold'] = list(range(1, num_folds + 1)) + ['mean', 'std']
 
@@ -496,8 +515,12 @@ def nested_cross_validation(cfg, callbacks, base_log_dir):
         # Train the model and evaluate performance on test set
         new_model, test_metrics = train_model(cfg, data, cur_callbacks)
         for metric in test_metrics:
-            if metric in metrics_df.columns:
-                metrics_df[metric][i] = test_metrics[metric]
+            if any(metric in c for c in metrics_df.columns):
+                if any(metric in m for m in ['precision', 'recall', 'f1score']) and isinstance(thresholds, list):
+                    for j in range(len(thresholds)):
+                        metrics_df[metric + '_thr=' + str(thresholds[j])][i] = test_metrics[metric][j]
+                else:
+                    metrics_df[metric][i] = test_metrics[metric]
 
         # Log test set results and images
         if base_log_dir is not None:
@@ -548,8 +571,8 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
     hparam_summary_str = [['**Variable**', '**Value**']]
     for key in cfg['TRAIN']:
         hparam_summary_str.append([key, str(cfg['TRAIN'][key])])
-    for key in cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()]:
-        hparam_summary_str.append([key, str(cfg['NN'][cfg['TRAIN']['MODEL_DEF'].upper()][key])])
+    for key in cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()]:
+        hparam_summary_str.append([key, str(cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()][key])])
 
     # Write to TensorBoard logs
     with writer.as_default():
@@ -581,7 +604,7 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
         os.makedirs(cfg['PATHS']['LOGS'] + "training\\")
 
     # Load preprocessed data and partition into training, validation and test sets.
-    if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+    if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
         data = load_time_series_dataset(cfg)
     else:
         data = load_dataset(cfg)
@@ -595,7 +618,7 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
         random_hparam_search(cfg, data, callbacks, log_dir)
     elif experiment == 'cross_validation':
         base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
-        if cfg['TRAIN']['MODEL_DEF'] == 'hifis_rnn_mlp':
+        if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
             _ = nested_cross_validation(cfg, callbacks, base_log_dir)   # If time series data, do nested CV
         else:
             _ = kfold_cross_validation(cfg, callbacks, base_log_dir)    # If not time series data, do k-fold CV
