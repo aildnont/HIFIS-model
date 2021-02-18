@@ -26,7 +26,7 @@ cfg['PATHS']['TRENDING_PREDICTIONS'] = args.inferencedir + cfg['PATHS']['TRENDIN
 
 # Load preprocessed data from intermediate pipeline data and move it to the inference directory
 processed_df = pd.read_csv(cfg['PATHS']['PROCESSED_DATA'])
-shutil.move(cfg['PATHS']['PROCESSED_DATA'], args.inferencedir + cfg['PATHS']['PROCESSED_DATA'].split('/')[-1])
+shutil.copy(cfg['PATHS']['PROCESSED_DATA'], args.inferencedir + cfg['PATHS']['PROCESSED_DATA'].split('/')[-1])
 
 # Preprocess raw data, run inference, and run LIME on each client in the raw data
 results_df = predict_and_explain_set(cfg=cfg, data_path=None, save_results=False, give_explanations=True,

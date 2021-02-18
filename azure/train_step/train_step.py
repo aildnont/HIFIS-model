@@ -64,7 +64,7 @@ print("TOTAL MULTI_TRAIN TIME = " + str((datetime.datetime.now() - start_time).t
 
 # Identify the logs from the best model
 run.log("TensorBoard logs folder original name", best_logs_date)
-shutil.move(cfg['PATHS']['LOGS'] + best_logs_date, cfg['PATHS']['LOGS'] + "logs")
+shutil.copy(cfg['PATHS']['LOGS'] + best_logs_date, cfg['PATHS']['LOGS'] + "logs")
 
 # Log test set performance metrics, ROC, confusion matrix in Azure run
 test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])
