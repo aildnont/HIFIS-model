@@ -21,7 +21,7 @@ print("GPUs available:")
 print(tf.config.experimental.list_physical_devices('GPU'))
 
 # Update paths of input data in config to represent paths on blob.
-cfg = yaml.full_load(open(os.getcwd() + "./config.yml", 'r'))  # Load config data
+cfg = yaml.full_load(open("./config.yml", 'r'))  # Load config data
 cfg['PATHS']['PROCESSED_DATA'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['PROCESSED_DATA'].split('/')[-1]
 cfg['PATHS']['PROCESSED_OHE_DATA'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['PROCESSED_OHE_DATA'].split('/')[-1]
 cfg['PATHS']['TRAIN_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TRAIN_SET'].split('/')[-1]
@@ -64,7 +64,7 @@ print("TOTAL MULTI_TRAIN TIME = " + str((datetime.datetime.now() - start_time).t
 
 # Identify the logs from the best model
 run.log("TensorBoard logs folder original name", best_logs_date)
-shutil.copy(cfg['PATHS']['LOGS'] + best_logs_date, cfg['PATHS']['LOGS'] + "logs")
+shutil.copytree(cfg['PATHS']['LOGS'] + best_logs_date, cfg['PATHS']['LOGS'] + "logs")
 
 # Log test set performance metrics, ROC, confusion matrix in Azure run
 test_predictions = model.predict(data['X_test'], batch_size=cfg['TRAIN']['BATCH_SIZE'])

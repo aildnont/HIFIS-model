@@ -13,7 +13,7 @@ args = parser.parse_args()
 cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
 # Get paths of data on intermediate pipeline storage
-cfg = yaml.full_load(open(os.getcwd() + "./config.yml", 'r'))  # Load config data
+cfg = yaml.full_load(open("./config.yml", 'r'))  # Load config data
 train_set_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['TRAIN_SET'].split('/')[-1]
 test_set_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['TEST_SET'].split('/')[-1]
 data_info_path = args.preprocessedoutputdir + '/' + cfg['PATHS']['DATA_INFO'].split('/')[-1]
@@ -45,7 +45,7 @@ shutil.copy(ohe_col_transformer_mv_path, destination_dir)
 shutil.copy(ohe_col_transformer_sv_path, destination_dir)
 shutil.copy(scaler_col_transformer_path, destination_dir)
 shutil.copy(model_to_load_path, destination_dir)
-shutil.copy(logs_path, destination_dir)
+shutil.copytree(logs_path, destination_dir + 'logs')
 shutil.copy(multi_train_test_metrics_path, business_outputs_dir)
 shutil.copy(lime_explainer_path, destination_dir)
 shutil.copy(lime_submodular_pick_path, destination_dir)

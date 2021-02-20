@@ -10,7 +10,7 @@ parser.add_argument('--interpretabilityoutputdir', type=str, help="intermediate 
 args = parser.parse_args()
 
 # Update paths of input data in config to represent paths on blob.
-cfg = yaml.full_load(open(os.getcwd() + "./config.yml", 'r'))  # Load config data
+cfg = yaml.full_load(open("./config.yml", 'r'))  # Load config data
 cfg['PATHS']['TRAIN_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TRAIN_SET'].split('/')[-1]
 cfg['PATHS']['TEST_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TEST_SET'].split('/')[-1]
 cfg['PATHS']['DATA_INFO'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['DATA_INFO'].split('/')[-1]
