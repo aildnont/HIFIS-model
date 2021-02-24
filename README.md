@@ -1,4 +1,4 @@
-# HIFIS Model
+# Chronic Homelessness AI (CHAI) Model 
 ![alt text](documents/readme_images/london_logo.png "A sample LIME
 explanation") ![alt text](documents/readme_images/hifis_logo.png "A
 sample LIME explanation")
