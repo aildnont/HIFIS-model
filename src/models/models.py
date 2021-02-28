@@ -181,6 +181,9 @@ class logistic_regression:
                 test_metrics.append(accuracy_score(Y_test, test_preds))
         return test_metrics
 
+    def predict(self, X_test, **kwargs):
+        return self.model.predict_proba(X_test)[:, 1]
+
 
 class random_forest:
 
@@ -218,6 +221,9 @@ class random_forest:
             elif self.metrics_names[i] == 'accuracy':
                 test_metrics.append(accuracy_score(Y_test, test_preds))
         return test_metrics
+
+    def predict(self, X_test, **kwargs):
+        return self.model.predict_proba(X_test)[:, 1]
 
 
 class xgboost_model:
@@ -260,3 +266,6 @@ class xgboost_model:
             elif self.metrics_names[i] == 'accuracy':
                 test_metrics.append(accuracy_score(Y_test, test_preds))
         return test_metrics
+
+    def predict(self, X_test, **kwargs):
+        return self.model.predict_proba(X_test)[:, 1]

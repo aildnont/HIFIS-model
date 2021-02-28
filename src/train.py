@@ -229,7 +229,7 @@ def train_model(cfg, data, callbacks, verbose=2):
     thresholds = cfg['TRAIN']['THRESHOLDS']     # Load classification thresholds
 
     # List metrics
-    metrics = ['accuracy', BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
+    metrics = [BinaryAccuracy(name='accuracy'), Precision(name='precision', thresholds=thresholds),
                Recall(name='recall', thresholds=thresholds), F1Score(name='f1score', thresholds=thresholds),
                AUC(name='auc')]
 
@@ -571,8 +571,9 @@ def log_test_results(cfg, model, data, test_metrics, log_dir):
     hparam_summary_str = [['**Variable**', '**Value**']]
     for key in cfg['TRAIN']:
         hparam_summary_str.append([key, str(cfg['TRAIN'][key])])
-    for key in cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()]:
-        hparam_summary_str.append([key, str(cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()][key])])
+    if cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()] is not None:
+        for key in cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()]:
+            hparam_summary_str.append([key, str(cfg['MODELS'][cfg['TRAIN']['MODEL_DEF'].upper()][key])])
 
     # Write to TensorBoard logs
     with writer.as_default():
