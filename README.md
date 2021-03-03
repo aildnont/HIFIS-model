@@ -6,8 +6,7 @@ sample LIME explanation")
 The purpose of this project is deliver a machine learning solution to
 assist in identifying individuals at risk of chronic homelessness. A
 model was built for the Homeless Prevention division of the City of
-London, Ontario, Canada. This work was led by the Artificial
-Intelligence Research and Development Lab out of the Information
+London, Ontario, Canada. This work was led by the Municipal Artificial Intelligence Applications Lab out of the Information
 Technology Services division. For more information on results of the London project, review our [pre-print article](https://github.com/aildnont/HIFIS-model/blob/master/HIFIS_RNN_MLP%20-%20arXiv%20submission.pdf).This repository contains the code used to
 train a neural network model to classify clients in the city's
 [Homeless Individuals and Families Information
@@ -1051,7 +1050,7 @@ maross@london.ca
 
 **Blake VanBerlo**  
 Data Scientist  
-City of London Research and Development Lab  
+City of London Municipal Artificial Intelligence Applications Lab  
 C: vanberloblake@gmail.com  
 
 
