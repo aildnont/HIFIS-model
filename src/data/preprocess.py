@@ -862,8 +862,9 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     else:
         old_cat_feat_info = yaml.full_load(open(cfg['PATHS']['DATA_INFO'], 'r'))
         cat_feat_info['N_WEEKS'] = old_cat_feat_info['N_WEEKS']     # Get predictive horizon from previous preprocessing records
-    with open(cfg['PATHS']['DATA_INFO'], 'w') as file:
-        cat_feat_doc = yaml.dump(cat_feat_info, file)
+    if classify_cat_feats:
+        with open(cfg['PATHS']['DATA_INFO'], 'w') as file:
+            cat_feat_doc = yaml.dump(cat_feat_info, file)
 
     print("Runtime = ", ((datetime.today() - run_start).seconds / 60), " min")
     return df_clients

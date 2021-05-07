@@ -999,8 +999,7 @@ _src/_ folder. If you plan on using the Azure machine learning pipelines
 defined in the _azure/_ folder, there are a few steps you will need to
 follow first:
 1. Obtain an active Azure subscription.
-2. Ensure you have installed the _azureml-sdk_, _azureml_widgets_, and
-   _sendgrid_ pip packages.
+2. Ensure you have installed the _azureml-sdk_ and _azureml_widgets_ pip packages.
 3. In the [Azure portal](http://portal.azure.com/), create a resource
    group.
 4. In the [Azure portal](http://portal.azure.com/), create a machine
@@ -1020,23 +1019,6 @@ follow first:
     "resource_group": "name-of-your-resource-group",
     "workspace_name": "name-of-your-machine-learning-workspace"
 }  
-```
-
-4. To configure automatic email alerts when raw data is not available,
-   you must create a file called _config_private.yml_ and place it in
-   the root directory of the HIFIS-v2 repository. Next, obtain an API
-   key from [SendGrid](https://sendgrid.com/), which is a service that
-   will allow your Python scripts to request that emails be sent. Within
-   _config_private.yml_, create an _EMAIL_ field that will specify who
-   will get email alerts. An example of the _EMAIL_ field is shown
-   below. The _TO_EMAILS_ and _CC_EMAILS_ fields should be lists of
-   email addresses to send the email alerts to and email addresses to CC
-   respectively.
-```
-EMAIL:
-  SENDGRID_API_KEY: 'your-sendgrid-api-key'
-  TO_EMAILS: [person1@website.com]
-  CC_EMAILS: [person2@otherwebsite.com, person3@website.com]
 ```
 
 ## Contact

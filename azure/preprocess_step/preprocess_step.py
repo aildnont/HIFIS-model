@@ -4,8 +4,6 @@ import pandas as pd
 import argparse
 import datetime
 from azureml.core import Run
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 from src.data.preprocess import preprocess
 
 parser = argparse.ArgumentParser()
@@ -39,14 +37,13 @@ else:
 check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # 1 week ago from today
 raw_df['DateStart'] = pd.to_datetime(raw_df['DateStart'], errors='coerce')
 recent_df = raw_df[raw_df['DateStart'] > check_date]               # Get rows with service occurring in last week
-failure_msg = ''
+shape_msg = ''
 if recent_df.shape[0] == 0:
-    failure_msg += 'HIFIS_Clients.csv did not contain any service entries with start dates within the last week.\n'
+    shape_msg += 'HIFIS_Clients.csv did not contain any service entries with start dates within the last week.\n'
 if raw_df.shape[0] < raw_data_info['N_ROWS']:
-    failure_msg += 'HIFIS_Clients.csv contains less rows than it did last week. Last week it contained ' + str(raw_data_info['N_ROWS']) + ' rows and today it contains ' + str(raw_df.shape[0]) + ' rows.\n'
+    shape_msg += 'HIFIS_Clients.csv contains less rows than it did last week. Last week it contained ' + str(raw_data_info['N_ROWS']) + ' rows and today it contains ' + str(raw_df.shape[0]) + ' rows.\n'
 if raw_df.shape[1] < raw_data_info['N_COLS']:
-    failure_msg += 'HIFIS_Clients.csv contains less columns than it did last week. Last week it contained ' + str(raw_data_info['N_COLS']) + ' columns and today it contains ' + str(raw_df.shape[1]) + ' columns.\n'
-print("Current shape: ", raw_df.shape)
+    shape_msg += 'HIFIS_Clients.csv contains less columns than it did last week. Last week it contained ' + str(raw_data_info['N_COLS']) + ' columns and today it contains ' + str(raw_df.shape[1]) + ' columns.\n'
 
 # Update raw data meta-info file
 raw_data_info['N_ROWS'] = raw_df.shape[0]
@@ -54,21 +51,10 @@ raw_data_info['N_COLS'] = raw_df.shape[1]
 with open(raw_data_info_path, 'w') as file:
     raw_data_info_doc = yaml.dump(raw_data_info, file)
 
-# If necessary, send alert email and trigger pipeline run failure.
-if len(failure_msg) > 0:
-    failure_msg += 'Azure machine learning pipeline run was cancelled. Please check the SQL query.'
-    cfg_private = yaml.full_load(open("./config-private.yml", 'r'))  # Load private config data
-    message = Mail(from_email='HIFISModelAlerts@no-reply.ca', to_emails=cfg_private['EMAIL']['TO_EMAILS'],
-                   subject='HIFIS Raw Client Data', html_content=failure_msg)
-    for email_address in cfg_private['EMAIL']['CC_EMAILS']:
-        message.add_cc(email_address)
-    try:
-        sg = SendGridAPIClient(cfg_private['EMAIL']['SENDGRID_API_KEY'])
-        response = sg.send(message)
-    except Exception as e:
-        print(str(e.body))
-    raise Exception(failure_msg)
-
+# Print shape of raw data, and a message in case the shape is smaller than expected.
+print("Current shape of raw dataset: ", raw_df.shape)
+if len(shape_msg) > 0:
+    print(shape_msg)
 
 # Create path for preproces step output data if it doesn't already exist on the blob.
 if not os.path.exists(args.preprocessedoutputdir):
