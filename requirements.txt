@@ -1,4 +1,4 @@
-pyyaml==5.2
+pyyaml==5.4
 numpy==1.19.5
 category_encoders==2.1.0
 kmodes==0.10.2
