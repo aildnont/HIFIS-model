@@ -112,8 +112,8 @@ def hifis_rnn_mlp(cfg, input_dim=None, metrics=None, metadata=None, output_bias=
 
     # Receive input to model and split into 2 tensors containing dynamic and static features respectively
     X_input = Input(shape=input_dim)
-    split_idx = metadata['NUM_TS_FEATS'] * metadata['T_X']
-    X_dynamic, X_static = split(X_input, [split_idx, X_input.shape[1] - split_idx], axis=1)
+    n_ts_feats = metadata['NUM_TS_FEATS'] * metadata['T_X']
+    X_static, X_dynamic = split(X_input, [X_input.shape[1] - n_ts_feats, n_ts_feats], axis=1)
 
     # Define RNN component of model using LSTM cells. LSTM input shape is [batch_size, timesteps, features]
     lstm_input_shape = (metadata['T_X'], metadata['NUM_TS_FEATS'])
@@ -122,8 +122,8 @@ def hifis_rnn_mlp(cfg, input_dim=None, metrics=None, metadata=None, output_bias=
     X_dynamic = Flatten()(X_dynamic)
 
     # Define MLP component of model
-    X = concatenate([X_dynamic, X_static])      # Combine output of LSTM with static features
-    X = Dense(nodes_dense0, input_shape=input_dim, activation='relu', kernel_regularizer=l2(l2_lambda),
+    X = concatenate([X_static, X_dynamic])      # Combine output of LSTM with static features
+    X = Dense(nodes_dense0, activation='relu', kernel_regularizer=l2(l2_lambda),
               bias_regularizer=l2(l2_lambda), name="dense0")(X)
     X = Dropout(dropout, name='dropout0')(X)
     for i in range(1, layers):

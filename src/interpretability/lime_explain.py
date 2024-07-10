@@ -316,6 +316,7 @@ if __name__ == '__main__':
     elif cfg['LIME']['EXPERIMENT'] == 'lime_experiment':
         run_lime_experiment_and_visualize(lime_dict)
     else:
-        client_id = lime_dict['Y_TEST'].index[0][0]    # <-- Replace with Client ID from a client in test set
-        date = lime_dict['Y_TEST'].index[0][1] if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic' else None
+        test_idx = 93
+        client_id = lime_dict['Y_TEST'].index[test_idx][0]    # <-- Replace with index of a record in test set
+        date = lime_dict['Y_TEST'].index[test_idx][1] if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic' else None
         explain_single_client(lime_dict, client_id, date=date)
