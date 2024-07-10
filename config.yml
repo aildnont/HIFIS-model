@@ -9,19 +9,20 @@ PATHS:
   MODEL_WEIGHTS: 'results/models/'
   MODEL_TO_LOAD: 'results/models/model.h5'
   IMAGES: 'documents/generated_images/'
-  LOGS: 'results\\logs\\'
+  LOGS: 'results/logs/'
   EXPERIMENTS: 'results/experiments/'
   HORIZON_SEARCH: 'results/experiments/horizon_search'
   LIME_EXPERIMENT: 'results/experiments/lime_experiment'
   LIME_SUBMODULAR_PICK: 'results/experiments/lime_submodular_pick.csv'
   TRAIN_SET: 'data/processed/Train_Set.csv'
+  VAL_SET: 'data/processed/Val_Set.csv'
   TEST_SET: 'data/processed/Test_Set.csv'
   SCALER_COL_TRANSFORMER: 'data/transformers/scaler_col_transformer.bin'
   ORDINAL_COL_TRANSFORMER: 'data/transformers/ordinal_col_transformer.bin'
   OHE_COL_TRANSFORMER_MV: 'data/transformers/ohe_col_transformer_mv.bin'
   OHE_COL_TRANSFORMER_SV: 'data/transformers/ohe_col_transformer_sv.bin'
   MULTI_TRAIN_TEST_METRICS: 'results/experiments/multi_train_test_metrics.csv'
-  LIME_EXPLAINER: './data/interpretability/lime_explainer.pkl'
+  LIME_EXPLAINER: './data/interpretability/explainer.pkl'
   BATCH_PREDICTIONS: './results/predictions/predictions'
   TRENDING_PREDICTIONS: './results/predictions/trending_predictions.csv'
   K-PROTOTYPES_CENTROIDS: 'results/experiments/cluster_centroids_'
@@ -75,11 +76,11 @@ MODELS:
     LSTM:
       UNITS: 4
     DENSE:
-      DENSE0: 64
-      DENSE1: 32
+      DENSE0: 32
+      DENSE1: 16
     LAYERS: 6
-    L2_LAMBDA: 0.00178
-    DROPOUT: 0.44
+    L2_LAMBDA: 0.0023
+    DROPOUT: 0.41
     LR: 0.001
   LOGISTIC_REGRESSION:
   RANDOM_FOREST:
@@ -89,8 +90,8 @@ MODELS:
 
 # Training
 TRAIN:
-  EXPERIMENT: 'cross_validation'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
-  MODEL_DEF: 'hifis_rnn_mlp'             # One of {'hifis_mlp', 'hifis_rnn_mlp', 'logistic_regression', 'random_forest', 'xgboost'}
+  EXPERIMENT: 'single_train'         # One of {'single_train', 'multi_train', 'hparam_search', 'cross_validation'}
+  MODEL_DEF: 'hifis_rnn_mlp'           # One of {'hifis_mlp', 'hifis_rnn_mlp', 'logistic_regression', 'random_forest', 'xgboost'}
   TRAIN_SPLIT: 0.9
   VAL_SPLIT: 0.05
   TEST_SPLIT: 0.05
@@ -100,7 +101,7 @@ TRAIN:
   IMB_STRATEGY: 'none'                   # One of {'class_weight', 'random_oversample', 'smote', 'adasyn', 'none'}
   METRIC_PREFERENCE: ['recall', 'f1score', 'precision', 'auc', 'loss', 'accuracy']
   NUM_RUNS: 150
-  THRESHOLDS: 0.5  # Can be changed to list of values in range [0, 1]
+  THRESHOLDS: [0.3, 0.4, 0.5, 0.6, 0.7]  # Can be changed to list of values in range [0, 1]
   PATIENCE: 15
   DATASET_TYPE: 'static_and_dynamic'                 # One of 'static', 'static_and_dynamic'
   HP:
@@ -108,8 +109,8 @@ TRAIN:
     COMBINATIONS: 100
     REPEATS: 2
     RANGES:
-      NODES0: [32, 48, 64]                  # Discrete range
-      NODES1: [16, 24, 32]                  # Discrete range
+      NODES0: [32, 64, 128]                  # Discrete range
+      NODES1: [16, 32, 64]                  # Discrete range
       LAYERS: [2, 4, 6]                     # Discrete range
       DROPOUT: [0.2, 0.5]                   # Real range
       LR: [-3.0, -3.0]                      # Real range on logarithmic scale (10^x)
@@ -118,9 +119,10 @@ TRAIN:
       BETA_2: [-3.0, -3.0]                  # 2nd moment for Adam. Real range on log scale (1 - 10^x)
       L2_LAMBDA: [-7.0, -2.0]               # Real range on log scale (10^x)
       BATCH_SIZE: [1024]                    # Discrete range
-      POS_WEIGHT: [0.5, 0.7]                # Weight multiplier for positive class. Real range
+      POS_WEIGHT: [0.5, 0.5]                # Weight multiplier for positive class. Real range
       IMB_STRATEGY: ['class_weight']        # Discrete range
       LSTM_UNITS: [4, 8, 16, 32]            # Discrete range
+
 
 # LIME explanations
 LIME:
@@ -139,7 +141,7 @@ LIME:
   SP:
     SAMPLE_FRACTION: 0.2
     NUM_EXPLANATIONS: 15
-  EXPERIMENT: 'submodular_pick'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
+  EXPERIMENT: 'explain_client'               # One of {'explain_client', 'lime_experiment', 'submodular_pick'}
 
 # Predictive horizon search experiment
 HORIZON_SEARCH:
@@ -150,6 +152,8 @@ HORIZON_SEARCH:
 # Batch predictions on raw data
 PREDICTION:
   THRESHOLD: 0.5
+
+
   CLASS_NAMES: {0: 'not at risk', 1: 'at risk'}
   EXPERIMENT: 'batch_prediction'              # One of {'batch_prediction', 'trending_prediction'}
 

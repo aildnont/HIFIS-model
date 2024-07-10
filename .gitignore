@@ -24,6 +24,8 @@ azure/.ipynb_checkpoints
 !results/models/.gitkeep
 !results/experiments/.gitkeep
 !results/predictions/.gitkeep
+inference/
+*.ipynb
 
 # Credentials to keep private
 config-private.yml

@@ -157,12 +157,14 @@ def load_time_series_dataset(cfg, slide=None):
     val_df_ohe = df_ohe[df_ohe['Date'].isin(val_df_dates)]
     test_df_ohe = df_ohe[df_ohe['Date'].isin(test_df_dates)]
     train_df = df[df['Date'].isin(train_df_dates)]
+    val_df = df[df['Date'].isin(val_df_dates)]
     test_df = df[df['Date'].isin(test_df_dates)]
     print('Train set size = ' + str(train_df_ohe.shape[0]) + '. Val set size = ' + str(val_df_ohe.shape[0]) +
           '. Test set size = ' + str(test_df_ohe.shape[0]))
 
     # Save train & test set for LIME
     train_df.to_csv(cfg['PATHS']['TRAIN_SET'], sep=',', header=True, index=False)
+    val_df.to_csv(cfg['PATHS']['VAL_SET'], sep=',', header=True, index=False)
     test_df.to_csv(cfg['PATHS']['TEST_SET'], sep=',', header=True, index=False)
 
     # Anonymize clients
@@ -600,9 +602,9 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
 
     # Set logs directory
     cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    log_dir = cfg['PATHS']['LOGS'] + "training\\" + cur_date if write_logs else None
-    if not os.path.exists(cfg['PATHS']['LOGS'] + "training\\"):
-        os.makedirs(cfg['PATHS']['LOGS'] + "training\\")
+    log_dir = cfg['PATHS']['LOGS'] + "training/" + cur_date if write_logs else None
+    if not os.path.exists(cfg['PATHS']['LOGS'] + "training/"):
+        os.makedirs(cfg['PATHS']['LOGS'] + "training/")
 
     # Load preprocessed data and partition into training, validation and test sets.
     if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
@@ -615,17 +617,17 @@ def train_experiment(cfg=None, experiment='single_train', save_weights=True, wri
 
     # Conduct the desired train experiment
     if experiment == 'hparam_search':
-        log_dir = cfg['PATHS']['LOGS'] + "hparam_search\\" + cur_date
+        log_dir = cfg['PATHS']['LOGS'] + "hparam_search/" + cur_date
         random_hparam_search(cfg, data, callbacks, log_dir)
     elif experiment == 'cross_validation':
-        base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
+        base_log_dir = cfg['PATHS']['LOGS'] + "training/" if write_logs else None
         if cfg['TRAIN']['DATASET_TYPE'] == 'static_and_dynamic':
             _ = nested_cross_validation(cfg, callbacks, base_log_dir)   # If time series data, do nested CV
         else:
             _ = kfold_cross_validation(cfg, callbacks, base_log_dir)    # If not time series data, do k-fold CV
     else:
         if experiment == 'multi_train':
-            base_log_dir = cfg['PATHS']['LOGS'] + "training\\" if write_logs else None
+            base_log_dir = cfg['PATHS']['LOGS'] + "training/" if write_logs else None
             model, test_metrics, test_metrics_dict, cur_date = multi_train(cfg, data, callbacks, base_log_dir)
             test_set_metrics_df = pd.DataFrame(test_metrics_dict)
             test_set_metrics_df.to_csv(cfg['PATHS']['MULTI_TRAIN_TEST_METRICS'].split('.')[0] + cur_date + '.csv')
