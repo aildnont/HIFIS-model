@@ -24,7 +24,6 @@ cfg['PATHS']['TRAIN_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TRA
 cfg['PATHS']['TEST_SET'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['TEST_SET'].split('/')[-1]
 cfg['PATHS']['GROUND_TRUTH'] = args.preprocessedoutputdir + '/' + cfg['PATHS']['GROUND_TRUTH'].split('/')[-1]
 
-# A few checks to screen for problems with SQL query that retrieves HIFIS data. In these cases, send alert email.
 raw_df = pd.read_csv(cfg['PATHS']['RAW_DATA'], encoding="ISO-8859-1", low_memory=False)
 
 # Load meta-info from the last retrieved snapshot of raw HIFIS data
@@ -34,6 +33,7 @@ if os.path.exists(raw_data_info_path):
 else:
     raw_data_info = {'N_ROWS': raw_df.shape[0], 'N_COLS': raw_df.shape[1]}
 
+# A few checks to screen for problems with SQL query that retrieves HIFIS data. In these cases, send alert email.
 check_date = datetime.datetime.today() - datetime.timedelta(days=7)    # 1 week ago from today
 raw_df['DateStart'] = pd.to_datetime(raw_df['DateStart'], errors='coerce')
 recent_df = raw_df[raw_df['DateStart'] > check_date]               # Get rows with service occurring in last week

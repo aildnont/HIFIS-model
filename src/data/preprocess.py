@@ -674,6 +674,8 @@ def preprocess(cfg=None, n_weeks=None, include_gt=True, calculate_gt=True, class
     tqdm.pandas()
     if cfg is None:
         cfg = yaml.full_load(open("./config.yml", 'r'))       # Load project config data
+    if cfg['DATA']['GROUND_TRUTH_DATE'] == 'today':
+        cfg['DATA']['GROUND_TRUTH_DATE'] = pd.Timestamp.today().isoformat()
 
     # Set prediction horizon
     if n_weeks is None:
